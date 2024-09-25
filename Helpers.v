@@ -58,3 +58,23 @@ Proof.
     * discriminate H.
     * apply IH in H. apply H.
 Qed.
+
+Lemma member_In_equiv : 
+  forall (l : list nat) (x: nat), member x l = true <-> In x l.
+Proof.
+  intros l x.
+  split.
+  - intros H. induction l as [| h t IH].
+    + simpl in H. discriminate H.
+    + simpl in H. simpl. destruct (h =? x) as [|] eqn:Hhx.
+      * left. apply eqb_eq. apply Hhx.
+      * right. apply IH. apply H.
+  - intros H. induction l as [| h t IH].
+    + simpl in H. exfalso. apply H.
+    + simpl. simpl in H. destruct H as [H | H].
+      * apply eqb_eq in H. rewrite H. reflexivity.
+      * destruct (h =? x) as [|] eqn:Hhx.
+        -- reflexivity.
+        -- apply IH. apply H.
+Qed.
+

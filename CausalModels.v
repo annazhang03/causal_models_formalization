@@ -70,16 +70,44 @@ Definition acyclic_path_2 (p: path) : Prop :=
   match p with 
   | (u, v, int) => (u <> v) /\ ~(In u int) /\ ~(In v int) /\ match int with
                           | [] => True
-                          | h :: t => if (member h t) then False else acyclic_path t = true
+                          | h :: t => acyclic_path (h :: t) = true
                          end
   end.
 
+Lemma prop_refl : forall (u: nat), u = u.
+Proof.
+  intros n. apply eq_refl.
+Qed.
+
 Theorem acyclic_path_correct : 
   forall (p : path), 
-    (acyclic_path_2 p) -> acyclic_path (((path_start p) :: (path_int p)) ++ [path_end p]) = true. 
+    (acyclic_path_2 p) -> acyclic_path ([path_start p; path_end p] ++ (path_int p)) = true. 
 Proof.
-Admitted.
-
+  intros ((u, v), l) H.
+  simpl. induction l as [| h t IH].
+  - simpl. destruct (v =? u) as [|] eqn:Hvu.
+    + simpl in H. destruct H as [H].
+      apply eqb_neq in H. apply eqb_eq in Hvu. rewrite Hvu in H. 
+      rewrite -> eqb_refl in H. discriminate H.
+    + reflexivity.
+  - simpl. simpl in H. simpl in IH.
+    destruct (h =? u) as [|] eqn:Hhu.
+    + apply eqb_eq in Hhu. destruct H as [H1 [H2 [H3 H4]]].
+      unfold not in H2. exfalso. apply H2.
+      left. apply Hhu.
+    + destruct H as [H1 [H2 [H3 H4]]]. apply not_eq_sym in H1. apply eqb_neq in H1. 
+      rewrite H1.
+      destruct (member u t) as [|] eqn:Hmemu.
+        * unfold not in H2.
+          exfalso. apply H2. right. apply member_In_equiv. apply Hmemu.
+        * rewrite H1 in IH. destruct (h =? v) as [|] eqn:Hhv.
+          -- apply eqb_eq in Hhv. unfold not in H3. exfalso. apply H3.
+             left. apply Hhv.
+          -- destruct (member v t) as [|] eqn:Hmemv.
+             ++ unfold not in H3. exfalso. apply H3. right.
+                apply member_In_equiv. apply Hmemv.
+             ++ apply H4.
+Qed.
 
 Definition eqbpath (p1 p2 : path) : bool := match p1, p2 with
   | (u1, v1, l1), (u2, v2, l2) => (u1 =? u2) && (v1 =? v2) && (eqblist l1 l2)
