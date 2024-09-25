@@ -12,7 +12,7 @@ From Coq Require Import Lists.List. Import ListNotations.
 
 
 
-(* Representation of a causal model (nodes, edges)*)
+(* Representation of a causal model (nodes, edges) *)
 
 Definition node : Type := nat.
 Check 1 : node.
@@ -28,13 +28,28 @@ Definition path : Type := node * node * nodes. (* start node, end node, [list of
 Check (4, 5, [1;2;3]) : path.
 Definition paths := list path.
 
+Definition path_start (p: path) : node :=
+  match p with
+  | (u, v, l) => u
+  end.
+
+Definition path_end (p: path) : node :=
+  match p with 
+  | (u, v, l) => v
+  end.
+
+Definition path_int (p: path) : nodes :=
+  match p with
+  | (u, v, l) => l
+  end.
+
 Fixpoint acyclic_path (p: nodes) : bool := 
   match p with 
   | [] => true
   | h :: t => if (member h t) then false else acyclic_path t
   end.
 
-Theorem acyclic_path_no_repeats :
+Theorem acyclic_path_intermediate_nodes :
   forall (p : nodes) (x : node), (acyclic_path p = true) -> (count x p = 0) \/ (count x p = 1).
 Proof.
   intros p x Hcyc.
@@ -58,6 +73,12 @@ Definition acyclic_path_2 (p: path) : Prop :=
                           | h :: t => if (member h t) then False else acyclic_path t = true
                          end
   end.
+
+Theorem acyclic_path_correct : 
+  forall (p : path), 
+    (acyclic_path_2 p) -> acyclic_path (((path_start p) :: (path_int p)) ++ [path_end p]) = true. 
+Proof.
+Admitted.
 
 
 Definition eqbpath (p1 p2 : path) : bool := match p1, p2 with
