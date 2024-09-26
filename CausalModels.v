@@ -28,6 +28,25 @@ Definition path : Type := node * node * nodes. (* start node, end node, [list of
 Check (4, 5, [1;2;3]) : path.
 Definition paths := list path.
 
+Definition eqbedge (e1 e2 : edge) : bool := match e1, e2 with
+  | (u1, v1), (u2, v2) => (u1 =? u2) && (v1 =? v2)
+end.
+
+Theorem eqbedge_refl : forall e: edge,
+  true = eqbedge e e.
+Proof.
+  intros e.
+  destruct e as [u v]. simpl.
+  rewrite -> eqb_refl. rewrite -> eqb_refl. simpl.
+  reflexivity.
+Qed. 
+
+Fixpoint member_edge (e : edge) (all_edges : edges) : bool :=
+  match all_edges with
+      | [] => false
+      | h :: t => if (eqbedge h e) then true else member_edge e t
+  end.
+
 Definition path_start (p: path) : node :=
   match p with
   | (u, v, l) => u
@@ -225,181 +244,271 @@ Compute find_all_paths G.
 
 
 (* Mediators, confounders, colliders *)
-
-Fixpoint is_edge (e: edge) (E: edges) : bool :=
-  match E with
-      | [] => false
-      | h :: t => match h, e with 
-                   | (u1, v1), (u2, v2) => if ((u1 =? u2) && (v1 =? v2)) then true else is_edge e t
-                  end
+Definition is_edge (e: edge) (G: graph) : bool :=
+  match G with
+  | (V, E) => match e with
+              | (u, v) => member u V && member v V && member_edge (u, v) E
+              end
   end.
+
+Example test_is_edge_true : is_edge (3, 1) G = true.
+Proof. reflexivity. Qed.
+
+Example test_is_edge_false_reverse : is_edge (1, 3) G = false.
+Proof. reflexivity. Qed.
+
+Example test_is_edge_false : is_edge (4, 3) G = false.
+Proof. reflexivity. Qed.
+
+Example test_is_edge_false_node : is_edge (5, 3) G = false.
+Proof. reflexivity. Qed.
+
 
 (* find all mediators, such as B in A -> B -> C. *)
 Fixpoint find_mediators (u v: node) (V: nodes) (E: edges) : nodes :=
   match V with
   | [] => []
-  | h :: t => if (is_edge (u, h) E && is_edge (h, v) E) then
+  | h :: t => if (is_edge (u, h) (V, E) && is_edge (h, v) (V, E)) then
                  h :: find_mediators u v t E
               else find_mediators u v t E
   end.
 
-
-Definition is_mediator (u v med: node) (G: graph) : bool :=
-  match G with
-  | (V, E) => is_edge (u, med) E && is_edge (med, v) E
-  end.
+Definition is_mediator (u v med: node) (G: graph) : Prop :=
+  if (is_edge (u, med) G && is_edge (med, v) G) then True else False.
 
 Example test_no_mediator: find_mediators 1 2 V E = [].
 Proof. reflexivity. Qed.
 
-Example test_not_mediator: is_mediator 1 2 3 G = false.
-Proof. reflexivity. Qed.
+Example test_not_mediator: ~(is_mediator 1 2 3 G).
+Proof. 
+  unfold not.
+  intros H.
+  unfold is_mediator in H. simpl in H. apply H.
+Qed.
 
 Example test_one_mediator: find_mediators 4 2 V E = [1].
 Proof. reflexivity. Qed.
 
-Example test_is_mediator: is_mediator 4 2 1 G = true.
-Proof. reflexivity. Qed.
+Example test_is_mediator: is_mediator 4 2 1 G.
+Proof. 
+  unfold is_mediator. simpl. apply I.
+Qed.
 
+Theorem mediator_correct : forall V: nodes, forall E: edges, forall a b c: node, 
+  is_mediator a c b (V, E) <-> member c (find_mediators a b V E) = true.
+Proof.
+  intros V E a b c.
+  split.
+  - intros Hmed.
+    induction V as [| h t IH].
+    + simpl. unfold is_mediator in Hmed. simpl in Hmed. exfalso. apply Hmed.
+    + simpl. destruct (h =? a) as [|] eqn:Hha.
+      * rewrite (eqb_refl h). simpl. 
+        unfold is_mediator in Hmed. simpl in Hmed. rewrite Hha in Hmed. simpl in Hmed.
+Admitted.
 
 (* find all confounders, such as B in A <- B -> C. Pass in same two sets of edges (one is for recursion) *)
-Fixpoint find_confounders (u v: node) (E E_all: edges) : nodes :=
+Fixpoint find_confounders (u v: node) (V: nodes) (E E_all: edges) : nodes :=
   match E with
     | [] => []
     | h :: t => match h with
-                | (u', v') => if ((v' =? u) && is_edge (u', v) E_all) then u' :: find_confounders u v t E_all else find_confounders u v t E_all
+                | (u', v') => if ((v' =? u) && is_edge (u', v) (V, E_all)) 
+                              then u' :: find_confounders u v V t E_all 
+                              else find_confounders u v V t E_all
                 end
   end.
 
-Definition is_confounder (u v con: node) (G: graph) : bool :=
+Definition is_confounder (u v con: node) (G: graph) : Prop :=
   match G with
-  | (V, E) => is_edge (con, u) E && is_edge (con, v) E
+  | (V, E) => if (is_edge (con, u) G && is_edge (con, v) G) then True else False
   end.
 
-Example test_no_confounder: find_confounders 3 2 E E = [].
+Example test_no_confounder: find_confounders 3 2 V E E = [].
 Proof. reflexivity. Qed.
 
-Example test_not_confounder: is_confounder 3 2 1 G = false.
+Example test_not_confounder: ~(is_confounder 3 2 1 G).
+Proof.
+  unfold not.
+  unfold is_confounder. 
+  simpl.
+  easy.
+Qed.
+
+Example test_one_confounder: find_confounders 2 1 V E E = [3].
 Proof. reflexivity. Qed.
 
-Example test_one_confounder: find_confounders 2 1 E E = [3].
-Proof. reflexivity. Qed.
-
-Example test_is_confounder: is_confounder 2 1 3 G = true.
-Proof. reflexivity. Qed.
+Example test_is_confounder: is_confounder 2 1 3 G.
+Proof.
+  unfold is_confounder.
+  simpl.
+  apply I.
+Qed.
 
 (* find all colliders, such as B in A -> B <- C. Pass in same two sets of edges (one is for recursion) *)
-Fixpoint find_colliders (u v: node) (E E_all: edges) : nodes :=
+Fixpoint find_colliders (u v: node) (V: nodes) (E E_all: edges) : nodes :=
   match E with
     | [] => []
     | h :: t => match h with
-                | (u', v') => if ((u' =? u) && is_edge (v, v') E_all) then v' :: find_colliders u v t E_all else find_colliders u v t E_all
+                | (u', v') => if ((u' =? u) && is_edge (v, v') (V, E_all)) 
+                              then v' :: find_colliders u v V t E_all 
+                              else find_colliders u v V t E_all
                 end
   end.
 
-Definition is_collider (u v col: node) (G: graph) : bool :=
+Definition is_collider (u v col: node) (G: graph) : Prop :=
   match G with
-  | (V, E) => is_edge (u, col) E && is_edge (v, col) E
+  | (V, E) => if (is_edge (u, col) G && is_edge (v, col) G) then True else False
   end.
 
-Example test_no_collider: find_colliders 2 3 E E = [].
+Example test_no_collider: find_colliders 2 3 V E E = [].
 Proof. reflexivity. Qed.
 
-Example test_not_collider: is_collider 2 3 1 G = false.
-Proof. reflexivity. Qed.
+Example test_not_collider: ~(is_collider 2 3 1 G).
+Proof.
+  unfold not.
+  unfold is_collider.
+  simpl.
+  easy.
+Qed.
 
-Example test_one_collider: find_colliders 4 3 E E = [1].
+Example test_one_collider: find_colliders 4 3 V E E = [1].
 Proof. simpl. reflexivity. Qed.
 
-Example test_is_collider: is_collider 4 3 1 G = true.
-Proof. reflexivity. Qed.
-
-Theorem one_paths_of_G : forall V: nodes, forall E: edges, forall u v: node,
-  member_path (u, v, []) (find_all_paths (V, E)) = true -> u <> v -> is_edge (u, v) E = true \/ is_edge (v, u) E = true.
+Example test_is_collider: is_collider 4 3 1 G.
 Proof.
-Admitted.
-
-Theorem two_paths_of_G : forall V: nodes, forall E: edges, forall a b c: node, 
-  member_path (a, b, [c]) (find_all_paths (V, E)) = true -> acyclic_path_2 (a, b, [c]) ->
-     is_edge (a, c) E = true /\ is_edge (c, a) E = true.
-Proof.
-Admitted.
+  unfold is_collider.
+  simpl.
+  apply I.
+Qed.
 
 (* outputs true iff, for every pair of adjacent nodes in path, 
-   there is an edge between those nodes in graph (in either direction) 
-*)
+   there is an edge between those nodes in graph (in either direction) *)
 Fixpoint is_path_in_graph (l: nodes) (G: graph) : bool :=
   match G with
   | (V, E) => match l with
               | [] => true
               | h :: t => match t with
                           | [] => member h V
-                          | h' :: t' => (is_edge (h, h') E || is_edge (h', h) E) && is_path_in_graph t G
+                          | h' :: t' => (is_edge (h, h') G || is_edge (h', h) G) && is_path_in_graph t G
                           end
               end
   end.
 
 Definition is_path_in_graph_2 (p: path) (G: graph) : bool :=
-  match G with
-  | (V, E) => match p with
-              | (u, v, l) => is_path_in_graph ((u :: l) ++ [v]) G
-              end
+  match p with
+  | (u, v, l) => is_path_in_graph ((u :: l) ++ [v]) G
   end.
 
+
+Theorem one_paths_correct : forall G: graph, forall u v: node,
+  is_path_in_graph_2 (u, v, []) G = true <-> is_edge (u, v) G = true \/ is_edge (v, u) G = true.
+Proof.
+  intros G u v.
+  split.
+  - intros Hpath.
+    simpl in Hpath.
+    destruct (is_edge (u, v) G) as [|] eqn:Huv.
+    + left. reflexivity.
+    + right. simpl in Hpath. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
+      * reflexivity.
+      * simpl in Hpath. destruct G as [V E]. apply Hpath. 
+  - intros Hedge. destruct Hedge as [Huv | Hvu].
+    + simpl. rewrite Huv. simpl. destruct G as [V E].
+      unfold is_edge in Huv. 
+      rewrite (andb_comm (member u V) (member v V)) in Huv.
+      apply andb_true_elim2 in Huv. apply andb_true_elim2 in Huv. apply Huv.
+    + simpl. rewrite Hvu. rewrite (orb_comm (is_edge (u, v) G) true). simpl. destruct G as [V E].
+      unfold is_edge in Hvu. apply andb_true_elim2 in Hvu. apply andb_true_elim2 in Hvu.
+      apply Hvu.
+Qed.
+
+Lemma two_paths_first_edge_correct : forall G: graph, forall a b c: node, 
+  is_path_in_graph_2 (a, b, [c]) G = true -> is_edge (a, c) G = true \/ is_edge (c, a) G = true.
+Proof.
+  intros G a b c.
+  intros Hpath.
+  destruct (is_edge (a, c) G) as [|] eqn:Hac.
+  - left. reflexivity.
+  - right. simpl in Hpath. rewrite Hac in Hpath. destruct G as [V E]. 
+    rewrite orb_false_l in Hpath. apply andb_true_elim2 in Hpath. apply Hpath.
+Qed.
+
+Lemma two_paths_second_edge_correct : forall G: graph, forall a b c: node, 
+  is_path_in_graph_2 (a, b, [c]) G = true -> is_edge (c, b) G = true \/ is_edge (b, c) G = true.
+Proof.
+  intros G a b c.
+  intros Hpath.
+  destruct (is_edge (c, b) G) as [|] eqn:Hcb.
+  - left. reflexivity.
+  - right. simpl in Hpath. rewrite Hcb in Hpath. destruct G as [V E].
+    rewrite andb_comm in Hpath. 
+    apply andb_true_elim2 in Hpath.
+    apply andb_true_elim2 in Hpath.
+    rewrite orb_false_l in Hpath. apply Hpath.
+Qed.
+
+Theorem two_paths_correct : forall G: graph, forall a b c: node,
+  is_path_in_graph_2 (a, b, [c]) G = true -> (is_edge (a, c) G = true \/ is_edge (c, a) G = true) /\
+                                             (is_edge (c, b) G = true \/ is_edge (b, c) G = true).
+Proof.
+  intros G a b c.
+  intros Hpath.
+  split.
+  - apply two_paths_first_edge_correct in Hpath. apply Hpath.
+  - apply two_paths_second_edge_correct in Hpath. apply Hpath.
+Qed.
 
 Theorem general_path_of_G : forall V: nodes, forall E: edges, forall p: path, 
   member_path p (find_all_paths G) = true <-> is_path_in_graph_2 p G = true.
 Proof. Admitted.
 
-Definition is_length_3_a_to_b (p: path) (a b: node) : bool :=
-  match p with
-  | (u, v, l) => (u =? a) && (v =? b) && ((length l) =? 1)
-  end.
-
-Definition extract_midpoint (p: path) (a b: node) : node := (* assumes is_length_3_a_to_b is true *)
-  match p with
-  | (u, v, l) => hd 0 l
-  end.
-
-Theorem length_three_path : forall G: graph, forall a b c: node,
-  member_path (a, b, [c]) (find_all_paths G) = true -> 
-        (is_mediator a b c G) || (is_confounder a b c G) || (is_collider a b c G) = true.
+Theorem middle_node_in_two_path : forall G: graph, forall a b c: node,
+  is_path_in_graph_2 (a, b, [c]) G = true -> 
+        (is_mediator a b c G) \/ (is_mediator b a c G) \/ (is_confounder a b c G) \/ (is_collider a b c G).
 Proof. 
-Admitted.
+  intros G a b c.
+  intros Hpath.
+  apply two_paths_correct in Hpath.
+  destruct Hpath as [[Hac | Hca] [Hcb | Hbc]].
+  - left. unfold is_mediator. rewrite Hac. rewrite Hcb. simpl. apply I.
+  - right. right. right. unfold is_collider. rewrite Hac. rewrite Hbc. simpl. destruct G as [V E]. apply I.
+  - right. right. left. unfold is_confounder. rewrite Hca. rewrite Hcb. simpl. destruct G as [V E]. apply I.
+  - right. left. unfold is_mediator. rewrite Hca. rewrite Hbc. simpl. apply I.
+Qed. 
 
 (* causal and backdoor paths *)
-Definition is_causal (p: path) (E: edges) : bool :=
+Definition is_causal (p: path) (G: graph) : bool :=
   match p with 
   | (u, v, l) => match l with
-                | [] => is_edge (u, v) E
-                | h :: t => is_edge (u, h) E
+                | [] => is_edge (u, v) G
+                | h :: t => is_edge (u, h) G
                end
   end.
   
-Definition is_backdoor (p: path) (E: edges) : bool :=
+Definition is_backdoor (p: path) (G: graph) : bool :=
   match p with 
   | (u, v, l) => match l with
-                | [] => is_edge (v, u) E
-                | h :: t => is_edge (h, u) E
+                | [] => is_edge (v, u) G
+                | h :: t => is_edge (h, u) G
                end
   end.
 
-Fixpoint no_two_cycles (E: edges): bool :=
+Fixpoint no_two_cycles (V: nodes) (E: edges): bool :=
   match E with
   | [] => true
   | h :: t => match h with
-                | (u, v) => if (is_edge (v, u) E) then false else no_two_cycles t
+                | (u, v) => if (is_edge (v, u) (V, E)) then false else no_two_cycles V t
               end
   end.
 
-Example dag: no_two_cycles E = true.
+Example dag: no_two_cycles V E = true.
 Proof. reflexivity. Qed.
 
-Example cycle: no_two_cycles [(1, 2); (3, 2); (2, 1)] = false.
+Example cycle: no_two_cycles [1; 2; 3; 4] [(1, 2); (3, 2); (2, 1)] = false.
 Proof. reflexivity. Qed.
 
-Theorem causal_or_backdoor : forall P: path, forall E: edges,
-  no_two_cycles E = true -> (is_causal P E = true -> is_backdoor P E = false).
+Theorem causal_or_backdoor : forall p: path, forall V: nodes, forall E: edges,
+  no_two_cycles V E = true -> (is_causal p (V, E) = true -> is_backdoor p (V, E) = false).
 Proof.
   (* intros P E.
   intros H2c Hcaus.

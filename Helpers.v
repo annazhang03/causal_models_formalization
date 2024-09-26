@@ -78,3 +78,14 @@ Proof.
         -- apply IH. apply H.
 Qed.
 
+Theorem andb_true_elim2 : forall b c : bool,
+  andb b c = true -> b = true.
+Proof.
+  intros b c. 
+  intros H.
+  destruct b eqn:Eb.
+  - reflexivity.
+  - rewrite <- H. destruct c eqn: Ec.
+    + reflexivity.
+    + reflexivity.
+Qed.
