@@ -47,6 +47,27 @@ Fixpoint member_edge (e : edge) (all_edges : edges) : bool :=
       | h :: t => if (eqbedge h e) then true else member_edge e t
   end.
 
+Lemma member_edge_In_equiv : 
+  forall (l : edges) (x: edge), member_edge x l = true <-> In x l.
+Proof.
+  intros l x.
+  split.
+  - intros H. induction l as [| h t IH].
+    + simpl in H. discriminate H.
+    + simpl in H. simpl. destruct (eqbedge h x) as [|] eqn:Hhx.
+      * left. destruct h as [h1 h2]. destruct x as [x1 x2]. 
+        simpl in Hhx. apply split_and_true in Hhx. destruct Hhx as [H1 H2].
+        apply eqb_eq in H1. rewrite H1. apply eqb_eq in H2. rewrite H2. reflexivity.
+      * right. apply IH. apply H.
+  - intros H. induction l as [| h t IH].
+    + simpl in H. exfalso. apply H.
+    + simpl. simpl in H. destruct H as [H | H].
+      * rewrite H. rewrite <- eqbedge_refl. reflexivity.
+      * destruct (eqbedge h x) as [|] eqn:Hhx.
+        -- reflexivity.
+        -- apply IH. apply H.
+Qed.
+
 Definition path_start (p: path) : node :=
   match p with
   | (u, v, l) => u
@@ -154,6 +175,34 @@ Definition V : nodes := [1; 2; 3; 4].
 Definition G : graph := (V, E).
 (* TODO need to force graphs (not just paths) to have no cycles *)
 
+Fixpoint no_one_cycles (E: edges) : bool :=
+  match E with
+  | [] => true
+  | h :: t => match h with
+              | (a, b) => if a =? b then false else no_one_cycles t
+              end
+  end.
+
+Theorem no_self_loops : forall E: edges, forall u v: node,
+  member_edge (u, v) E = true -> no_one_cycles E = true -> u <> v.
+Proof.
+  intros E u v Hmem Hcyc.
+  induction E as [| h t IH].
+  - simpl in Hmem. discriminate Hmem.
+  - simpl in Hmem. destruct (eqbedge h (u, v)) as [|] eqn:Hedge.
+    + simpl in Hcyc. destruct (u =? v) as [|] eqn:Huv.
+      * destruct h as [a b]. simpl in Hedge. apply split_and_true in Hedge.
+        destruct Hedge as [Hau Hbv].
+        apply eqb_eq in Huv. rewrite <- Huv in Hbv. 
+        apply eqb_eq in Hbv. rewrite <-  Hbv in Hau. 
+        rewrite Hau in Hcyc. discriminate Hcyc.
+      * apply eqb_neq in Huv. apply Huv.
+    + simpl in Hcyc. destruct (u =? v) as [|] eqn:Huv. 
+      * destruct h as [a b]. simpl in Hedge. destruct (a =? b) as [|] eqn:Hab.
+        -- discriminate Hcyc.
+        -- apply IH. apply Hmem. apply Hcyc.
+      * apply eqb_neq in Huv. apply Huv.
+Qed.
 
 (* Finding all paths in a graph *)
 
@@ -241,6 +290,81 @@ Definition find_all_paths (G: graph) : paths :=
 
 Compute find_all_paths G.
 
+Definition adj_list : Type := list (node * nodes).
+
+Fixpoint neighbors_of_node (s: node) (E: edges) : nodes :=
+  match E with
+  | [] => []
+  | h :: t => match h with
+              | (u, v) => if (u =? s) then v :: neighbors_of_node s t else neighbors_of_node s t
+              end
+  end.
+
+Lemma neighbors_vs_edges: forall u v: node, forall E: edges,
+  member v (neighbors_of_node u E) = true <-> member_edge (u, v) E = true.
+Proof.
+  intros u v E.
+  split.
+  - intros H. induction E as [| h t IH].
+    + simpl. simpl in H. apply H.
+    + simpl. destruct (eqbedge h (u, v)) as [|] eqn:Hedge.
+      * reflexivity.
+      * apply IH. simpl in H. destruct h as [a b].
+        simpl in Hedge. destruct (a =? u) as [|] eqn:Hau.
+        -- simpl in Hedge. simpl in H. rewrite Hedge in H. apply H.
+        -- apply H.
+  - intros H. induction E as [| h t IH].
+    + simpl. simpl in H. apply H.
+    + simpl. destruct h as [a b]. simpl in H.
+      destruct (a =? u) as [|] eqn:Hau.
+      * simpl in H. simpl. destruct (b =? v) as [|] eqn:Hbv.
+        -- reflexivity.
+        -- apply IH. apply H.
+      * simpl in H. apply IH. apply H.
+Qed.
+
+Example neighbors_of_3: neighbors_of_node 3 E = [2; 1].
+Proof. reflexivity. Qed.
+
+Fixpoint get_adjacency_list (V: nodes) (E: edges) : adj_list :=
+  match V with
+  | [] => []
+  | h :: t => [(h, neighbors_of_node h E)] ++ get_adjacency_list t E
+  end.
+
+Compute get_adjacency_list V E.
+
+Theorem adjacency_list_equiv: forall V neighbors: nodes, forall E: edges, forall u v: node, 
+  (neighbors = neighbors_of_node u E) ->
+  ((In (u, neighbors) (get_adjacency_list V E) /\ In v neighbors) <-> (In (u, v) E /\ In u V)).
+Proof.
+  intros V neighbors E u v.
+  intros Hneighbors.
+  split.
+  - intros [Hadj Hv]. split.
+    -- induction V as [| h t IH].
+        + simpl in Hadj. exfalso. apply Hadj.
+        + simpl in Hadj. destruct Hadj as [Hadj | Hadj].
+          * injection Hadj as Hhu Hnb. 
+            rewrite <- Hnb in Hv. apply member_In_equiv in Hv. apply neighbors_vs_edges in Hv.
+            apply member_edge_In_equiv in Hv. rewrite Hhu in Hv. apply Hv.
+          * apply IH. apply Hadj.
+    -- induction V as [| h t IH].
+        + simpl. simpl in Hadj. apply Hadj.
+        + simpl. simpl in Hadj. destruct Hadj as [Hadj | Hadj].
+          * injection Hadj as Hhu Hnb. left. apply Hhu.
+          * right. apply IH. apply Hadj. 
+  - intros H. split.
+    + induction V as [| h t IH].
+      * simpl. simpl in H. destruct H as [_ H]. apply H.
+      * simpl in H. destruct H as [H1 [H2 | H3]].
+        -- rewrite -> H2. simpl. left. rewrite Hneighbors. reflexivity.
+        -- simpl. right. apply IH. split. apply H1. apply H3.
+    + destruct H as [H _]. apply member_edge_In_equiv in H. apply neighbors_vs_edges in H.
+      apply member_In_equiv in H. rewrite <- Hneighbors in H. apply H.
+Qed.
+
+
 
 
 (* Mediators, confounders, colliders *)
@@ -265,18 +389,18 @@ Proof. reflexivity. Qed.
 
 
 (* find all mediators, such as B in A -> B -> C. *)
-Fixpoint find_mediators (u v: node) (V: nodes) (E: edges) : nodes :=
+Fixpoint find_mediators (u v: node) (V: nodes) (V_all: nodes) (E: edges) : nodes :=
   match V with
   | [] => []
-  | h :: t => if (is_edge (u, h) (V, E) && is_edge (h, v) (V, E)) then
-                 h :: find_mediators u v t E
-              else find_mediators u v t E
+  | h :: t => if (is_edge (u, h) (V_all, E) && is_edge (h, v) (V_all, E)) then
+                 h :: find_mediators u v t V_all E
+              else find_mediators u v t V_all E
   end.
 
 Definition is_mediator (u v med: node) (G: graph) : Prop :=
   if (is_edge (u, med) G && is_edge (med, v) G) then True else False.
 
-Example test_no_mediator: find_mediators 1 2 V E = [].
+Example test_no_mediator: find_mediators 1 2 V V E = [].
 Proof. reflexivity. Qed.
 
 Example test_not_mediator: ~(is_mediator 1 2 3 G).
@@ -286,7 +410,10 @@ Proof.
   unfold is_mediator in H. simpl in H. apply H.
 Qed.
 
-Example test_one_mediator: find_mediators 4 2 V E = [1].
+Example test_one_mediator: find_mediators 4 2 V V E = [1].
+Proof. reflexivity. Qed.
+
+Example test_two_mediators: find_mediators 1 2 [1;2;3;4;5] [1;2;3;4;5] [(1, 2); (4, 2); (3, 2); (1, 4)] = [4].
 Proof. reflexivity. Qed.
 
 Example test_is_mediator: is_mediator 4 2 1 G.
@@ -294,17 +421,28 @@ Proof.
   unfold is_mediator. simpl. apply I.
 Qed.
 
-Theorem mediator_correct : forall V: nodes, forall E: edges, forall a b c: node, 
-  is_mediator a c b (V, E) <-> member c (find_mediators a b V E) = true.
+Theorem mediator_correct : forall V: nodes, forall E: edges, forall a b c: node,
+  no_one_cycles E = true ->
+    (is_mediator a c b (V, E) <-> In b (find_mediators a c V V E)). (* a -> b -> c *)
 Proof.
   intros V E a b c.
+  intros Hcyc.
   split.
   - intros Hmed.
     induction V as [| h t IH].
-    + simpl. unfold is_mediator in Hmed. simpl in Hmed. exfalso. apply Hmed.
-    + simpl. destruct (h =? a) as [|] eqn:Hha.
-      * rewrite (eqb_refl h). simpl. 
-        unfold is_mediator in Hmed. simpl in Hmed. rewrite Hha in Hmed. simpl in Hmed.
+    + simpl. unfold is_mediator in Hmed. simpl in Hmed. apply Hmed.
+    + unfold is_mediator in Hmed. destruct (h =? a) as [|] eqn:Hha.
+      * simpl in Hmed. rewrite Hha in Hmed. simpl in Hmed.
+        simpl.
+        apply eqb_eq in Hha. rewrite eqb_refl. rewrite -> Hha. rewrite eqb_refl. simpl. 
+        assert (Hnomem: member_edge (a, a) E = false).
+        { destruct (member_edge (a, a) E) as [|] eqn:Hmem.
+          - assert (Hcontra: a <> a). 
+            { apply no_self_loops with (E:=E). apply Hmem. apply Hcyc. }
+            apply eqb_neq in Hcontra. rewrite eqb_refl in Hcontra. apply Hcontra.
+          - reflexivity. }
+        rewrite Hnomem. simpl.
+        (* TODO Q: how do we use induction here? since the V_all argument shrinks with the V argument *)
 Admitted.
 
 (* find all confounders, such as B in A <- B -> C. Pass in same two sets of edges (one is for recursion) *)

@@ -89,3 +89,14 @@ Proof.
     + reflexivity.
     + reflexivity.
 Qed.
+
+Lemma split_and_true : forall a b, a && b = true -> a = true /\ b = true.
+Proof.
+  intros a b H.
+  split.
+  - apply andb_true_elim2 in H. apply H.
+  - rewrite andb_comm in H. apply andb_true_elim2 in H. apply H.
+Qed. 
+
+
+
