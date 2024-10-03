@@ -8,6 +8,8 @@ From Coq Require Import Arith.Arith.
 From Coq Require Import Arith.EqNat. Import Nat.
 From Coq Require Import Lia.
 From Coq Require Import Lists.List. Import ListNotations.
+Require Import Coq.Program.Wf.
+Require Import Coq.Arith.PeanoNat.
 
 
 
@@ -169,6 +171,18 @@ Fixpoint member_path (p : path) (all_paths : paths) : bool :=
       | h :: t => if (eqbpath h p) then true else member_path p t
   end.
 
+Definition measure_path (p: path) : nat :=
+  match p with
+  | (u, v, l) => 2 + length l
+  end.
+
+Example length_of_2_path: measure_path (1, 2, []) = 2.
+Proof. reflexivity. Qed.
+
+Example length_of_longer_path: measure_path (1, 5, [2; 3; 4]) = 5.
+Proof. reflexivity. Qed.
+
+
 (* example graph *)
 Definition E : edges := [(1, 2); (3, 2); (3, 1); (4, 1)].
 Definition V : nodes := [1; 2; 3; 4].
@@ -178,6 +192,11 @@ Definition G : graph := (V, E).
 Definition V_cf : nodes := [1; 2; 3; 4; 5; 6; 7; 8]. (* UX, UZ, UY, X, Z, Y, UW, W *)
 Definition E_cf : edges := [(1, 4); (4, 5); (2, 5); (3, 6); (6, 5); (5, 8); (7, 8)].
 Definition G_cf : graph := (V_cf, E_cf).
+
+(* example graph (Figure 2.7 of primer) *)
+Definition V_d : nodes := [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]. (* UZ UW UX UY Z W X Y UU U *)
+Definition E_d : edges := [(1, 5); (5, 6); (2, 6); (7, 6); (3, 7); (4, 8); (7, 8); (6, 10); (9, 10)].
+Definition G_d : graph := (V_d, E_d).
 
 Fixpoint no_one_cycles (E: edges) : bool :=
   match E with
@@ -427,7 +446,7 @@ Proof. reflexivity. Qed.
 
 (* dfs for cycle detection in directed graph G *)
 
-(* return list of directed 1-paths (each edge becomes one 1-paths) *)
+(* return list of directed 1-paths (each edge becomes one 1-path) *)
 Fixpoint directed_edges_as_paths (E: edges) : paths :=
   match E with
   | [] => []
@@ -469,18 +488,18 @@ Fixpoint dfs_extend_by_edges (E : edges) (l: paths) : bool * paths :=
 
 (* iteratively extend paths k times, like a for loop, 
    ultimately returning whether the graph contains a cycle *)
-Fixpoint dfs_extend_by_edges_iter (E: edges) (l: paths) (k: nat) : bool :=
+Fixpoint dfs_extend_by_edges_iter (E: edges) (l: paths) (k: nat) : bool * paths :=
   match k with
-  | 0 => false
+  | 0 => (false, l)
   | S k' => let dfs := dfs_extend_by_edges E l in
-            if (fst dfs) then true
+            if (fst dfs) then (true, snd dfs)
             else dfs_extend_by_edges_iter E (snd dfs) k'
   end.
 
 (* determine if directed graph G contains a cycle *)
 Definition contains_cycle (G: graph) : bool :=
   match G with
-  | (V, E) => dfs_extend_by_edges_iter E (directed_edges_as_paths E) (length V)  
+  | (V, E) => fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) (length V))
   (* each path can have at most |V| vertices *)
   end.
 
@@ -507,6 +526,55 @@ Proof. reflexivity. Qed.
 
 Example but_not_when_only_one_added: contains_cycle (V_cf, E_cf ++ [(6, 1)]) = false.
 Proof. reflexivity. Qed.
+
+
+(* find all descendants of a node *)
+
+(* return list of directed 1-paths (each edge becomes one 1-path) starting from s *)
+Fixpoint directed_edges_as_paths_from_start (s: node) (E: edges) : paths :=
+  match E with
+  | [] => []
+  | h :: t => match h with 
+              | (u, v) => if (u =? s) then (u, v, []) :: directed_edges_as_paths_from_start s t
+                          else directed_edges_as_paths_from_start s t
+              end
+  end.
+
+(* determine all directed paths starting from u in G *)
+(* assumes that G is acyclic *)
+Definition find_directed_paths_from_start (u: node) (G: graph) : paths :=
+  match G with
+  | (V, E) => snd (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) (length V))
+  (* each path can have at most |V| vertices *)
+  end.
+
+Example directed_paths_from_1: find_directed_paths_from_start 1 G = [(1, 2, [])].
+Proof. reflexivity. Qed.
+
+Example directed_paths_from_3: find_directed_paths_from_start 3 G = [(3, 2, []); (3, 1, []); (3, 2, [1])].
+Proof. reflexivity. Qed.
+
+Fixpoint get_endpoints (p: paths) : nodes :=
+  match p with
+  | [] => []
+  | h :: t => match h with
+              | (u, v, l) => let int := get_endpoints t in
+                             if (member v int) then int else v :: int
+              end
+  end.
+
+Definition find_descendants (s: node) (G: graph) : nodes := 
+  s :: get_endpoints (find_directed_paths_from_start s G).
+
+Example descendants_of_1: find_descendants 1 G = [1; 2].
+Proof. reflexivity. Qed.
+
+Example descendants_of_3: find_descendants 3 G = [3; 1; 2].
+Proof. reflexivity. Qed.
+
+Example descendants_of_4: find_descendants 4 G = [4; 1; 2].
+Proof. reflexivity. Qed.
+
 
 
 
@@ -1114,3 +1182,218 @@ Proof.
 Admitted.
 
 
+
+
+(* Conditional independence *)
+
+(* p contains chain A -> B -> C, where B in Z (the conditioning set) *)
+Program Fixpoint is_blocked_by_mediator (p: path) (G: graph) (Z: nodes) {measure (measure_path p)} : Prop :=
+  match p with 
+  | (u, v, []) => False
+  | (u, v, h :: []) => is_mediator u v h G /\ In h Z
+  | (u, v, h :: (h1 :: t)) => (is_mediator u h1 h G /\ In h Z) \/ is_blocked_by_mediator (h, v, h1 :: t) G Z
+  end.
+
+Example mediator_in_conditioning_set: is_blocked_by_mediator (1, 3, [2]) ([1; 2; 3], [(1, 2); (2, 3)]) [2].
+Proof.
+  cbn. split. 
+  - apply I. 
+  - left. reflexivity.
+Qed.
+
+Example mediator_not_in_conditioning_set: ~(is_blocked_by_mediator (1, 3, [2]) ([1; 2; 3], [(1, 2); (2, 3)]) []).
+Proof.
+  unfold not. intros H. cbn in H. destruct H as [_ contra]. apply contra.
+Qed.
+
+Example mediator_in_longer_path: is_blocked_by_mediator (1, 4, [2; 3]) ([1; 2; 3; 4], [(2, 1); (2, 3); (3, 4)]) [3].
+Proof. 
+  cbn. right. split.
+  - apply I.
+  - left. reflexivity.
+Qed.
+
+(* p contains fork A <- B -> C, where B in Z (the conditioning set) *)
+Program Fixpoint is_blocked_by_confounder (p: path) (G: graph) (Z: nodes) {measure (measure_path p)} : Prop :=
+  match p with 
+  | (u, v, []) => False
+  | (u, v, h :: []) => is_confounder u v h G /\ In h Z
+  | (u, v, h :: (h1 :: t)) => (is_confounder u h1 h G /\ In h Z) \/ is_blocked_by_confounder (h, v, h1 :: t) G Z
+  end.
+
+Example confounder_in_conditioning_set: is_blocked_by_confounder (1, 3, [2]) ([1; 2; 3], [(2, 1); (2, 3)]) [2].
+Proof.
+  cbn. split. 
+  - apply I. 
+  - left. reflexivity.
+Qed.
+
+Example confounder_not_in_conditioning_set: ~(is_blocked_by_confounder (1, 3, [2]) ([1; 2; 3], [(2, 1); (2, 3)]) []).
+Proof.
+  unfold not. intros H. cbn in H. destruct H as [_ contra]. apply contra.
+Qed.
+
+Example confounder_in_longer_path: is_blocked_by_confounder (1, 4, [2; 3]) ([1; 2; 3; 4], [(2, 1); (2, 3); (3, 4)]) [2].
+Proof. 
+  cbn. left. split.
+  - apply I.
+  - left. reflexivity.
+Qed.
+
+Fixpoint descendants_not_in_Z (d: nodes) (Z: nodes) : Prop :=
+  match d with
+  | [] => True
+  | h :: t => ~(In h Z) /\ descendants_not_in_Z t Z
+  end.
+
+(* p contains collision A -> B <- C, where B and descendants are not in Z (the conditioning set) *)
+Program Fixpoint is_blocked_by_collider (p: path) (G: graph) (Z: nodes) {measure (measure_path p)} : Prop :=
+  match p with 
+  | (u, v, []) => False
+  | (u, v, h :: []) => is_collider u v h G /\ descendants_not_in_Z (find_descendants h G) Z
+  | (u, v, h :: (h1 :: t)) => (is_collider u h1 h G /\ descendants_not_in_Z (find_descendants h G) Z)
+                              \/ is_blocked_by_collider (h, v, h1 :: t) G Z
+  end.
+
+
+Example collider_in_conditioning_set: ~(is_blocked_by_collider (1, 3, [2]) ([1; 2; 3], [(1, 2); (3, 2)]) [2]).
+Proof. 
+  unfold not. intros H. 
+  cbn in H. destruct H as [_ [Hcontra _]]. unfold not in Hcontra. 
+  apply Hcontra. left. reflexivity.
+Qed.
+
+Example collider_not_in_conditioning_set: is_blocked_by_collider (1, 3, [2]) ([1; 2; 3], [(1, 2); (3, 2)]) [].
+Proof. 
+  cbn. split.
+  - apply I.
+  - split.
+    + unfold not. intros Hfalse. apply Hfalse.
+    + apply I.
+Qed.
+
+Example descendant_in_conditioning_set: ~(is_blocked_by_collider (1, 3, [2]) ([1; 2; 3; 4], [(1, 2); (3, 2); (2, 4)]) [4]).
+Proof. 
+  unfold not. intros H. 
+  cbn in H. destruct H as [_ [_ [Hcontra _]]]. unfold not in Hcontra. 
+  apply Hcontra. left. reflexivity.
+Qed.
+
+Example collider_in_longer_path: is_blocked_by_collider (1, 4, [2; 3]) ([1; 2; 3; 4], [(1, 2); (3, 2); (3, 4)]) [].
+Proof. 
+  cbn. left. split. 
+  - apply I.
+  - split.
+    + unfold not. intros Hfalse. apply Hfalse.
+    + apply I.
+Qed.
+
+Definition path_is_blocked (p: path) (G: graph) (Z: nodes) : Prop :=
+  is_blocked_by_mediator p G Z \/ is_blocked_by_confounder p G Z \/ is_blocked_by_collider p G Z.
+
+Example collider_no_conditioning_needed: path_is_blocked (5, 8, [6; 7]) G_d [].
+Proof.
+  compute. right. right. left. tauto.
+Qed.
+
+
+(* conditioning on W unblocks the path from Z to Y *)
+Example condition_on_collider: ~(path_is_blocked (5, 8, [6; 7]) G_d [6]).
+Proof.
+  unfold not. intros H. compute in H. destruct H as [H | [H | [H | H]]].
+  - destruct H as [[H _] | [H _]]. apply H. apply H.
+  - destruct H as [[H _] | [_ H]]. apply H. destruct H as [H | H]. 
+    + discriminate H.
+    + apply H.
+  - destruct H as [_ [H _]]. apply H. left. reflexivity.
+  - destruct H as [H _]. apply H.
+Qed.
+
+(* conditioning on U (a descendant of W) unblocks the path from Z to Y *)
+Example condition_on_descendant_collider: ~(path_is_blocked (5, 8, [6; 7]) G_d [10]).
+Proof.
+  unfold not. intros H. compute in H. destruct H as [H | [H | [H | H]]].
+  - destruct H as [[H _] | [H _]]. apply H. apply H.
+  - destruct H as [[H _] | [_ H]]. apply H. destruct H as [H | H]. 
+    + discriminate H.
+    + apply H.
+  - destruct H as [_ [_ [H _]]]. apply H. left. reflexivity.
+  - destruct H as [H _]. apply H.
+Qed.
+
+(* conditioning on X blocks the path from Z to Y, even if W unblocks it *)
+Example condition_on_collider_and_mediator: path_is_blocked (5, 8, [6; 7]) G_d [6; 7].
+Proof.
+  compute. tauto.
+Qed.
+
+Fixpoint paths_all_blocked (p: paths) (G: graph) (Z: nodes) : Prop :=
+  match p with
+  | [] => True
+  | h :: t => path_is_blocked h G Z /\ paths_all_blocked t G Z
+  end.
+
+(* determine whether u and v are independent in G conditional on the nodes in Z *)
+Definition d_separated (u v: node) (G: graph) (Z: nodes) : Prop :=
+  paths_all_blocked (find_all_paths_from_start_to_end u v G) G Z.
+
+(* Z to Y are unconditionally independent due to collider at W *)
+Example unconditionally_independent: d_separated 5 8 G_d [].
+Proof.
+  compute. tauto.
+Qed.
+
+(* conditioning on W unblocks the path from Z to Y *)
+Example conditionally_dependent: ~(d_separated 5 8 G_d [6]).
+Proof.
+  compute. intros H. destruct H as [[H | H] _].
+  - destruct H as [[H _] | [H _]]. apply H. apply H.
+  - destruct H as [H | H].
+    + destruct H as [[H _] | [_ H]]. apply H. destruct H as [H | H]. discriminate H. apply H. 
+    + destruct H as [H | H].
+      * destruct H as [_ [H _]]. apply H. left. reflexivity.
+      * destruct H as [H _]. apply H.
+Qed.
+
+(* based on figure 2.8 of primer *)
+(* conditioning on nothing leaves the path Z <- T -> Y open *)
+Example unconditionally_dependent: ~(d_separated 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) []).
+Proof.
+  unfold not. compute. tauto.
+Qed.
+
+(* conditioning on T blocks the second path from Z to Y *)
+Example conditionally_independent: d_separated 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [11].
+Proof.
+  compute. split.
+  - right. right. left. split.
+    + apply I.
+    + split.
+      * intros H. destruct H as [H | H]. discriminate H. apply H.
+      * split.
+        -- intros H. destruct H as [H | H]. discriminate H. apply H.
+        -- apply I.
+  - split.
+    + right. left. split. apply I. left. reflexivity.
+    + apply I.
+Qed.
+
+(* conditioning on T and W unblocks the path Z -> W <- X -> Y *)
+Example condition_on_T_W : ~(d_separated 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [11; 6]).
+Proof.
+  compute. intros H. destruct H as [Hpath1 [Hpath2 _]].
+  destruct Hpath1 as [Hm | [Hcf | Hcl]].
+  - destruct Hm as [[contra _] | [contra _]]. apply contra. apply contra.
+  - destruct Hcf as [[contra _] | [_ contra]]. apply contra. 
+    destruct contra as [contra | [contra | contra]].
+    discriminate contra. discriminate contra. apply contra.
+  - destruct Hcl as [[_ [contra _]] | [contra _]].
+    + apply contra. right. left. reflexivity.
+    + apply contra.
+Qed.
+
+(* conditioning on X closes the path Z -> W <- X -> Y *)
+Example condition_on_T_W_X : d_separated 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [11; 6; 7].
+Proof.
+  compute. tauto.
+Qed.
