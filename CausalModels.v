@@ -171,6 +171,12 @@ Fixpoint member_path (p : path) (all_paths : paths) : bool :=
       | h :: t => if (eqbpath h p) then true else member_path p t
   end.
 
+Fixpoint count_path (p : path) (all_paths : paths) : nat :=
+  match all_paths with
+      | [] => 0
+      | h :: t => if (eqbpath h p) then S (count_path p t) else count_path p t
+  end.
+
 Definition measure_path (p: path) : nat :=
   match p with
   | (u, v, l) => 2 + length l
@@ -266,6 +272,31 @@ Definition is_path_in_graph (p: path) (G: graph) : bool :=
   | (u, v, l) => is_path_in_graph_helper ((u :: l) ++ [v]) G
   end.
 
+Program Fixpoint is_path_in_graph_2 (p: path) (G: graph) {measure (measure_path p)} : bool :=
+  match G with
+  | (V, E) => match p with
+              | (u, v, []) => is_edge (u, v) G || is_edge (v, u) G
+              | (u, v, h :: t) => ((is_edge (u, h) G) || (is_edge (h, u) G)) && is_path_in_graph_2 (h, v, t) G
+              end
+  end.
+
+Theorem one_paths_2_correct : forall G: graph, forall u v: node,
+  is_path_in_graph_2 (u, v, []) G = true <-> is_edge (u, v) G = true \/ is_edge (v, u) G = true.
+Proof.
+  intros G u v.
+  split.
+  - intros Hpath.
+    cbn in Hpath.
+    destruct (is_edge (u, v) G) as [|] eqn:Huv.
+    + left. reflexivity.
+    + right. simpl in Hpath. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
+      * reflexivity.
+      * destruct G as [V E]. apply Hpath. 
+  - intros Hedge. destruct Hedge as [Huv | Hvu].
+    + cbn. rewrite Huv. simpl. destruct G as [V E]. reflexivity.
+    + cbn. rewrite Hvu. rewrite (orb_comm (is_edge (u, v) G) true). simpl. destruct G as [V E]. 
+      reflexivity.
+Qed.
 
 Theorem one_paths_correct : forall G: graph, forall u v: node,
   is_path_in_graph (u, v, []) G = true <-> is_edge (u, v) G = true \/ is_edge (v, u) G = true.
@@ -334,6 +365,15 @@ Qed.
 (* add p to end of l if p is not already in l *)
 Definition add_path_no_repeats (p: path) (l: paths) : paths := 
   if (member_path p l) then l else l ++ [p].
+
+Theorem add_path_no_repeats_correct :
+  forall (l : paths) (p : path), count_path p (add_path_no_repeats p l) = 1.
+Proof.
+  intros l p.
+  induction l as [| h t IH].
+  - simpl. rewrite <- eqbpath_refl. reflexivity.
+  - unfold add_path_no_repeats. simpl. destruct (eqbpath h p) as [|] eqn:Hhp.
+Admitted.
 
 Example test_path_to_empty: add_path_no_repeats (1, 2, []) [] = [(1, 2, [])].
 Proof. reflexivity. Qed.
@@ -441,8 +481,27 @@ Definition find_all_paths_from_start_to_end (u v: node) (G: graph) : paths :=
 Example paths_from_4_to_2: find_all_paths_from_start_to_end 4 2 G = [(4, 2, [1]); (4, 2, [1; 3])].
 Proof. reflexivity. Qed.
 
+(* a path outputted in the find_all_paths_from_start_to_end function is a valid path in G *)
+Theorem paths_start_to_end_valid : forall u v: node, forall l: nodes, forall G: graph,
+  In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true.
+Proof.
+Admitted.
 
+(* a path outputted in the find_all_paths_from_start_to_end function is acyclic *)
+Theorem paths_start_to_end_acyclic : forall u v: node, forall l: nodes, forall G: graph,
+  In (u, v, l) (find_all_paths_from_start_to_end u v G) -> acyclic_path_2 (u, v, l).
+Proof.
+Admitted.
 
+(* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
+Theorem paths_start_to_end_correct : forall u v: node, forall l: nodes, forall G: graph,
+      (is_path_in_graph (u, v, l) G = true) /\ acyclic_path_2 (u, v, l) 
+  <-> In (u, v, l) (find_all_paths_from_start_to_end u v G).
+Proof.
+  intros u v l (V, E).
+  split.
+  - intros [Hpath Hcyc].
+Admitted.
 
 (* dfs for cycle detection in directed graph G *)
 
@@ -502,6 +561,9 @@ Definition contains_cycle (G: graph) : bool :=
   | (V, E) => fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) (length V))
   (* each path can have at most |V| vertices *)
   end.
+
+Example k_cycle: contains_cycle ([1; 2; 3; 4; 5], [(5, 1); (4, 5); (3, 4); (2, 3); (1, 2)]) = true.
+Proof. reflexivity. Qed.
 
 Example acyclic_when_edges_directed: contains_cycle G = false.
 Proof. reflexivity. Qed.
@@ -1119,6 +1181,8 @@ Proof.
   - right. left. unfold is_mediator. rewrite Hca. rewrite Hbc. simpl. apply I.
 Qed. 
 
+
+
 (* causal and backdoor paths *)
 Definition is_causal (p: path) (G: graph) : bool :=
   match p with 
@@ -1150,36 +1214,6 @@ Proof. reflexivity. Qed.
 Example cycle: no_two_cycles [1; 2; 3; 4] [(1, 2); (3, 2); (2, 1)] = false.
 Proof. reflexivity. Qed.
 
-Theorem causal_or_backdoor : forall p: path, forall V: nodes, forall E: edges,
-  no_two_cycles V E = true -> (is_causal p (V, E) = true -> is_backdoor p (V, E) = false).
-Proof.
-  (* intros P E.
-  intros H2c Hcaus.
-  destruct P as [u v l]. simpl.
-  destruct l as [| h t].
-  - reflexivity.
-  - simpl in Hcaus. 
-    induction E as [| h' t' IH].
-    + reflexivity.
-    + simpl. destruct h' as [u1 v1]. destruct ((u1 =? h) && (v1 =? u)) as [|] eqn:E1.
-      * simpl in Hcaus. destruct ((u1 =? u) && (v1 =? h)) as [|] eqn:E2.
-        ++ simpl in H2c. assert (Heq: (u1 =? v1) && (v1 =? u1) = true).
-           { replace (h) with v1 in E1. replace (u) with u1 in E1.
-             -- apply E1.
-             -- rewrite andb_commutative in E2. apply andb_true_elim2 with (b:=v1 =? h) in E2. apply eqb_eq in E2. apply E2.
-             -- apply andb_true_elim2 with (b:=u1 =? u) in E2. apply eqb_eq in E2. apply E2. }
-           rewrite Heq in H2c. discriminate.
-        ++ simpl in H2c. assert (Heq: (u1 =? v1) && (v1 =? u1) = false).
-           { replace (u) with v1 in E2. replace (h) with u1 in E2.
-             -- apply E2.
-             -- rewrite andb_commutative in E1. apply andb_true_elim2 with (b:=v1 =? u) in E1. apply eqb_eq in E1. apply E1.
-             -- apply andb_true_elim2 with (b:=u1 =? h) in E1. apply eqb_eq in E1. apply E1. }
-           rewrite Heq in H2c. replace (u) with v1 in Hcaus. replace (h) with u1 in Hcaus.
-           -- rewrite Hcaus in H2c. discriminate.
-           -- rewrite andb_commutative in E1. apply andb_true_elim2 with (b:=v1 =? u) in E1. apply eqb_eq in E1. apply E1.
-           -- apply andb_true_elim2 with (b:=u1 =? h) in E1. apply eqb_eq in E1. apply E1.
-     * simpl in Hcaus. simpl in H2c.   *)
-Admitted.
 
 
 
