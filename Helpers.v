@@ -7,6 +7,7 @@ From Coq Require Import Arith.Arith.
 From Coq Require Import Arith.EqNat. Import Nat.
 From Coq Require Import Lia.
 From Coq Require Import Lists.List. Import ListNotations.
+Require Import Classical.
 
 Fixpoint eqblist (l1 l2 : list nat) : bool
   := match l1, l2 with
@@ -97,6 +98,78 @@ Proof.
   - apply andb_true_elim2 in H. apply H.
   - rewrite andb_comm in H. apply andb_true_elim2 in H. apply H.
 Qed. 
+
+(* output true if l1 is subset of l2 *)
+Definition subset (l1 l2 : list nat) : bool :=
+  forallb (fun x => member x l2) l1.
+
+Example test_subset_true: subset [1; 2; 3] [3; 4; 2; 5; 1] = true.
+Proof. reflexivity. Qed.
+
+Example test_subset_false: subset [1; 2; 3] [3; 4; 2; 5] = false.
+Proof. reflexivity. Qed.
+
+(* set subtraction: elements in l1 that are not in l2 *)
+Definition set_subtract (l1 l2 : list nat) : list nat :=
+  filter (fun x => negb (member x l2)) l1.
+
+Example test_set_subtract: set_subtract [3; 4; 2; 5; 1] [4; 3] = [2; 5; 1].
+Proof. reflexivity. Qed.
+
+Example test_set_subtract_not_in_set: set_subtract [3; 4] [1; 2; 3] = [4].
+Proof. reflexivity. Qed.
+
+Example test_set_subtract_duplicates: set_subtract [3; 4] [4; 4] = [3].
+Proof. reflexivity. Qed.
+
+Fixpoint All {T : Type} (P : T -> Prop) (l : list T) : Prop :=
+  match l with
+  | [] => True
+  | x' :: l' => P x' /\ (All P l')
+  end.
+
+Theorem demorgan : forall (P Q : Prop),
+  ~(P \/ Q) -> ~P /\ ~Q.
+Proof.
+  tauto.
+Qed.
+
+Theorem demorgan_and: forall (P Q : Prop),
+  ~(P /\ Q) -> ~P \/ ~Q.
+Proof.
+  intros P Q H.
+  unfold not in H.
+  apply NNPP.
+  intro contra.
+  apply H.
+  split.
+  - apply NNPP.
+    intros NP.
+    apply contra.
+    left. apply NP.
+  - apply NNPP.
+    intros NQ.
+    apply contra.
+    right. apply NQ.
+Qed.
+
+Theorem demorgan_many: forall (T: Type) (P: T -> Prop) (l : list T), ~(All P l) -> exists x: T, (In x l) /\ ~(P x).
+Proof.
+  intros T P l.
+  intros H.
+  induction l as [| h t IH].
+  - unfold not in H. simpl in H. exfalso. apply H. apply I.
+  - simpl in H. apply demorgan_and in H.
+    destruct H as [H1 | H2].
+    + exists h. simpl. split.
+      * left. reflexivity.
+      * apply H1.
+    + apply IH in H2. destruct H2 as [x [HIn HP]].
+      exists x. split.
+      * simpl. right. apply HIn.
+      * apply HP.
+Qed.
+
 
 
 

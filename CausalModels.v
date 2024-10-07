@@ -85,6 +85,26 @@ Definition path_int (p: path) : nodes :=
   | (u, v, l) => l
   end.
 
+Definition path_start_and_end (U: path) (A B: node) : bool :=
+  ((path_start U) =? A) && ((path_end U) =? B).
+
+Theorem path_start_end_refl: forall u v: node, forall l: nodes,
+  path_start_and_end (u, v, l) u v = true.
+Proof.
+  intros u v l.
+  unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl.
+Qed.
+
+Theorem path_start_end_equal: forall u v A B: node, forall l: nodes,
+  path_start_and_end (u, v, l) A B = true -> u = A /\ v = B.
+Proof.
+  intros u v A B l.
+  intros H. unfold path_start_and_end in H. apply split_and_true in H. destruct H.
+  simpl in H. apply eqb_eq in H.
+  simpl in H0. apply eqb_eq in H0.
+  split. apply H. apply H0.
+Qed.
+
 Fixpoint acyclic_path (p: nodes) : bool := 
   match p with 
   | [] => true
@@ -204,6 +224,11 @@ Definition V_d : nodes := [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]. (* UZ UW UX UY Z W X 
 Definition E_d : edges := [(1, 5); (5, 6); (2, 6); (7, 6); (3, 7); (4, 8); (7, 8); (6, 10); (9, 10)].
 Definition G_d : graph := (V_d, E_d).
 
+Definition vertex_subset (S: nodes) (G: graph) : bool :=
+  match G with
+  | (V, E) => subset S V
+  end.
+
 Fixpoint no_one_cycles (E: edges) : bool :=
   match E with
   | [] => true
@@ -261,7 +286,7 @@ Fixpoint is_path_in_graph_helper (l: nodes) (G: graph) : bool :=
   | (V, E) => match l with
               | [] => true
               | h :: t => match t with
-                          | [] => member h V
+                          | [] => true
                           | h' :: t' => (is_edge (h, h') G || is_edge (h', h) G) && is_path_in_graph_helper t G
                           end
               end
@@ -271,6 +296,12 @@ Definition is_path_in_graph (p: path) (G: graph) : bool :=
   match p with
   | (u, v, l) => is_path_in_graph_helper ((u :: l) ++ [v]) G
   end.
+
+Example path_in_graph: is_path_in_graph (2, 4, [1]) G = true.
+Proof. reflexivity. Qed.
+
+Example path_not_in_graph: is_path_in_graph (2, 4, [5]) G = false.
+Proof. reflexivity. Qed.
 
 Program Fixpoint is_path_in_graph_2 (p: path) (G: graph) {measure (measure_path p)} : bool :=
   match G with
@@ -311,13 +342,9 @@ Proof.
       * reflexivity.
       * simpl in Hpath. destruct G as [V E]. apply Hpath. 
   - intros Hedge. destruct Hedge as [Huv | Hvu].
-    + simpl. rewrite Huv. simpl. destruct G as [V E].
-      unfold is_edge in Huv. 
-      rewrite (andb_comm (member u V) (member v V)) in Huv.
-      apply andb_true_elim2 in Huv. apply andb_true_elim2 in Huv. apply Huv.
+    + simpl. rewrite Huv. simpl. destruct G as [V E]. reflexivity.
     + simpl. rewrite Hvu. rewrite (orb_comm (is_edge (u, v) G) true). simpl. destruct G as [V E].
-      unfold is_edge in Hvu. apply andb_true_elim2 in Hvu. apply andb_true_elim2 in Hvu.
-      apply Hvu.
+      reflexivity.
 Qed.
 
 Lemma two_paths_first_edge_correct : forall G: graph, forall a b c: node, 
@@ -494,13 +521,10 @@ Proof.
 Admitted.
 
 (* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
-Theorem paths_start_to_end_correct : forall u v: node, forall l: nodes, forall G: graph,
-      (is_path_in_graph (u, v, l) G = true) /\ acyclic_path_2 (u, v, l) 
-  <-> In (u, v, l) (find_all_paths_from_start_to_end u v G).
+Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G: graph,
+      (is_path_in_graph p G = true) /\ (path_start_and_end p u v = true) /\ acyclic_path_2 p
+  <-> In p (find_all_paths_from_start_to_end u v G).
 Proof.
-  intros u v l (V, E).
-  split.
-  - intros [Hpath Hcyc].
 Admitted.
 
 (* dfs for cycle detection in directed graph G *)
@@ -588,6 +612,12 @@ Proof. reflexivity. Qed.
 
 Example but_not_when_only_one_added: contains_cycle (V_cf, E_cf ++ [(6, 1)]) = false.
 Proof. reflexivity. Qed.
+
+Theorem contains_cycle_correct : forall G: graph, forall p: path,
+  (is_path_in_graph_2 p G = true) /\ ~(acyclic_path_2 p) <-> 
+  contains_cycle G = true.
+Proof. 
+Admitted.
 
 
 (* find all descendants of a node *)
@@ -1184,7 +1214,7 @@ Qed.
 
 
 (* causal and backdoor paths *)
-Definition is_causal (p: path) (G: graph) : bool :=
+Definition path_out_of_start (p: path) (G: graph) : bool :=
   match p with 
   | (u, v, l) => match l with
                 | [] => is_edge (u, v) G
@@ -1192,13 +1222,27 @@ Definition is_causal (p: path) (G: graph) : bool :=
                end
   end.
   
-Definition is_backdoor (p: path) (G: graph) : bool :=
+Definition path_into_start (p: path) (G: graph) : bool :=
   match p with 
   | (u, v, l) => match l with
                 | [] => is_edge (v, u) G
                 | h :: t => is_edge (h, u) G
                end
   end.
+
+Theorem path_must_have_direction: forall p: path, forall G: graph,
+  is_path_in_graph p G = true -> path_into_start p G = false -> path_out_of_start p G = true.
+Proof.
+  intros p G.
+  intros p_in_G p_not_in.
+  destruct p as [[u v] l].
+  simpl. destruct l as [| h t].
+  - simpl in p_not_in. simpl in p_in_G. destruct G as [V E].
+    rewrite p_not_in in p_in_G. rewrite orb_false_r in p_in_G. apply andb_true_elim2 in p_in_G. apply p_in_G.
+  - simpl in p_not_in. simpl in p_in_G. destruct G as [V E]. apply andb_true_elim2 in p_in_G.
+    rewrite p_not_in in p_in_G. rewrite orb_false_r in p_in_G. apply p_in_G.
+Qed.
+
 
 Fixpoint no_two_cycles (V: nodes) (E: edges): bool :=
   match E with
@@ -1280,6 +1324,17 @@ Fixpoint descendants_not_in_Z (d: nodes) (Z: nodes) : Prop :=
   | h :: t => ~(In h Z) /\ descendants_not_in_Z t Z
   end.
 
+Fixpoint some_descendant_in_Z (d: nodes) (Z: nodes) : Prop :=
+  match d with
+  | [] => True
+  | h :: t => (In h Z) \/ some_descendant_in_Z t Z
+  end.
+
+Theorem descendants_in_or_not_in: forall d: nodes, forall Z: nodes, 
+  descendants_not_in_Z d Z <-> ~(some_descendant_in_Z d Z).
+Proof.
+Admitted.
+
 (* p contains collision A -> B <- C, where B and descendants are not in Z (the conditioning set) *)
 Program Fixpoint is_blocked_by_collider (p: path) (G: graph) (Z: nodes) {measure (measure_path p)} : Prop :=
   match p with 
@@ -1322,17 +1377,17 @@ Proof.
     + apply I.
 Qed.
 
-Definition path_is_blocked (p: path) (G: graph) (Z: nodes) : Prop :=
+Definition path_is_blocked (G: graph) (Z: nodes) (p: path) : Prop :=
   is_blocked_by_mediator p G Z \/ is_blocked_by_confounder p G Z \/ is_blocked_by_collider p G Z.
 
-Example collider_no_conditioning_needed: path_is_blocked (5, 8, [6; 7]) G_d [].
+Example collider_no_conditioning_needed: path_is_blocked G_d [] (5, 8, [6; 7]).
 Proof.
   compute. right. right. left. tauto.
 Qed.
 
 
 (* conditioning on W unblocks the path from Z to Y *)
-Example condition_on_collider: ~(path_is_blocked (5, 8, [6; 7]) G_d [6]).
+Example condition_on_collider: ~(path_is_blocked G_d [6] (5, 8, [6; 7])).
 Proof.
   unfold not. intros H. compute in H. destruct H as [H | [H | [H | H]]].
   - destruct H as [[H _] | [H _]]. apply H. apply H.
@@ -1344,7 +1399,7 @@ Proof.
 Qed.
 
 (* conditioning on U (a descendant of W) unblocks the path from Z to Y *)
-Example condition_on_descendant_collider: ~(path_is_blocked (5, 8, [6; 7]) G_d [10]).
+Example condition_on_descendant_collider: ~(path_is_blocked G_d [10] (5, 8, [6; 7])).
 Proof.
   unfold not. intros H. compute in H. destruct H as [H | [H | [H | H]]].
   - destruct H as [[H _] | [H _]]. apply H. apply H.
@@ -1356,7 +1411,7 @@ Proof.
 Qed.
 
 (* conditioning on X blocks the path from Z to Y, even if W unblocks it *)
-Example condition_on_collider_and_mediator: path_is_blocked (5, 8, [6; 7]) G_d [6; 7].
+Example condition_on_collider_and_mediator: path_is_blocked G_d [6; 7] (5, 8, [6; 7]).
 Proof.
   compute. tauto.
 Qed.
@@ -1364,12 +1419,12 @@ Qed.
 Fixpoint paths_all_blocked (p: paths) (G: graph) (Z: nodes) : Prop :=
   match p with
   | [] => True
-  | h :: t => path_is_blocked h G Z /\ paths_all_blocked t G Z
+  | h :: t => path_is_blocked G Z h /\ paths_all_blocked t G Z
   end.
 
 (* determine whether u and v are independent in G conditional on the nodes in Z *)
 Definition d_separated (u v: node) (G: graph) (Z: nodes) : Prop :=
-  paths_all_blocked (find_all_paths_from_start_to_end u v G) G Z.
+  All (path_is_blocked G Z) (find_all_paths_from_start_to_end u v G).
 
 (* Z to Y are unconditionally independent due to collider at W *)
 Example unconditionally_independent: d_separated 5 8 G_d [].
@@ -1431,3 +1486,157 @@ Example condition_on_T_W_X : d_separated 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); 
 Proof.
   compute. tauto.
 Qed.
+
+(* determine whether p is open after conditioning on Z *)
+Program Fixpoint d_connected (p: path) (G: graph) (Z: nodes) {measure (measure_path p)} : Prop :=
+  match p with
+  | (u, v, l) => match l with 
+                 | [] => True
+                 | h :: [] => (is_collider u v h G /\ (some_descendant_in_Z (find_descendants h G) Z))
+                              \/ (~(is_collider u v h G) /\ ~(In h Z)) (* h is a mediator or confounder *)
+                 | h :: (h1 :: t) => (is_collider u h1 h G 
+                                          /\ (some_descendant_in_Z (find_descendants h G) Z)
+                                          /\ (d_connected (h, v, h1 :: t) G Z))
+                                     \/ (~(is_collider u h1 h G) 
+                                          /\ ~(In h Z) 
+                                          /\ d_connected (h, v, h1 :: t) G Z)
+                 end
+  end.
+
+
+(* u and v are d-separated given Z in G iff no path d-connects u and v given Z *)
+Theorem d_separated_vs_connected: forall u v: node, forall G: graph, forall Z: nodes, 
+  ~(d_separated u v G Z) <-> 
+  exists l: nodes, (is_path_in_graph (u, v, l) G = true) /\ d_connected (u, v, l) G Z.
+Proof.
+  intros u v G Z.
+  split.
+  - intros d_sep.
+    unfold d_separated in d_sep.
+    apply demorgan_many with (P:=(path_is_blocked G Z)) in d_sep.
+    destruct d_sep as [p [HIn Hblock]].
+    apply paths_start_to_end_correct in HIn. destruct HIn as [Hpath [Hse Hcyc]].
+    destruct p as [[s e] l].
+    apply path_start_end_equal in Hse. destruct Hse as [Hsu Hev].
+    rewrite <- Hsu. rewrite <- Hev.
+    exists l.
+    split. apply Hpath.
+    unfold path_is_blocked in Hblock. 
+    (* TODO finish this! *)
+Admitted.
+
+Program Fixpoint colliders_are_ancestors (u v: node) (int: nodes) (G: graph) {measure (length int)} : Prop :=
+  match int with
+  | [] => True
+  | h :: [] => let d := find_descendants h G in
+               (is_collider u v h G /\ (In u d \/ In v d))
+               \/ ~(is_collider u v h G)
+  | h :: (h1 :: t) => let d := find_descendants h G in
+                      (is_collider u h1 h G /\ (In u d \/ In h1 d) 
+                                            /\ (colliders_are_ancestors u v (h1 :: t) G))
+                      \/ (~(is_collider u v h G) /\ (colliders_are_ancestors u v (h1 :: t) G))
+  end.
+
+(* return True iff col is a collider in path p of G *)
+Program Fixpoint is_collider_in_path (col: node) (p: path) (G: graph) {measure (measure_path p)} : Prop :=
+  match p with
+  | (u, v, l) => match l with
+                 | [] => False
+                 | h :: [] => if (h =? col) then is_collider u v h G else False
+                 | h :: (h1 :: t) => if (h =? col) then is_collider u v h G 
+                                     else is_collider_in_path col (h, v, h1 :: t) G
+                 end
+  end.
+
+(* return True iff all nodes in O on U are colliders in U *)
+Fixpoint observed_nodes_are_colliders (U: path) (O: nodes) (G: graph) : Prop :=
+  match U with 
+  | (u, v, l) => match O with
+                 | [] => True
+                 | h :: t => if (member h l) then is_collider_in_path h U G /\ observed_nodes_are_colliders U t G
+                             else observed_nodes_are_colliders U t G
+                 end
+  end.
+
+(* return True iff U is an inducing path on G over O
+   According to Spirtes, this is true iff every non-endpoint member of O on U is a collider on U,
+   and every collider on U is an ancestor of either A or B. *)
+Definition inducing_path (U: path) (G: graph) (O: nodes) : Prop :=
+  is_path_in_graph U G = true /\ 
+  match U with
+  | (u, v, l) => colliders_are_ancestors u v l G /\ observed_nodes_are_colliders U O G
+  end.
+
+Lemma inducing_path_out_of_A: forall G: graph, forall O: nodes, forall A B: node,
+  contains_cycle G = false ->
+  (exists U: path, path_start_and_end U A B = true /\ path_out_of_start U G = true /\ inducing_path U G O) ->
+  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true -> 
+   exists p: path, is_path_in_graph p G = true /\ path_start_and_end p A B = true
+                                                 /\ path_out_of_start p G = true
+                                                 /\ d_connected p G Z).
+Proof.
+Admitted.
+
+Lemma inducing_path_into_A: forall G: graph, forall O: nodes, forall A B: node,
+  contains_cycle G = false ->
+  (exists U: path, path_start_and_end U A B = true /\ path_into_start U G = true /\ inducing_path U G O) ->
+  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true -> 
+   exists p: path, is_path_in_graph p G = true /\ path_start_and_end p A B = true
+                                                 /\ path_into_start p G = true
+                                                 /\ d_connected p G Z).
+Proof.
+Admitted.
+
+Lemma not_d_separated: forall G: graph, forall O: nodes, forall A B: node,
+  contains_cycle G = false ->
+  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true -> ~(d_separated A B G Z)) ->
+  exists U: path, path_start_and_end U A B = true /\ inducing_path U G O.
+Proof.
+Admitted.
+
+(* Theorem 1 from Spirtes
+   If G is a DAG over variables V, and O \subseteq V, then A and B are not d-separated 
+   by any subset of O\{A, B} <=> there is an inducing path over O between A and B.
+*)
+Theorem d_separation_and_inducing_paths: forall G: graph, forall O: nodes, forall A B: node,
+  contains_cycle G = false /\ vertex_subset O G = true ->
+  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true -> ~(d_separated A B G Z))
+  <-> exists U: path, path_start_and_end U A B = true /\ inducing_path U G O.
+Proof.
+  intros G O A B.
+  intros [acyclic subset].
+  split.
+  - apply not_d_separated. apply acyclic.
+  - intros [U HU]. intros Z subsetZ. apply d_separated_vs_connected. 
+    destruct (path_into_start U G) as [|] eqn:Udir.
+    + pose proof inducing_path_into_A as lemma.
+      specialize (lemma G O A B).
+      specialize (lemma acyclic).
+      assert (H: path_start_and_end U A B = true /\ path_into_start U G = true /\ inducing_path U G O).
+      { rewrite and_comm. rewrite and_assoc. rewrite and_comm. split.
+        - rewrite and_comm. apply HU.
+        - apply Udir. }
+      specialize (lemma (ex_intro _ U H)).
+      specialize (lemma Z subsetZ).
+      destruct lemma as [p [p_in_graph [p_A_to_B [p_into_A p_d_conn]]]]. destruct p as [[u v] l].
+      apply path_start_end_equal in p_A_to_B. destruct p_A_to_B as [HuA HvB].
+      rewrite <- HuA. rewrite <- HvB. exists l.
+      split. apply p_in_graph. apply p_d_conn.
+    + pose proof inducing_path_out_of_A as lemma.
+      specialize (lemma G O A B).
+      specialize (lemma acyclic).
+      assert (H: path_start_and_end U A B = true /\ path_out_of_start U G = true /\ inducing_path U G O).
+      { rewrite and_comm. rewrite and_assoc. rewrite and_comm. split.
+        - rewrite and_comm. apply HU.
+        - apply path_must_have_direction in Udir.  apply Udir.
+          destruct HU as [UAB indpath].
+          unfold inducing_path in indpath. destruct indpath as [p_in_G _]. apply p_in_G. }
+      specialize (lemma (ex_intro _ U H)).
+      specialize (lemma Z subsetZ).
+      destruct lemma as [p [p_in_graph [p_A_to_B [p_out_of_A p_d_conn]]]]. destruct p as [[u v] l].
+      apply path_start_end_equal in p_A_to_B. destruct p_A_to_B as [HuA HvB].
+      rewrite <- HuA. rewrite <- HvB. exists l.
+      split. apply p_in_graph. apply p_d_conn.
+Qed.
+
+
