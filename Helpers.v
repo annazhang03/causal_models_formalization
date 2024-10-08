@@ -170,6 +170,74 @@ Proof.
       * apply HP.
 Qed.
 
+Theorem demorgan_bool : forall (A B : bool), A || B = false <-> A = false /\ B = false.
+Proof.
+  intros A B. split.
+  { intros H.
+  destruct A as [|] eqn:HA.
+  - simpl in H. discriminate H.
+  - split. reflexivity. simpl in H. apply H. }
+  { intros [H1 H2]. rewrite H1. simpl. apply H2. }
+Qed.
+
+Theorem demorgan_and_bool: forall (A B: bool), A && B = false 
+  <-> A = false \/ B = false.
+Proof.
+  intros A B. split. 
+  { intros H.
+  destruct A as [|] eqn:HA.
+  - simpl in H. right. apply H.
+  - left. reflexivity. }
+  { intros [H | H].
+  - rewrite H. simpl. reflexivity.
+  - rewrite andb_comm. rewrite H. reflexivity. }
+Qed.
+
+
+Theorem demorgan_many_bool: forall (T: Type) (P: T -> bool) (l : list T), forallb P l = false 
+  <-> exists x: T, In x l /\ (P x = false).
+Proof.
+  intros T P l. split.
+  { intros H.
+  induction l as [| h t IH].
+  - simpl in H. discriminate H.
+  - simpl in H. apply demorgan_and_bool in H. destruct H as [H | H].
+    + exists h. simpl. split.
+      * left. reflexivity.
+      * apply H.
+    + apply IH in H. destruct H as [x [HIn HP]].
+      exists x. split.
+      * simpl. right. apply HIn.
+      * apply HP. }
+  { intros [x [HIn HP]]. 
+  induction l as [| h t IH].
+  - simpl in HIn. exfalso. apply HIn.
+  - simpl. simpl in HIn.
+    destruct HIn as [Hhx | HIn].
+    + rewrite Hhx. rewrite HP. simpl. reflexivity.
+    + apply IH in HIn. rewrite HIn. rewrite andb_comm. simpl. reflexivity. }
+Qed.
+
+Theorem forallb_true_iff : forall X test (l : list X),
+  forallb test l = true <-> All (fun x => test x = true) l.
+Proof.
+  intros X test.
+  intros l.
+  split.
+  - intros H. induction l as [| h t IH].
+    + simpl. apply I.
+    + simpl. simpl in H.
+      destruct (test h) as [|] eqn:Hh.
+      * split. reflexivity. apply IH. apply H.
+      * discriminate H.
+  - intros H. induction l as [| h t IH].
+    + simpl. reflexivity.
+    + simpl. simpl in H.
+      destruct H as [H1 H2].
+      destruct (test h) as [|] eqn:Hh.
+      * apply IH. apply H2.
+      * apply H1.
+Qed.
 
 
 
