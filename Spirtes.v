@@ -23,14 +23,17 @@ Definition all_colliders_are_ancestors (p: path) (G: graph): Prop :=
   end.
 
 (* return True iff all nodes in O on U are colliders in U *)
-Fixpoint observed_nodes_are_colliders (U: path) (O: nodes) (G: graph) : Prop :=
+Definition observed_nodes_are_colliders (U: path) (O: nodes) (G: graph) : Prop :=
   match U with 
-  | (u, v, l) => match O with
+  | (u, v, l) => forall (x: node), In x O /\ In x l -> is_collider_in_path x U G
+  end.
+
+(*  match O with
                  | [] => True
                  | h :: t => if (member h l) then is_collider_in_path h U G /\ observed_nodes_are_colliders U t G
                              else observed_nodes_are_colliders U t G
                  end
-  end.
+  end. *)
 
 (* return True iff U is an inducing path on G over O
    According to Spirtes, this is true iff every non-endpoint member of O on U is a collider on U,
@@ -91,20 +94,8 @@ Proof.
            simpl in contra. exfalso. apply contra.
         (* no observed nodes that are also non-endpoints on U, so trivially all are colliders *)
         -- induction O as [| h t IH].
-           ++ simpl. apply I.
-           ++ simpl. apply IH. intros Z HZ.
-              apply d_sep. simpl. destruct (A =? h) as [|] eqn:HAh.
-              { destruct (B =? h) as [|] eqn:HBh.
-                - simpl. apply HZ.
-                - simpl. apply HZ. }
-              { destruct (B =? h) as [|] eqn:HBh.
-                - simpl. apply HZ.
-                - simpl. induction Z as [| hZ tZ IHZ].
-                  + simpl. reflexivity.
-                  + simpl. destruct (h =? hZ) as [|] eqn:HhhZ.
-                    * simpl. apply IHZ. simpl in HZ. rewrite andb_comm in HZ. apply andb_true_elim2 in HZ. apply HZ.
-                    * simpl in HZ. apply split_and_true in HZ. destruct HZ as [mem sub].
-                      rewrite mem. simpl. apply IHZ. apply sub. }
+           ++ simpl. intros x [F1 F2]. apply F1.
+           ++ simpl. intros x [_ F]. apply F.
   - destruct (is_edge (B, A) G) as [|] eqn:edgeBA.
     (* if (B, A) is an edge in G, then that edge is an inducing path *)
     + exists (A, B, []). split.
@@ -117,20 +108,8 @@ Proof.
                 simpl in contra. exfalso. apply contra.
             (* no observed nodes that are also non-endpoints on U, so trivially all are colliders *)
             --- induction O as [| h t IH].
-               ++ simpl. apply I.
-               ++ simpl. apply IH. intros Z HZ.
-                  apply d_sep. simpl. destruct (A =? h) as [|] eqn:HAh.
-                  { destruct (B =? h) as [|] eqn:HBh.
-                    - simpl. apply HZ.
-                    - simpl. apply HZ. }
-                  { destruct (B =? h) as [|] eqn:HBh.
-                    - simpl. apply HZ.
-                    - simpl. induction Z as [| hZ tZ IHZ].
-                      + simpl. reflexivity.
-                      + simpl. destruct (h =? hZ) as [|] eqn:HhhZ.
-                        * simpl. apply IHZ. simpl in HZ. rewrite andb_comm in HZ. apply andb_true_elim2 in HZ. apply HZ.
-                        * simpl in HZ. apply split_and_true in HZ. destruct HZ as [mem sub].
-                          rewrite mem. simpl. apply IHZ. apply sub. }
+                ++ simpl. intros x [F1 F2]. apply F1.
+                ++ simpl. intros x [_ F]. apply F.
     (* neither (A, B) nor (B, A) are edges in G *)
     + remember (union (find_ancestors A G) (find_ancestors B G)) as allAnc. (* allAnc = anc(A) \cup anc(B) *)
       remember (intersect (set_subtract O [A; B]) allAnc) as O'. (* O' = allAnc \cap O\{A,B} *)
@@ -147,15 +126,15 @@ Proof.
       * apply HUse.
       * unfold inducing_path. split.
         -- apply HUpath.
-        -- split.
-           ++ (* show that for all colliders C in U, C is an ancestor of some member of O' *)
+        -- assert (HcolAnc: all_colliders_are_ancestors U G). 
+           (* assert first statement to use it in proof of second statement *)
+           {(* show that for all colliders C in U, C is an ancestor of some member of O' *)
               assert (HcolInO': forall C: node, is_collider_in_path C U G 
                                 -> exists d: node, In d O' /\ In d (find_descendants C G)).
               { intros C Hcol. unfold path_is_blocked_bool in HUblocked.
                 rewrite orb_comm in HUblocked. apply orb_true_elim2 in HUblocked.
                 unfold is_blocked_by_collider_2 in HUblocked.
                 unfold collider_descendants_not_conditioned2 in HUblocked.
-                (* why were next 5 lines so complicated TODO *)
                 remember (fun c : node => descendants_not_in_Z_bool (find_descendants c G) O') as P.
                 remember (find_colliders_in_path U G) as ls.
                 destruct (demorgan_many_bool_2 node P ls) as [Hf _].
@@ -185,12 +164,95 @@ Proof.
               { rewrite HeqO' in HdO'. apply intersect_correct_element in HdO'.
                 rewrite HeqallAnc in HdO'. apply union_correct in HdO'. apply HdO'. }
               destruct HdIsAnc as [HdA | HdB].
-              ** left. apply descendants_ancestors_correct.
-                 --- apply nodes_in_path_in_graph in HUpath. destruct HUpath as [HAG [HBG HCG]].
-                     rewrite HuA in HAG. specialize (HCG C). split.
-                     apply HAG. unfold is_collider_in_path in Hcol.
-
-      
+              ** left. assert (HAdescOfC: In d (find_descendants C G) /\ In A (find_descendants d G)).
+                 { split. 
+                   - apply Hdesc. 
+                   - apply descendants_ancestors_correct. apply HdA. }
+                 apply descendants_transitive in HAdescOfC. apply HAdescOfC.
+              ** right. assert (HBdescOfC: In d (find_descendants C G) /\ In B (find_descendants d G)).
+                 { split. 
+                   - apply Hdesc. 
+                   - apply descendants_ancestors_correct. apply HdB. }
+                 apply descendants_transitive in HBdescOfC. apply HBdescOfC. }
+            split.
+            ++ apply HcolAnc.
+            ++ unfold path_is_blocked_bool in HUblocked.
+               apply split_orb_false in HUblocked. destruct HUblocked as [HUblocked Hcol].
+               apply split_orb_false in HUblocked. destruct HUblocked as [Hmed Hcon].
+               (* show that all mediators and confounders in U are not in O' *)
+               assert (HmedNIn: forall M: node, In M (find_mediators_in_path U G)
+                                    -> ~(In M O')).
+               { intros M HisMed. unfold is_blocked_by_mediator_2 in Hmed.
+                 apply no_overlap_non_member with (l2:=(find_mediators_in_path U G)).
+                 - apply Hmed.
+                 - apply HisMed. }
+               assert (HconNIn: forall C: node, In C (find_confounders_in_path U G)
+                                    -> ~(In C O')).
+               { intros M HisCon. unfold is_blocked_by_confounder_2 in Hcon.
+                 apply no_overlap_non_member with (l2:=(find_confounders_in_path U G)).
+                 - apply Hcon.
+                 - apply HisCon. }
+               (* show that all nodes on U in O' are colliders *)
+               destruct U as [[u v] l].
+               assert (HallCol: forall C: node, In C l /\ In C O' -> is_collider_in_path C (u, v, l) G).
+               { intros C [Hmem HCO'].
+                 assert (H: is_path_in_graph (u, v, l) G = true /\ In C l). { split. apply HUpath. apply Hmem. }
+                 apply intermediate_node_in_path in H. destruct H as [contra | [contra | H]].
+                 - specialize (HmedNIn C). apply HmedNIn in contra. unfold not in contra. apply contra in HCO'.
+                   exfalso. apply HCO'.
+                 - specialize (HconNIn C). apply HconNIn in contra. unfold not in contra. apply contra in HCO'.
+                   exfalso. apply HCO'.
+                 - apply colliders_in_path. apply H. }
+               (* show that all nodes on U are ancestors of A or B *)
+               assert (HallAnc: all_given_nodes_are_ancestors l A B G).
+               { unfold all_given_nodes_are_ancestors. intros x Hmem.
+                 assert (H: is_path_in_graph (u, v, l) G = true /\ 
+                            path_start_and_end (u, v, l) A B = true /\ 
+                            path_contains_node (u, v, l) x = true).
+                 { split. apply HUpath. split. apply HUse. unfold path_contains_node.
+                   simpl. apply member_In_equiv in Hmem. rewrite Hmem. apply orb_comm. }
+                 apply path_nodes_ancestors in H. destruct H as [H | [H | H]].
+                 - apply descendants_ancestors_correct in H. left. apply H.
+                 - apply descendants_ancestors_correct in H. right. apply H.
+                 - (* x is an ancestor of a collider C. Since C is an ancestor of A or B, x is too *)
+                   destruct H as [C [HCcol HxC]].
+                   apply path_start_end_equal in HUse. destruct HUse as [HuA HvB].
+                   unfold all_colliders_are_ancestors in HcolAnc. unfold all_given_nodes_are_ancestors in HcolAnc.
+                   specialize (HcolAnc C). apply HcolAnc in HCcol. destruct HCcol as [HAC | HBC].
+                   + apply descendants_ancestors_correct in HxC. left. apply descendants_transitive with (y:=C).
+                     split. apply HxC. rewrite HuA in HAC. apply HAC.
+                   + apply descendants_ancestors_correct in HxC. right. apply descendants_transitive with (y:=C).
+                     split. apply HxC. rewrite HvB in HBC. apply HBC. }
+               apply path_start_end_equal in HUse. destruct HUse as [HuA HvB].
+               (* since O' contains only colliders on U (HallCol), O must contain only nodes on U that are colliders *)
+               unfold observed_nodes_are_colliders. intros x [HxO Hxl].
+               unfold all_given_nodes_are_ancestors in HallAnc. specialize (HallAnc x).
+               (* show that x in O\{A,B} *)
+               assert (HxNeqAB: x =? A = false /\ x =? B = false).
+               { unfold acyclic_path_2 in HUacyc. destruct HUacyc as [_ [HxA [HxB _]]].
+                 split.
+                 - rewrite HuA in HxA. destruct (x =? A) as [|] eqn:HxAeq.
+                   + apply eqb_eq in HxAeq. rewrite HxAeq in Hxl. unfold not in HxA. apply HxA in Hxl. exfalso. apply Hxl.
+                   + reflexivity.
+                 - rewrite HvB in HxB. destruct (x =? B) as [|] eqn:HxBeq.
+                   + apply eqb_eq in HxBeq. rewrite HxBeq in Hxl. unfold not in HxB. apply HxB in Hxl. exfalso. apply Hxl.
+                   + reflexivity. }
+               assert (HxOAB: In x (set_subtract O [A;B])).
+               { apply set_subtract_membership. split.
+                 - unfold not. intros H. simpl in H. destruct H as [H | [H | H]].
+                   + destruct HxNeqAB as [HxNeqAB _]. rewrite H in HxNeqAB. rewrite eqb_refl in HxNeqAB. discriminate HxNeqAB.
+                   + destruct HxNeqAB as [_ HxNeqAB]. rewrite H in HxNeqAB. rewrite eqb_refl in HxNeqAB. discriminate HxNeqAB.
+                   + apply H.
+                 - apply HxO. }
+               (* show x is in allAnc (HallAnc) *)
+               assert (HxAnc: In x allAnc).
+               { apply HallAnc in Hxl. rewrite HeqallAnc. apply union_correct. destruct Hxl as [HAx | HBx].
+                 - left. apply descendants_ancestors_correct. apply HAx.
+                 - right. apply descendants_ancestors_correct. apply HBx. }
+               specialize (HallCol x). apply HallCol. split.
+               --- apply Hxl.
+               --- rewrite HeqO'. apply intersect_in_both_lists. split. apply HxOAB. apply HxAnc.
+Qed.
 
 (* 
 Steps:
@@ -201,7 +263,6 @@ Steps:
 5. proof: x descendant of y <=> y ancestor of x
 6. proof: every vertex on U is an ancestor of A, B, or a collider on U
 *)
-Admitted.
 
 (* Theorem 1 from Spirtes
    If G is a DAG over variables V, and O \subseteq V, then A and B are not d-separated 

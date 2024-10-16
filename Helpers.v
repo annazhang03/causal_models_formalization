@@ -33,34 +33,6 @@ Fixpoint member (v : nat) (s : list nat) : bool
       | h :: t => if (h =? v) then true else member v t
     end.
 
-Fixpoint overlap (s1 : list nat) (s2 : list nat) : bool
-  := match s1 with 
-      | nil => false
-      | h :: t => if (member h s2) then true else overlap t s2
-    end.
-
-Example no_overlap : overlap [1;2;3] [4] = false.
-Proof. reflexivity. Qed.
-
-Example one_overlap : overlap [1;2;3] [2] = true.
-Proof. reflexivity. Qed.
-
-Fixpoint count (v : nat) (l : list nat) : nat
-  := match l with 
-      | nil => 0
-      | h :: t => if (h =? v) then S (count v t) else count v t
-     end.
-
-Lemma not_member_count_0 : 
-  forall (l : list nat) (x : nat), member x l = false -> count x l = 0.
-Proof.
-  intros l x H.
-  induction l as [| h t IH].
-  - reflexivity.
-  - simpl. simpl in H. destruct (h =? x) as [|] eqn:Hhx.
-    * discriminate H.
-    * apply IH in H. apply H.
-Qed.
 
 Lemma member_In_equiv : 
   forall (l : list nat) (x: nat), member x l = true <-> In x l.
@@ -79,6 +51,98 @@ Proof.
       * destruct (h =? x) as [|] eqn:Hhx.
         -- reflexivity.
         -- apply IH. apply H.
+Qed.
+
+Fixpoint overlap (s1 : list nat) (s2 : list nat) : bool
+  := match s1 with 
+      | nil => false
+      | h :: t => if (member h s2) then true else overlap t s2
+    end.
+
+Example no_overlap : overlap [1;2;3] [4] = false.
+Proof. reflexivity. Qed.
+
+Example one_overlap : overlap [1;2;3] [2] = true.
+Proof. reflexivity. Qed.
+
+Theorem no_overlap_non_member: forall l1 l2: list nat,
+  overlap l1 l2 = false -> forall x: nat, In x l2 -> ~(In x l1).
+Proof.
+  intros l1 l2 Hover x HIn.
+  induction l1 as [| h t IH].
+  - intros contra. simpl in contra. apply contra.
+  - intros H. simpl in H. destruct H as [H | H].
+    + simpl in Hover. rewrite <- H in HIn. apply member_In_equiv in HIn.
+      rewrite HIn in Hover. discriminate Hover.
+    + simpl in Hover. destruct (member h l2) as [|] eqn:Hmem.
+      * discriminate Hover.
+      * apply IH in Hover. unfold not in Hover. apply Hover in H. apply H.
+Qed.
+  
+
+Fixpoint count (v : nat) (l : list nat) : nat
+  := match l with 
+      | nil => 0
+      | h :: t => if (h =? v) then S (count v t) else count v t
+     end.
+
+Lemma not_member_count_0 : 
+  forall (l : list nat) (x : nat), member x l = false -> count x l = 0.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - reflexivity.
+  - simpl. simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+    * discriminate H.
+    * apply IH in H. apply H.
+Qed.
+
+
+(* return true iff last elt of l1 is the same as first elt of l2 *)
+Fixpoint first_and_last_elts_same (l1 l2: list nat) : bool :=
+  match l2 with
+  | [] => false
+  | h2 :: t2 => match l1 with
+                | [] => false
+                | [h1] => h1 =? h2
+                | h1 :: t => (first_and_last_elts_same t l2)
+                end
+  end.
+
+Example same_fl_elt: first_and_last_elts_same [1;2;3;4] [4;5;6;1] = true.
+Proof. reflexivity. Qed.
+
+Example diff_fl_elt: first_and_last_elts_same [1;2;3;4] [1;5;6;1] = false.
+Proof. reflexivity. Qed.
+
+Example trivial_l2: first_and_last_elts_same [1;2;3;4] [] = false.
+Proof. reflexivity. Qed.
+
+Theorem first_and_last_same: forall (l1 l2: list nat) (x: nat),
+  first_and_last_elts_same (l1 ++ [x]) (x :: l2) = true.
+Proof.
+  intros l1 l2 x.
+  induction l1 as [| h t IH].
+  - simpl. apply eqb_refl.
+  - simpl. destruct (t ++ [x]) as [| h' t'].
+    + simpl in IH. discriminate IH.
+    + apply IH.
+Qed.
+
+Theorem append_identity: forall l: list nat, l ++ [] = l.
+Proof.
+  induction l as [| h t IH].
+  - reflexivity.
+  - simpl. rewrite IH. reflexivity.
+Qed.
+
+Theorem append_vs_concat: forall l1 l2: list nat, forall x: nat,
+  (l1 ++ [x]) ++ l2 = l1 ++ x :: l2.
+Proof.
+  intros l1 l2 x.
+  induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. rewrite IH. reflexivity.
 Qed.
 
 Theorem andb_true_elim2 : forall b c : bool,
@@ -167,6 +231,22 @@ Proof. reflexivity. Qed.
 Example test_set_subtract_duplicates: set_subtract [3; 4] [4; 4] = [3].
 Proof. reflexivity. Qed.
 
+Theorem set_subtract_membership: forall l1 l2: list nat, forall x: nat,
+  ~(In x l2) /\ (In x l1) -> In x (set_subtract l1 l2).
+Proof.
+  intros l1 l2 x [H1 H2].
+  induction l1 as [| h t IH].
+  - simpl in H2. exfalso. apply H2.
+  - simpl. simpl in H2. destruct H2 as [H2 | H2].
+    + destruct (member h l2) as [|] eqn:Hmem.
+      * rewrite <- H2 in H1. unfold not in H1. rewrite <- member_In_equiv in H1. apply H1 in Hmem.
+        exfalso. apply Hmem.
+      * simpl. left. apply H2.
+    + destruct (member h l2) as [|] eqn:Hmem.
+      * simpl. apply IH. apply H2.
+      * simpl. right. apply IH. apply H2.
+Qed.
+
 Fixpoint union (l1 l2: list nat) : list nat :=
   match l2 with
   | [] => l1
@@ -234,7 +314,20 @@ Proof.
     + right. apply IH. apply H.
 Qed.
 
-
+Theorem intersect_in_both_lists: forall l1 l2: list nat, forall x: nat,
+  In x l1 /\ In x l2 -> In x (intersect l1 l2).
+Proof.
+  intros l1 l2 x [H1 H2].
+  induction l2 as [| h t IH].
+  - simpl in H2. exfalso. apply H2.
+  - simpl. simpl in H2. destruct H2 as [H2 | H2].
+    + destruct (member h l1) as [|] eqn:Hmem.
+      * simpl. left. apply H2.
+      * apply member_In_equiv in H1. rewrite <- H2 in H1. rewrite H1 in Hmem. discriminate Hmem.
+    + destruct (member h l1) as [|] eqn:Hmem.
+      * simpl. right. apply IH. apply H2.
+      * apply IH. apply H2.
+Qed.
 
 
 (* logic functions *)

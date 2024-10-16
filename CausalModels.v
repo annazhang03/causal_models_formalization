@@ -108,6 +108,12 @@ Qed.
 Definition path_contains_node (U: path) (X: node) : bool :=
   (X =? (path_start U)) || (X =? (path_end U)) || (member X (path_int U)).
 
+Definition concat (u1 mid v2: node) (l1 l2: nodes) : path :=
+  (u1, v2, l1 ++ (mid :: l2)).
+
+Example concat_two_paths: concat 1 3 6 [2] [4;5] = (1, 6, [2;3;4;5]).
+Proof. reflexivity. Qed.
+
 Fixpoint acyclic_path (p: nodes) : bool := 
   match p with 
   | [] => true
@@ -355,15 +361,37 @@ Admitted.
 (* outputs true iff, for every pair of adjacent nodes in path, 
    there is an edge between those nodes in the given order in graph *)
 Fixpoint is_dir_path_in_graph_helper (l: nodes) (G: graph) : bool :=
-  match G with
-  | (V, E) => match l with
+  match l with
+  | [] => true
+  | h :: t => match t with
               | [] => true
-              | h :: t => match t with
-                          | [] => true
-                          | h' :: t' => is_edge (h, h') G && is_dir_path_in_graph_helper t G
-                          end
+              | h' :: t' => is_edge (h, h') G && is_dir_path_in_graph_helper t G
               end
   end.
+
+Lemma concat_directed_paths_helper: forall l1 l2: nodes, forall G: graph,
+  (is_dir_path_in_graph_helper l1 G = true) /\ (is_dir_path_in_graph_helper l2 G = true)
+  /\ first_and_last_elts_same l1 l2 = true
+  -> is_dir_path_in_graph_helper (l1 ++ (tl l2)) G = true.
+Proof.
+  intros l1 l2 G [H1 [H2 H12]].
+  induction l1 as [| h t IH].
+  - simpl in H12. destruct l2 as [| h2 t2]. discriminate H12. discriminate H12. 
+  - destruct t as [| h' t'].
+    + simpl. destruct l2 as [| h2 t2] eqn:Hl2.
+      * simpl. reflexivity.
+      * simpl. simpl in H12. apply eqb_eq in H12.
+        simpl in H2. rewrite <- H12 in H2. apply H2.
+    + simpl in H12. destruct l2 as [| al2 bl2].
+      * discriminate H12.
+      * simpl. simpl in H1. apply split_and_true in H1. 
+        destruct H1 as [Hedge Hrec]. rewrite Hedge. simpl.
+        destruct t' as [| at' bt'].
+        -- simpl in IH. apply IH. reflexivity. apply H12.
+        -- apply IH. 
+           ++ apply Hrec.
+           ++ apply H12.
+Qed.
 
 Definition is_directed_path_in_graph (p: path) (G: graph) : bool :=
   match p with
@@ -375,6 +403,36 @@ Proof. reflexivity. Qed.
 
 Example dir_path_not_in_graph: is_directed_path_in_graph (2, 4, [1]) G = false.
 Proof. reflexivity. Qed.
+
+Theorem concat_directed_paths: forall u1 mid v2: node, forall l1 l2: nodes, forall G: graph,
+  is_directed_path_in_graph (u1, mid, l1) G = true /\ is_directed_path_in_graph (mid, v2, l2) G = true
+  -> is_directed_path_in_graph (concat u1 mid v2 l1 l2) G = true.
+Proof.
+  intros u1 mid v2 l1 l2 G.
+  intros [U1 U2].
+  unfold concat. unfold is_directed_path_in_graph.
+  unfold is_directed_path_in_graph in U1.
+  unfold is_directed_path_in_graph in U2.
+  assert (Hfl: first_and_last_elts_same ((u1 :: l1) ++ [mid]) ((mid :: l2) ++ [v2]) = true).
+  { apply first_and_last_same. }
+  remember ((u1 :: l1) ++ [mid]) as ls1.
+  remember ((mid :: l2) ++ [v2]) as ls2.
+  assert (H: is_dir_path_in_graph_helper (ls1 ++ (tl ls2)) G = true).
+  { apply concat_directed_paths_helper. split. apply U1. split. apply U2.
+    destruct ls1 as [| h t].
+    - discriminate Heqls1.
+    - induction l1 as [| h1 t1 IH].
+      + simpl. destruct ls2 as [| h2 t2].
+        * discriminate Heqls2.
+        * inversion Heqls1. simpl. inversion Heqls2. apply eqb_refl.
+      + apply Hfl. }
+  rewrite Heqls2 in H. simpl in H. rewrite Heqls1 in H.
+  assert (Hformat: ((u1 :: l1) ++ [mid]) ++ l2 = u1 :: l1 ++ mid :: l2).
+  { simpl. apply f_equal. apply append_vs_concat. }
+  assert (Hformat2: ((u1 :: l1) ++ [mid]) ++ l2 ++ [v2] = ((u1 :: l1 ++ mid :: l2) ++ [v2])).
+  { rewrite <- Hformat. simpl. rewrite app_assoc. reflexivity. }
+  rewrite <- Hformat2. apply H.
+Qed.
 
 Program Fixpoint is_path_in_graph_2 (p: path) (G: graph) {measure (measure_path p)} : bool :=
   match G with
@@ -757,6 +815,11 @@ Theorem find_descendants_correct: forall G: graph, forall u v: node,
 Proof.
 Admitted.
 
+Lemma find_descendants_all_nodes: forall G: graph, forall u v: node,
+  In v (find_descendants u G) -> node_in_graph u G = true /\ node_in_graph v G = true.
+Proof.
+Admitted.
+
 Fixpoint find_ancestors_in_nodes (e: node) (V: nodes) (G: graph) : nodes :=
   match V with
   | [] => []
@@ -779,22 +842,42 @@ Example ancestors_of_4: find_ancestors 4 G = [4].
 Proof. reflexivity. Qed.
 
 Theorem descendants_ancestors_correct: forall G: graph, forall u v: node,
-  node_in_graph u G = true /\ node_in_graph v G = true
-  -> (In u (find_descendants v G) <-> In v (find_ancestors u G)).
+  (In u (find_descendants v G) <-> In v (find_ancestors u G)).
 Proof.
-  intros [V E] u v [Hu Hv].
+  intros [V E] u v.
   split.
-  - intros H. destruct V as [| h t].
+  - intros H. 
+    assert (Huv: node_in_graph u (V, E) = true /\ node_in_graph v (V, E) = true).
+    { apply find_descendants_all_nodes in H. rewrite and_comm. apply H. }
+    destruct Huv as [Hu Hv].
+    destruct V as [| h t].
     + simpl in Hu. discriminate Hu.
     + apply filter_true. split.
-      * simpl in Hv. simpl. destruct (h =? v) as [|] eqn:Hhv.
+      * simpl in Hv. destruct (h =? v) as [|] eqn:Hhv.
         -- left. apply eqb_eq. apply Hhv.
         -- right. apply member_In_equiv. apply Hv.
       * apply member_In_equiv. apply H.
   - intros H. destruct V as [| h t].
-    + simpl in Hu. discriminate Hu.
+    + simpl in H. exfalso. apply H.
     + apply filter_true in H. destruct H as [_ H].
       apply member_In_equiv. apply H.
+Qed.
+
+(* if x is descendant of y, and y is descendant of z, then x is descendant of z *)
+Theorem descendants_transitive: forall G: graph, forall x y z: node,
+  In y (find_descendants z G) /\ In x (find_descendants y G) -> In x (find_descendants z G).
+Proof.
+  intros G x y z [Hy Hx].
+  apply find_descendants_correct in Hy. destruct Hy as [Uzy [dirUzy seUzy]].
+  apply find_descendants_correct in Hx. destruct Hx as [Uyx [dirUyx seUyx]].
+  destruct Uzy as [[uz uy] lzy]. destruct Uyx as [[vy vx] lyx].
+  apply path_start_end_equal in seUyx. destruct seUyx as [Hy Hx]. rewrite Hy in dirUyx. rewrite Hx in dirUyx.
+  apply path_start_end_equal in seUzy. destruct seUzy as [Hz Hy2]. rewrite Hy2 in dirUzy. rewrite Hz in dirUzy.
+  apply find_descendants_correct. exists (concat z y x lzy lyx). split.
+  - apply concat_directed_paths. split.
+    + apply dirUzy.
+    + apply dirUyx.
+  - unfold concat. unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl.
 Qed.
 
 (* find all undirected acyclic paths in G *)
@@ -1631,20 +1714,77 @@ Program Fixpoint is_blocked_by_collider (p: path) (G: graph) (Z: nodes) {measure
                               \/ is_blocked_by_collider (h, v, h1 :: t) G Z
   end.
 
-(* return True iff col is a collider in path p of G *)
-Program Fixpoint is_collider_in_path (col: node) (p: path) (G: graph) {measure (measure_path p)} : Prop :=
-  match p with
-  | (u, v, l) => match l with
-                 | [] => False
-                 | h :: [] => if (h =? col) then is_collider u v h G else False
-                 | h :: (h1 :: t) => if (h =? col) then is_collider u v h G 
-                                     else is_collider_in_path col (h, v, h1 :: t) G
-                 end
+Fixpoint is_collider_in_path_helper (col: node) (l: nodes) (G: graph) : Prop :=
+  match l with
+  | [] => False
+  | h :: t => match t with
+              | [] => False
+              | h1 :: [] => False
+              | h1 :: (h2 :: t2) => if (h1 =? col) then is_collider h h2 h1 G
+                                          else is_collider_in_path_helper col t G
+              end
   end.
+
+Definition is_collider_in_path (col: node) (p: path) (G: graph): Prop :=
+  match p with
+  | (u, v, l) => is_collider_in_path_helper col ((u :: l) ++ [v]) G
+  end.
+
+Lemma colliders_in_path_helper: forall l: nodes, forall G: graph, forall C: node,
+  In C (find_colliders_in_nodes l G) <-> is_collider_in_path_helper C l G.
+Proof.
+  intros l G C. split.
+  - intros H. induction l as [| h t IH].
+    + simpl in H. exfalso. apply H.
+    + destruct t as [| h1 t1].
+      * simpl in H. apply H.
+      * destruct t1 as [| h2 t2].
+        -- simpl. simpl in H. apply H.
+        -- simpl. destruct (h1 =? C) as [|] eqn:Hh1C.
+           ++ simpl in H.  (* TODO need V to have no duplicate nodes *)
+Admitted.
 
 Theorem colliders_in_path: forall p: path, forall G: graph, forall C: node,
   In C (find_colliders_in_path p G) <-> is_collider_in_path C p G.
 Proof.
+  intros p G C. split.
+  - intros H. destruct p as [[u v] l].
+    induction l as [| h t IH].
+    + simpl in H. exfalso. apply H.
+    + simpl.
+Admitted.
+
+Theorem collider_in_path_then_in_graph: forall G: graph, forall u v C: node, forall l: nodes,
+  is_collider_in_path C (u, v, l) G -> In C l.
+Proof.
+  intros G u v C l H.
+  unfold is_collider_in_path in H.
+  induction ((u :: l) ++ [v]) as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl in H. destruct t as [| h1 t1].
+    + exfalso. apply H.
+    + destruct t1 as [| h2 t2].
+      * exfalso. apply H.
+      * destruct (h1 =? C) as [|] eqn: HhC.
+        -- 
+(*   induction l as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl. simpl in H. destruct (h =? C) as [|] eqn: HhC.
+    + apply eqb_eq in HhC. left. apply HhC.
+    + right. apply IH. destruct t as [| h1 t1].
+      * exfalso. apply H.
+      * simpl in H. destruct t1 as [| h2 t2].
+        -- simpl in H. *)
+Admitted.
+
+Theorem intermediate_node_in_path: forall G: graph, forall u v x: node, forall l: nodes,
+  is_path_in_graph (u, v, l) G = true /\ In x l -> 
+  (In x (find_mediators_in_path (u, v, l) G)) \/ (In x (find_confounders_in_path (u, v, l) G)) \/
+  (In x (find_colliders_in_path (u, v, l) G)).
+Proof.
+  intros G u v x l.
+  intros [Hpath Hmem].
+  unfold is_path_in_graph in Hpath. simpl in Hpath.
 Admitted.
 
 
