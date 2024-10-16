@@ -66,9 +66,10 @@ Example one_overlap : overlap [1;2;3] [2] = true.
 Proof. reflexivity. Qed.
 
 Theorem no_overlap_non_member: forall l1 l2: list nat,
-  overlap l1 l2 = false -> forall x: nat, In x l2 -> ~(In x l1).
+  overlap l1 l2 = false <-> forall x: nat, In x l2 -> ~(In x l1).
 Proof.
-  intros l1 l2 Hover x HIn.
+  intros l1 l2. split.
+  { intros Hover x HIn.
   induction l1 as [| h t IH].
   - intros contra. simpl in contra. apply contra.
   - intros H. simpl in H. destruct H as [H | H].
@@ -76,7 +77,15 @@ Proof.
       rewrite HIn in Hover. discriminate Hover.
     + simpl in Hover. destruct (member h l2) as [|] eqn:Hmem.
       * discriminate Hover.
-      * apply IH in Hover. unfold not in Hover. apply Hover in H. apply H.
+      * apply IH in Hover. unfold not in Hover. apply Hover in H. apply H. }
+  { intros H. induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (member h l2) as [|] eqn:Hmem.
+    + specialize (H h). apply member_In_equiv in Hmem. apply H in Hmem. 
+      unfold not in Hmem. simpl in Hmem. exfalso. apply Hmem. left. reflexivity.
+    + apply IH. simpl in H.
+      intros x Hxl2. specialize (H x). intros Hxt. apply H in Hxl2. unfold not in Hxl2.
+      apply Hxl2. right. apply Hxt. }
 Qed.
   
 
@@ -230,6 +239,19 @@ Proof. reflexivity. Qed.
 
 Example test_set_subtract_duplicates: set_subtract [3; 4] [4; 4] = [3].
 Proof. reflexivity. Qed.
+
+Theorem subset_larger_set_membership: forall l1 l2: list nat, forall x: nat,
+  subset l1 l2 = true /\ In x l1 -> In x l2.
+Proof.
+  intros l1 l2 x [Hsub Hmem].
+  induction l1 as [| h t IH].
+  - simpl in Hmem. exfalso. apply Hmem.
+  - simpl in Hsub. simpl in Hmem. 
+    apply split_and_true in Hsub. destruct Hsub as [Hhl2 Hsubt]. 
+    destruct Hmem as [Hhx | Hmem].
+    + apply member_In_equiv. rewrite <- Hhx. apply Hhl2.
+    + apply IH in Hsubt. apply Hsubt. apply Hmem.
+Qed.
 
 Theorem set_subtract_membership: forall l1 l2: list nat, forall x: nat,
   ~(In x l2) /\ (In x l1) -> In x (set_subtract l1 l2).
@@ -506,4 +528,28 @@ Proof.
       * apply IHt. apply H1. }
 Qed.
 
+
+Theorem set_subtract_subset: forall l1 sub: list nat,
+  subset (set_subtract l1 sub) l1 = true.
+Proof.
+  intros l1 sub.
+  induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - destruct (member h sub) as [|] eqn:Hmem.
+    + simpl. rewrite Hmem. simpl. unfold subset in IH. unfold subset. simpl.
+      apply forallb_true_iff. apply forallb_true_iff in IH.
+      induction (set_subtract t sub) as [| x xs IHxs].
+      * simpl. apply I.
+      * constructor.
+        -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
+        -- apply IHxs. apply IH.
+    + simpl. rewrite Hmem. simpl. rewrite eqb_refl. simpl.
+      unfold subset in IH. unfold subset. simpl.
+      apply forallb_true_iff. apply forallb_true_iff in IH.
+      induction (set_subtract t sub) as [| x xs IHxs].
+      * simpl. apply I.
+      * constructor.
+        -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
+        -- apply IHxs. apply IH.
+Qed.
 

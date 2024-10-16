@@ -28,13 +28,6 @@ Definition observed_nodes_are_colliders (U: path) (O: nodes) (G: graph) : Prop :
   | (u, v, l) => forall (x: node), In x O /\ In x l -> is_collider_in_path x U G
   end.
 
-(*  match O with
-                 | [] => True
-                 | h :: t => if (member h l) then is_collider_in_path h U G /\ observed_nodes_are_colliders U t G
-                             else observed_nodes_are_colliders U t G
-                 end
-  end. *)
-
 (* return True iff U is an inducing path on G over O
    According to Spirtes, this is true iff every non-endpoint member of O on U is a collider on U,
    and every collider on U is an ancestor of either A or B. *)
@@ -50,7 +43,74 @@ Lemma inducing_path_out_of_A: forall G: graph, forall O: nodes, forall A B: node
                                                  /\ path_out_of_start p G = true
                                                  /\ d_connected_2 p G Z).
 Proof.
+  intros G O A B.
+  intros Hcyc [U [HUse [HUout HUind]]].
+  intros Z Hsub.
+  (* if there are no colliders on U, then U d-connects A, B given Z *)
+  destruct ((path_has_no_colliders U G)) as [|] eqn:HUcol.
+  - exists U. split.
+    + unfold inducing_path in HUind. destruct HUind as [Hpath _]. apply Hpath.
+    + split. apply HUse. split. apply HUout.
+      unfold d_connected_2. unfold inducing_path in HUind. destruct HUind as [Hpath [HcolAc HobsCol]].
+      destruct U as [[u v] l].
+      (* Lemma: since U has no colliders, and no mediators or confounders of U can be in O,
+                no node can be a member of both l and Z. *)
+      assert (Hlem: forall x: node, In x l /\ In x Z -> False).
+      { intros x [Hxl HxZ].
+        unfold observed_nodes_are_colliders in HobsCol.
+        (* show that x is in O. This is true because Z \subseteq O\{A,B}, and x neq A or B *)
+        assert (Hpathcyc: acyclic_path_2 (u, v, l)).
+        { apply contains_cycle_false_correct with (G:=G). apply Hcyc. apply Hpath. }
+        unfold path_start_and_end in HUse. simpl in HUse. apply split_and_true in HUse.
+        destruct HUse as [HuA HvB]. apply eqb_eq in HuA. apply eqb_eq in HvB.
+        assert (HxNeqAB: x <> A /\ x <> B).
+        { apply intermediate_node_not_endpoint with (l:=l).
+          split. apply Hxl. rewrite <- HuA. rewrite <- HvB. apply Hpathcyc. }
+        assert (HxO: In x O).
+        { assert (H1: subset Z (set_subtract O [A; B]) = true /\ In x Z). { split. apply Hsub. apply HxZ. }
+          apply subset_larger_set_membership in H1.
+          assert (H2: subset (set_subtract O [A; B]) O = true). { apply set_subtract_subset. }
+          apply subset_larger_set_membership with (l1:=(set_subtract O [A; B])). split.
+          apply H2. apply H1. }
+        (* show a contradiction: x is a collider even though the path has no colliders *)
+        assert (contra: is_collider_in_path x (u, v, l) G).
+        { apply HobsCol. split. apply HxO. apply Hxl. }
+        unfold path_has_no_colliders in HUcol. apply forallb_forall with (x:=x) in HUcol.
+        apply is_collider_in_path_Prop_vs_bool in contra. rewrite contra in HUcol. 
+        simpl in HUcol. discriminate HUcol. apply Hxl. }
+      split.
+      * (* since O contains only colliders on U, there are no mediators in Z *)
+        apply no_overlap_non_member.
+        intros x Hxmed HxZ.
+        specialize (HobsCol x).
+        assert (Hxl: In x l).
+        { apply intermediate_node_in_path with (x:=x) in Hpath. apply Hpath. left. apply Hxmed. }
+        apply Hlem with (x:=x). split. apply Hxl. apply HxZ.
+      * split.
+      { (* since O contains only colliders on U, there are no confounders in Z (very similar to above) *)
+        apply no_overlap_non_member.
+        intros x Hxcon HxZ.
+        specialize (HobsCol x).
+        assert (Hxl: In x l).
+        { apply intermediate_node_in_path with (x:=x) in Hpath. apply Hpath. right. left. apply Hxcon. }
+        apply Hlem with (x:=x). split. apply Hxl. apply HxZ. }
+      { (* the path has no colliders, so this is trivially true *)
+        unfold path_has_no_colliders in HUcol.
+        assert ((find_colliders_in_path (u, v, l) G) = []).
+        { destruct (find_colliders_in_path (u, v, l) G) as [| C t] eqn:HallCol.
+          - reflexivity.
+          - apply forallb_forall with (x:=C) in HUcol.
+            assert (contra: is_collider_in_path C (u, v, l) G).
+            { apply colliders_in_path. rewrite HallCol. simpl. left. reflexivity. }
+            apply is_collider_in_path_Prop_vs_bool in contra. rewrite contra in HUcol.
+            simpl in HUcol. discriminate HUcol.
+            apply intermediate_node_in_path with (x:=C) in Hpath. apply Hpath. right. right.
+            rewrite HallCol. simpl. left. reflexivity. }
+        rewrite H. simpl. reflexivity. }
+  - 
 Admitted.
+
+
 
 Lemma inducing_path_into_A: forall G: graph, forall O: nodes, forall A B: node,
   contains_cycle G = false ->
@@ -197,7 +257,8 @@ Proof.
                assert (HallCol: forall C: node, In C l /\ In C O' -> is_collider_in_path C (u, v, l) G).
                { intros C [Hmem HCO'].
                  assert (H: is_path_in_graph (u, v, l) G = true /\ In C l). { split. apply HUpath. apply Hmem. }
-                 apply intermediate_node_in_path in H. destruct H as [contra | [contra | H]].
+                 destruct H as [H1 H2]. apply intermediate_node_in_path with (x:=C) in H1. apply H1 in H2.
+                 destruct H2 as [contra | [contra | H]].
                  - specialize (HmedNIn C). apply HmedNIn in contra. unfold not in contra. apply contra in HCO'.
                    exfalso. apply HCO'.
                  - specialize (HconNIn C). apply HconNIn in contra. unfold not in contra. apply contra in HCO'.
@@ -229,14 +290,8 @@ Proof.
                unfold all_given_nodes_are_ancestors in HallAnc. specialize (HallAnc x).
                (* show that x in O\{A,B} *)
                assert (HxNeqAB: x =? A = false /\ x =? B = false).
-               { unfold acyclic_path_2 in HUacyc. destruct HUacyc as [_ [HxA [HxB _]]].
-                 split.
-                 - rewrite HuA in HxA. destruct (x =? A) as [|] eqn:HxAeq.
-                   + apply eqb_eq in HxAeq. rewrite HxAeq in Hxl. unfold not in HxA. apply HxA in Hxl. exfalso. apply Hxl.
-                   + reflexivity.
-                 - rewrite HvB in HxB. destruct (x =? B) as [|] eqn:HxBeq.
-                   + apply eqb_eq in HxBeq. rewrite HxBeq in Hxl. unfold not in HxB. apply HxB in Hxl. exfalso. apply Hxl.
-                   + reflexivity. }
+               { rewrite eqb_neq. rewrite eqb_neq. apply intermediate_node_not_endpoint with (l:=l).
+                 split. apply Hxl. rewrite <- HuA. rewrite <- HvB. apply HUacyc. }
                assert (HxOAB: In x (set_subtract O [A;B])).
                { apply set_subtract_membership. split.
                  - unfold not. intros H. simpl in H. destruct H as [H | [H | H]].

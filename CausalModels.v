@@ -649,6 +649,20 @@ Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G:
 Proof.
 Admitted.
 
+Theorem intermediate_node_not_endpoint: forall u v x: node, forall l: nodes,
+  In x l /\ acyclic_path_2 (u, v, l) -> (x <> u /\ x <> v).
+Proof.
+  intros u v x l. intros [Hmem Hacyc].
+  unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [Hxu [Hxv _]]].
+  split.
+  - destruct (x =? u) as [|] eqn:Hxueq.
+    + apply eqb_eq in Hxueq. rewrite Hxueq in Hmem. unfold not in Hxu. apply Hxu in Hmem. exfalso. apply Hmem.
+    + apply eqb_neq. apply Hxueq.
+  - destruct (x =? v) as [|] eqn:Hxveq.
+    + apply eqb_eq in Hxveq. rewrite Hxveq in Hmem. unfold not in Hxv. apply Hxv in Hmem. exfalso. apply Hmem.
+    + apply eqb_neq. apply Hxveq.
+Qed.
+
 (* dfs for cycle detection in directed graph G *)
 
 (* return list of directed 1-paths (each edge becomes one 1-path) *)
@@ -1730,6 +1744,60 @@ Definition is_collider_in_path (col: node) (p: path) (G: graph): Prop :=
   | (u, v, l) => is_collider_in_path_helper col ((u :: l) ++ [v]) G
   end.
 
+Fixpoint is_collider_in_path_helper_bool (col: node) (l: nodes) (G: graph) : bool :=
+  match l with
+  | [] => false
+  | h :: t => match t with
+              | [] => false
+              | h1 :: [] => false
+              | h1 :: (h2 :: t2) => if (h1 =? col) then is_collider_bool h h2 h1 G
+                                    else is_collider_in_path_helper_bool col t G
+              end
+  end.
+
+Definition is_collider_in_path_bool (col: node) (p: path) (G: graph): bool :=
+  match p with
+  | (u, v, l) => is_collider_in_path_helper_bool col ((u :: l) ++ [v]) G
+  end.
+
+Theorem is_collider_in_path_Prop_vs_bool: forall col: node, forall p: path, forall G: graph, 
+  is_collider_in_path_bool col p G = true <-> is_collider_in_path col p G.
+Proof.
+  intros col [[u v] l] G.
+  split.
+  - intros H. unfold is_collider_in_path. unfold is_collider_in_path_bool in H.
+    induction ((u :: l) ++ [v]) as [| h t IH].
+    + simpl in H. discriminate H.
+    + destruct t as [| h1 t1].
+      * simpl in H. discriminate H.
+      * destruct t1 as [| h2 t2].
+        -- simpl in H. discriminate H.
+        -- destruct (h1 =? col) as [|] eqn:Hhcol.
+           ++ simpl in H. rewrite Hhcol in H.
+              simpl. rewrite Hhcol. apply is_collider_Prop_vs_bool. apply H.
+           ++ simpl in H. rewrite Hhcol in H.
+              simpl. rewrite Hhcol.
+              simpl in IH. apply IH in H. apply H.
+  - intros H. unfold is_collider_in_path_bool. unfold is_collider_in_path in H.
+    induction ((u :: l) ++ [v]) as [| h t IH].
+    + simpl in H. exfalso. apply H.
+    + destruct t as [| h1 t1].
+      * simpl in H. exfalso. apply H.
+      * destruct t1 as [| h2 t2].
+        -- simpl in H. exfalso. apply H.
+        -- destruct (h1 =? col) as [|] eqn:Hhcol.
+           ++ simpl in H. rewrite Hhcol in H.
+              simpl. rewrite Hhcol. apply is_collider_Prop_vs_bool. apply H.
+           ++ simpl in H. rewrite Hhcol in H.
+              simpl. rewrite Hhcol.
+              simpl in IH. apply IH in H. apply H.
+Qed.
+
+Definition path_has_no_colliders (p: path) (G: graph): bool :=
+  match p with
+  | (u, v, l) => forallb (fun x: node => negb (is_collider_in_path_bool x p G)) l
+  end.
+
 Lemma colliders_in_path_helper: forall l: nodes, forall G: graph, forall C: node,
   In C (find_colliders_in_nodes l G) <-> is_collider_in_path_helper C l G.
 Proof.
@@ -1778,12 +1846,14 @@ Proof.
 Admitted.
 
 Theorem intermediate_node_in_path: forall G: graph, forall u v x: node, forall l: nodes,
-  is_path_in_graph (u, v, l) G = true /\ In x l -> 
+  is_path_in_graph (u, v, l) G = true -> 
+  (In x l <-> 
   (In x (find_mediators_in_path (u, v, l) G)) \/ (In x (find_confounders_in_path (u, v, l) G)) \/
-  (In x (find_colliders_in_path (u, v, l) G)).
+  (In x (find_colliders_in_path (u, v, l) G))).
 Proof.
   intros G u v x l.
-  intros [Hpath Hmem].
+  intros Hpath. split.
+  - intros Hmem.
   unfold is_path_in_graph in Hpath. simpl in Hpath.
 Admitted.
 
