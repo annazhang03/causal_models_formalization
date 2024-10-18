@@ -127,7 +127,7 @@ Theorem path_nodes_ancestors: forall U: path, forall G: graph, forall A B X: nod
   is_path_in_graph U G = true /\ path_start_and_end U A B = true /\ path_contains_node U X = true
   -> In X (find_ancestors A G) \/ In X (find_ancestors B G) 
      \/ (exists C, In C (find_colliders_in_path U G) /\ In X (find_ancestors C G)).
-Proof. 
+Proof. (* TODO do this by induction on distance from A or distance to B? *)
 Admitted.
 
 

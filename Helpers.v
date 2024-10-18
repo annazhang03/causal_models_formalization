@@ -65,6 +65,13 @@ Proof. reflexivity. Qed.
 Example one_overlap : overlap [1;2;3] [2] = true.
 Proof. reflexivity. Qed.
 
+Lemma overlap_with_empty: forall l, overlap l [] = false.
+Proof.
+  intros l. induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. apply IH.
+Qed.
+
 Theorem no_overlap_non_member: forall l1 l2: list nat,
   overlap l1 l2 = false <-> forall x: nat, In x l2 -> ~(In x l1).
 Proof.
@@ -526,6 +533,21 @@ Proof.
     + simpl in H1. destruct H1 as [H1 | H1].
       * rewrite H1 in Htesth. rewrite H2 in Htesth. discriminate Htesth.
       * apply IHt. apply H1. }
+Qed.
+
+Theorem forallb_true : forall (X : Type) (test : X -> bool) (x : X) (l: list X),
+  In x l -> (forallb test l = true -> test x = true).
+Proof.
+  intros X test.
+  intros x l. intros Hmem.
+  induction l as [| h t IHt].
+  - simpl in Hmem. exfalso. apply Hmem.
+  - simpl. intros H.
+    destruct (test h) as [|] eqn:Htesth.
+    + simpl in H. simpl in Hmem. destruct Hmem as [H1 | H1].
+      * rewrite <- H1. apply Htesth.
+      * apply IHt. apply H1. apply H.
+    + simpl in H. discriminate H.
 Qed.
 
 

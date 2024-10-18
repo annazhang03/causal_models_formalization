@@ -70,6 +70,17 @@ Proof.
         -- apply IH. apply H.
 Qed.
 
+Lemma member_edge_In_equiv_false : 
+  forall (l : edges) (x: edge), member_edge x l = false <-> ~(In x l).
+Proof.
+  intros l x.
+  split.
+  - intros Hmem HIn. apply member_edge_In_equiv in HIn. rewrite Hmem in HIn. discriminate HIn.
+  - intros HIn. unfold not in HIn. destruct (member_edge x l) as [|] eqn:Hmem.
+    + exfalso. apply HIn. apply member_edge_In_equiv. apply Hmem.
+    + reflexivity.
+Qed.
+
 Definition path_start (p: path) : node :=
   match p with
   | (u, v, l) => u
@@ -228,8 +239,25 @@ Definition node_in_graph (u: node) (G: graph) : bool :=
   | (V, E) => member u V
   end.
 
+Definition edge_in_graph (e: edge) (G: graph) : bool :=
+  match G with
+  | (V, E) => member_edge e E
+  end.
 
-(* example graph *)
+Theorem edge_corresponds_to_nodes_in_well_formed: forall (G: graph) (u v: node),
+  G_well_formed G = true /\ edge_in_graph (u, v) G = true
+  -> node_in_graph u G = true /\ node_in_graph v G = true.
+Proof.
+  intros [V E] u v [HG Hedge].
+  unfold G_well_formed in HG. apply forallb_true with (x:=(u,v)) in HG.
+  - apply split_and_true in HG. destruct HG as [Hu Hv]. simpl.
+    rewrite Hu. rewrite Hv. split. reflexivity. reflexivity.
+  - simpl in Hedge. apply member_edge_In_equiv. apply Hedge.
+Qed.
+
+
+
+(* example graphs *)
 Definition E : edges := [(1, 2); (3, 2); (3, 1); (4, 1)].
 Definition V : nodes := [1; 2; 3; 4].
 Definition G : graph := (V, E).
@@ -243,6 +271,18 @@ Definition G_cf : graph := (V_cf, E_cf).
 Definition V_d : nodes := [1; 2; 3; 4; 5; 6; 7; 8; 9; 10]. (* UZ UW UX UY Z W X Y UU U *)
 Definition E_d : edges := [(1, 5); (5, 6); (2, 6); (7, 6); (3, 7); (4, 8); (7, 8); (6, 10); (9, 10)].
 Definition G_d : graph := (V_d, E_d).
+
+Definition G_d_modified : graph := (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]).
+
+(* temperature (Z=5), ice cream sales (X=4), and crime rates (Y=6), Figure 3.1 of primer *)
+Definition V_temp : nodes := [1; 2; 3; 4; 5; 6].
+Definition E_temp : edges := [(1, 4); (2, 5); (3, 6); (5, 4); (5, 6)].
+Definition G_temp : graph := (V_temp, E_temp).
+
+(* new drug (X=1), recovery (Y=2), weight (W=3), socioeconomic status (unmeasured, Z=4), Fig 3.6 *)
+Definition V_drug : nodes := [1; 2; 3; 4].
+Definition E_drug : edges := [(1, 2); (3, 2); (4, 1); (4, 3)].
+Definition G_drug : graph := (V_drug, E_drug).
 
 Definition vertex_subset (S: nodes) (G: graph) : bool :=
   match G with
@@ -403,6 +443,21 @@ Proof. reflexivity. Qed.
 
 Example dir_path_not_in_graph: is_directed_path_in_graph (2, 4, [1]) G = false.
 Proof. reflexivity. Qed.
+
+Theorem directed_path_is_path: forall (p: path) (G: graph),
+  is_directed_path_in_graph p G = true -> is_path_in_graph p G = true.
+Proof.
+  intros [[u v] l] [V E] Hdir.
+  unfold is_directed_path_in_graph in Hdir.
+  unfold is_path_in_graph.
+  induction ((u :: l) ++ [v]) as [| h t IH].
+  - simpl. reflexivity.
+  - destruct t as [| h1 t1].
+    + simpl. reflexivity.
+    + simpl. simpl in Hdir. apply split_and_true in Hdir. destruct Hdir as [Hedge Hind].
+      rewrite Hedge. simpl.
+      apply IH. apply Hind.
+Qed.
 
 Theorem concat_directed_paths: forall u1 mid v2: node, forall l1 l2: nodes, forall G: graph,
   is_directed_path_in_graph (u1, mid, l1) G = true /\ is_directed_path_in_graph (mid, v2, l2) G = true
@@ -893,6 +948,41 @@ Proof.
     + apply dirUyx.
   - unfold concat. unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl.
 Qed.
+
+Fixpoint find_parents_from_edges (X: node) (E: edges) : nodes :=
+  match E with
+  | [] => []
+  | h :: t => match h with
+              | (u, v) => if (v =? X) then u :: (find_parents_from_edges X t)
+                          else find_parents_from_edges X t
+              end
+  end.
+
+Definition find_parents (X: node) (G: graph) : nodes :=
+  match G with
+  | (V, E) => find_parents_from_edges X E
+  end.
+
+Theorem edge_from_parent_to_child: forall (X P: node) (G: graph),
+  In P (find_parents X G) -> edge_in_graph (P, X) G = true.
+Proof.
+  intros X P [V E].
+  intros Hmem. simpl. simpl in Hmem.
+  induction E as [| h t IH].
+  - simpl in Hmem. exfalso. apply Hmem.
+  - destruct h as [u v]. destruct (v =? X) as [|] eqn:HvX.
+    + simpl in Hmem. rewrite HvX in Hmem. simpl in Hmem.
+      destruct Hmem as [HuIsP | HInd].
+      * simpl. rewrite HvX. apply eqb_eq in HuIsP. rewrite HuIsP. simpl. reflexivity.
+      * simpl. destruct ((u =? P) && (v =? X)) as [|] eqn:H.
+        -- reflexivity.
+        -- apply IH. apply HInd.
+    + simpl in Hmem. rewrite HvX in Hmem. simpl. rewrite HvX.
+      destruct (u =? P) as [|] eqn:HuP.
+      * simpl. apply IH. apply Hmem.
+      * simpl. apply IH. apply Hmem.
+Qed.
+
 
 (* find all undirected acyclic paths in G *)
 
@@ -1496,6 +1586,9 @@ Definition path_into_start (p: path) (G: graph) : bool :=
                end
   end.
 
+Definition find_backdoor_paths_from_start_to_end (X Y: node) (G: graph) : paths :=
+  filter (fun p: path => path_into_start p G) (find_all_paths_from_start_to_end X Y G).
+
 Theorem path_must_have_direction: forall p: path, forall G: graph,
   is_path_in_graph p G = true -> path_into_start p G = false -> path_out_of_start p G = true.
 Proof.
@@ -2002,13 +2095,13 @@ Proof. reflexivity. Qed.
 
 (* based on figure 2.8 of primer *)
 (* conditioning on nothing leaves the path Z <- T -> Y open *)
-Example unconditionally_dependent: ~(d_separated 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) []).
+Example unconditionally_dependent: ~(d_separated 5 8 G_d_modified []).
 Proof.
   unfold not. compute. tauto.
 Qed.
 
 Example unconditionally_dependent_2:
-  d_separated_bool 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [] = false.
+  d_separated_bool 5 8 G_d_modified [] = false.
 Proof. reflexivity. Qed.
 
 (* conditioning on T blocks the second path from Z to Y *)
@@ -2155,4 +2248,125 @@ Proof.
                  apply IH in col. apply col.
 Qed.
 
+(* interventions *)
+Definition remove_edges_into (X: node) (E: edges) : edges :=
+  filter (fun edg => negb (snd edg =? X)) E.
+
+Definition do (X: node) (G: graph) : graph :=
+  match G with
+  | (V, E) => (V, remove_edges_into X E)
+  end.
+
+Example do_X_ice_cream: do 4 G_temp = (V_temp, [(2, 5); (3, 6); (5, 6)]).
+Proof. reflexivity. Qed.
+
+Lemma do_preserves_nodes: forall (X Y: node) (G: graph),
+  (node_in_graph Y G = true) -> (node_in_graph Y (do X G) = true).
+Proof.
+  intros X Y [V E].
+  simpl. intros H. apply H.
+Qed.
+
+Lemma do_preserves_edges_not_into_X: forall (X: node) (e: edge) (G: graph), 
+  (edge_in_graph e G = true) -> (snd e =? X) = false
+  -> edge_in_graph e (do X G) = true.
+Proof.
+  intros X e [V E]. intros He. intros HeX.
+  unfold do. simpl. simpl in He.
+  apply member_edge_In_equiv. apply filter_true. split.
+  - apply member_edge_In_equiv in He. apply He.
+  - replace (true) with (negb false).
+    + f_equal. apply HeX.
+    + reflexivity.
+Qed.
+
+Lemma do_removes_edges_into_X: forall (X: node) (e: edge) (G: graph), 
+  (snd e =? X) = true -> edge_in_graph e (do X G) = false.
+Proof.
+  intros X e [V E]. intros HeX.
+  unfold do. simpl.
+  unfold remove_edges_into.
+  apply member_edge_In_equiv_false. intros HIn.
+  apply filter_In in HIn as [_ contra].
+  apply negb_both_sides in contra. simpl in contra.
+  (* destruct (snd e =? X) eqn:Htest. *)
+  Fail rewrite HeX in contra.
+  Fail rewrite contra in HeX.
+Abort.
+
+Theorem do_removes_paths_to_X: forall (X: node) (G: graph), 
+  find_all_paths_to_end X (find_all_paths (do X G)) = [].
+Proof.
+Admitted.
+
+(* TODO examples from causal inference in statistics for do operator and backdoor criterion *)
+
+Definition satisfies_backdoor_criterion (X Y: node) (G: graph) (Z: nodes) : Prop :=
+  (* no node in Z is a descendant of X *)
+  overlap Z (find_descendants X G) = false /\
+  (* Z blocks every path between X and Y that contains an arrow into X *)
+  forallb (fun p: path => path_is_blocked_bool G Z p) 
+          (find_backdoor_paths_from_start_to_end X Y G) = true.
+
+(* Figure 3.6 of primer *)
+Example weight_fits_backdoor_criterion: satisfies_backdoor_criterion 1 2 G_drug [3].
+Proof.
+  compute. split. reflexivity. reflexivity.
+Qed.
+
+(* Figure 2.8 *)
+Example no_backdoor_paths: satisfies_backdoor_criterion 7 8 G_d_modified [].
+Proof.
+  compute. split. reflexivity. reflexivity.
+Qed.
+
+Example dont_adjust_for_collider: ~(satisfies_backdoor_criterion 7 8 G_d_modified [6]).
+Proof.
+  compute. intros [contra _]. discriminate.
+Qed.
+
+
+Theorem parent_satisfy_backdoor_criterion: forall (X Y: node) (G: graph),
+  G_well_formed G = true -> 
+  (contains_cycle G = false) -> satisfies_backdoor_criterion X Y G (find_parents X G).
+Proof.
+  intros X Y G HG Hacyc.
+  unfold satisfies_backdoor_criterion. split.
+  - (* If there was overlap, then a parent P would be a descendant of X.
+       Then there is a dipath from X to P, so concatenating that with edge (P, X)
+       forms a cycle, contradicting Hacyc. *)
+    apply no_overlap_non_member. intros P Hdesc Hparent.
+    apply find_descendants_correct in Hdesc as [U [Hdir HUse]].
+    apply edge_from_parent_to_child in Hparent as Hedge.
+    assert (HedgePath: is_directed_path_in_graph (P, X, []) G = true).
+    { simpl. rewrite andb_comm. simpl. unfold is_edge. destruct G as [V E].
+      simpl in Hedge. rewrite Hedge. rewrite andb_comm. simpl.
+      assert (H: node_in_graph P (V, E) = true /\ node_in_graph X (V, E) = true).
+      { apply edge_corresponds_to_nodes_in_well_formed. split. apply HG.
+        simpl. apply Hedge. }
+      simpl in H. destruct H as [HP HV]. rewrite HP. rewrite HV. reflexivity. }
+    destruct U as [[u v] l]. apply path_start_end_equal in HUse as [HuX HvP].
+    assert (HnewPath: is_directed_path_in_graph (concat X P X l []) G = true).
+    { apply concat_directed_paths. split.
+      - rewrite HuX in Hdir. rewrite HvP in Hdir. apply Hdir.
+      - apply HedgePath. }
+    assert (contra: acyclic_path_2 (concat X P X l [])).
+    { apply contains_cycle_false_correct with (p:=(concat X P X l [])) in Hacyc. apply Hacyc.
+      apply directed_path_is_path. apply HnewPath. }
+    simpl in contra. destruct contra as [contra _].
+    apply eqb_neq in contra. rewrite eqb_refl in contra. discriminate contra.
+  - (* For each path, the second node is a parent P (since the path is backdoor).
+       The path is blocked: if P is a mediator or confounder, then it blocks 
+       the path. If P is a collider, contradiction (cycle (X, P), (P, X)) *)
+    apply forallb_forall. intros U Hbackdoor.
+    unfold find_backdoor_paths_from_start_to_end in Hbackdoor.
+    apply filter_true in Hbackdoor as [HUpath HintoX].
+    apply paths_start_to_end_correct in HUpath as [HUpath [HUse HUacyc]].
+    destruct U as [[u v] l]. apply path_start_end_equal in HUse as [HuX HvY].
+    destruct l as [| h t].
+    + unfold path_is_blocked_bool.
+      assert (Hcol: is_blocked_by_collider_2 (u, v, []) G (find_parents X G) = true).
+      { unfold is_blocked_by_collider_2.
+        simpl. apply overlap_with_empty.
+Admitted.
 
