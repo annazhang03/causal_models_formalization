@@ -2289,10 +2289,10 @@ Proof.
   apply member_edge_In_equiv_false. intros HIn.
   apply filter_In in HIn as [_ contra].
   apply negb_both_sides in contra. simpl in contra.
-  (* destruct (snd e =? X) eqn:Htest. *)
-  Fail rewrite HeX in contra.
-  Fail rewrite contra in HeX.
-Abort.
+  unfold node in *.
+  rewrite HeX in contra.
+  discriminate contra.
+Qed.
 
 Theorem do_removes_paths_to_X: forall (X: node) (G: graph), 
   find_all_paths_to_end X (find_all_paths (do X G)) = [].
