@@ -161,6 +161,64 @@ Proof.
   - simpl. rewrite IH. reflexivity.
 Qed.
 
+Fixpoint max_list (l: list nat) : nat :=
+  match l with
+  | [] => 0
+  | h :: t => if leb (max_list t) h then h else (max_list t)
+  end.
+
+
+Lemma leb_true_vs_false: forall x y: nat,
+ (x <=? y) = false -> (y <=? x) = true. (* x not <= y --> x > y --> y < x --> y <= x*)
+Proof.
+  intros x y H.
+  assert (H1: y < x).
+  { apply leb_iff_conv in H. apply H. }
+  apply leb_le.
+  apply le_trans with (m := S y).
+  - apply le_succ_diag_r.
+  - apply leb_correct in H1. apply leb_le in H1. apply H1.
+Qed.
+
+
+Theorem max_correct: forall l: list nat, forall x: nat,
+  In x l -> leb x (max_list l) = true.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl in H. destruct H as [H | H].
+    + simpl. destruct (max_list t <=? h) as [|] eqn:Hmax.
+      * rewrite H. unfold leb. apply leb_refl.
+      * rewrite H in Hmax. apply leb_true_vs_false in Hmax. apply Hmax.
+    + simpl. apply IH in H.
+      destruct (max_list t <=? h) as [|] eqn:Hmax.
+      * apply leb_le. apply leb_le in Hmax.
+        apply le_trans with (m := (max_list t)).
+        -- apply leb_le in H. apply H.
+        -- apply Hmax.
+      * apply H.
+Qed.
+
+
+Fixpoint shift_list (l: list nat) (shift: nat) : list nat :=
+  match l with
+  | [] => []
+  | h :: t => (h + shift) :: (shift_list t shift)
+  end.
+
+Example shift_1: shift_list [1;2;3] 4 = [5;6;7].
+Proof. reflexivity. Qed.
+
+Fixpoint fsts (l: list (nat * nat)) : list nat :=
+  match l with
+  | [] => []
+  | h :: t => (fst h) :: (fsts t)
+  end.
+
+Example firsts_test: fsts [(1,2); (2,3); (4,3)] = [1; 2; 4].
+Proof. reflexivity. Qed.
+
 Theorem andb_true_elim2 : forall b c : bool,
   andb b c = true -> b = true.
 Proof.

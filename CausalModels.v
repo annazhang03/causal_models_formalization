@@ -2367,6 +2367,211 @@ Proof.
     + unfold path_is_blocked_bool.
       assert (Hcol: is_blocked_by_collider_2 (u, v, []) G (find_parents X G) = true).
       { unfold is_blocked_by_collider_2.
-        simpl. apply overlap_with_empty.
+        simpl.
 Admitted.
+
+
+
+(* counterfactuals *)
+Definition assignment : Type := node * nat.
+Definition assignments : Type := list assignment.
+
+Definition no_repeat_nodes (V: nodes) : bool :=
+  forallb (fun x: node => count x V =? 1) V.
+
+Definition find_new_node (V: nodes) : node :=
+  (max_list V) + 1.
+
+Example add_new_node_1: find_new_node [1;2;3;4] = 5.
+Proof. reflexivity. Qed.
+
+Example add_new_node_2: find_new_node [1;2;4] = 5.
+Proof. reflexivity. Qed.
+
+Example add_new_node_3: find_new_node [2;1;4] = 5.
+Proof. reflexivity. Qed.
+
+Example add_new_node_4: find_new_node [2;4] = 5.
+Proof. reflexivity. Qed.
+
+Lemma new_node_non_member: forall V: nodes,
+  member (find_new_node V) V = false.
+Proof.
+  intros V.
+  unfold find_new_node.
+  destruct (member (max_list V + 1) V) as [|] eqn:Hmem.
+  - apply member_In_equiv in Hmem. apply max_correct in Hmem.
+    apply leb_le in Hmem. 
+    lia.
+  - reflexivity.
+Qed.
+
+Theorem add_new_node_no_repeats: forall V: nodes,
+  no_repeat_nodes V = true -> no_repeat_nodes ((find_new_node V) :: V) = true.
+Proof.
+  intros V H.
+  apply forallb_true_iff. simpl. split.
+  - (* find new node has no repeats *)
+    rewrite eqb_refl. simpl.
+    apply eqb_eq. apply not_member_count_0.
+    apply new_node_non_member.
+  - (* V has no repeats (H) *)
+    apply forallb_true_iff.
+    unfold no_repeat_nodes in H.
+    apply forallb_forall. intros x Hmem.
+    destruct (find_new_node V =? x) as [|] eqn:contra.
+    + apply eqb_eq in contra. rewrite <- contra in Hmem. apply member_In_equiv in Hmem.
+      assert (Hnomem: member (find_new_node V) V = false). { apply new_node_non_member. }
+      rewrite Hmem in Hnomem. discriminate Hnomem.
+    + apply forallb_true with (test := (fun x : node => count x V =? 1)) in Hmem.
+      * apply Hmem.
+      * apply H.
+Qed.
+
+Fixpoint create_twin_nodes_helper (all_nodes: nodes) (new_nodes: nodes) (iters: nat) : nodes :=
+  match iters with
+  | 0 => new_nodes
+  | S iters' => let v := (find_new_node all_nodes) in
+                create_twin_nodes_helper (v :: all_nodes) (new_nodes ++ [v]) iters'
+  end.
+
+Definition create_twin_nodes (V: nodes) : nodes :=
+  create_twin_nodes_helper V [] (length V).
+
+Example twin_nodes_1: create_twin_nodes [1] = [2].
+Proof. reflexivity. Qed.
+
+Example twin_nodes_2: create_twin_nodes [3;5] = [6;7].
+Proof. reflexivity. Qed.
+
+Example twin_nodes_3: create_twin_nodes [100; 94; 892] = [893; 894; 895].
+Proof. reflexivity. Qed.
+
+
+(*
+BEFORE PREPROCESSING:
+
+for each v in V:
+  create new v' in V'
+  create new u in U
+  add edges (u, v), (u, v')
+
+for each edge (x, y) in E:
+  add edge (x', y')
+
+for each v in obs:
+  apply do operator for v
+
+for each v in cf:
+  apply do operator for v' based on corr
+
+for each u in U:
+  if u has <2 edges out, delete edges and node
+
+return (V + V' + U, edges)
+*)
+
+Fixpoint get_twin_nodes_and_unobserved_edges (V: nodes) (new_nodes: nodes) (new_edges: edges) (o: nat) : nodes * edges :=
+  match V with
+  | [] => (new_nodes, new_edges)
+  | h :: t => get_twin_nodes_and_unobserved_edges t (new_nodes ++ [h + o; h + o + o]) (new_edges ++ [(h + o + o, h); (h + o + o, h + o)]) o
+  end.
+
+Example twin_network_1: get_twin_nodes_and_unobserved_edges [1;2;3] [] [] 3 = ([4;7;5;8;6;9], [(7,1); (7,4); (8,2); (8,5); (9,3); (9,6)]).
+Proof. reflexivity. Qed.
+
+Example twin_network_2: get_twin_nodes_and_unobserved_edges [1;6] [] [] 6 = ([7;13;12;18], [(13,1); (13,7); (18,6); (18,12)]).
+Proof. reflexivity. Qed.
+
+Fixpoint get_twin_edges (E: edges) (new_edges: edges) (o: nat) : edges :=
+  match E with
+  | [] => new_edges
+  | h :: t => match h with
+              | (u, v) => get_twin_edges t (new_edges ++ [(u + o, v + o)]) o
+              end
+  end.
+
+Example twin_edges_1: get_twin_edges [(1, 2); (3, 2)] [] 3 = [(4,5); (6,5)].
+Proof. reflexivity. Qed.
+
+Definition create_duplicate_network_helper (G: graph) (o: nat): graph :=
+  match G with
+  | (V, E) => let duplicate_G := get_twin_nodes_and_unobserved_edges V [] [] o in
+              (V ++ (fst duplicate_G), E ++ (snd duplicate_G) ++ (get_twin_edges E [] o))
+  end.
+
+Example duplicate_graph_1: create_duplicate_network_helper ([1;2;3], [(1, 2); (3, 2)]) 3 
+  = ([1;2;3;4;7;5;8;6;9], [(1,2);(3,2);(7,1); (7,4); (8,2); (8,5); (9,3); (9,6); (4,5); (6,5)]).
+Proof. reflexivity. Qed.
+
+Fixpoint do_several (G: graph) (fixed: nodes): graph :=
+  match fixed with
+  | [] => G
+  | h :: t => do_several (do h G) t
+  end. (* TODO does the order this is done in matter? *)
+
+Fixpoint remove_unobserved (original_V: nodes) (new_nodes: nodes) (new_edges: edges) (o: nat) : graph :=
+  match original_V with
+  | [] => (new_nodes, new_edges)
+  | h :: t => if (member_edge (h + o + o, h) new_edges && member_edge (h + o + o, h + o) new_edges) then remove_unobserved t new_nodes new_edges o
+              else remove_unobserved t (filter (fun x => negb (x  =? h + o + o)) new_nodes) (filter (fun x => negb (fst x =? h + o + o)) new_edges) o
+  end.
+
+Definition create_initial_twin_network (G: graph) (obs: assignments) (cf: assignments): graph :=
+  match G with
+  | (V, E) => let offset := max_list V in
+              let duplicate_G := create_duplicate_network_helper G offset in
+              (do_several (do_several duplicate_G (fsts obs)) (shift_list (fsts cf) offset))
+  end.
+
+Example twin_1: create_initial_twin_network ([1;2;3], [(1, 2); (3, 2)]) [] [(1, 70)]
+  = ([1;2;3;4;7;5;8;6;9], [(1,2); (3,2); (7,1); (8,2); (8,5); (9,3); (9,6); (4,5); (6,5)]).
+Proof. reflexivity. Qed.
+
+Definition create_twin_network_before_preprocess (G: graph) (obs: assignments) (cf: assignments): graph :=
+  let init := create_initial_twin_network G obs cf in
+  match G with
+  | (V, E) => remove_unobserved V (fst init) (snd init) (max_list V)
+  end.
+
+Definition sequential_V: nodes := [1; 2; 3; 4; 5]. (* [A, H, B, Z, Y] *)
+Definition sequential_E: edges := [(1, 4); (2, 4); (2, 3); (4, 3); (4, 5); (3, 5)].
+Definition sequential_G: graph := (sequential_V, sequential_E).
+
+Definition sequential_twin: graph := create_twin_network_before_preprocess sequential_G [] [(1, 1); (3, 2)].
+Example sequential_twin_network: sequential_twin (* fix counterfactuals a=1, b=2 *)
+  = ([1; 2; 3; 4; 5; 6; 7; 12; 8; 9; 14; 10; 15], sequential_E ++ [(12, 2); (12, 7); (14, 4); (14, 9); (15, 5); (15, 10)] ++ [(6, 9); (7, 9); (9, 10); (8, 10)]).
+Proof. reflexivity. Qed.
+
+Example sequential_twin_network_error: d_separated_bool 10 3 sequential_twin [4;1] = false.
+Proof.
+  apply d_separated_vs_connected.
+  exists [9; 7; 12; 2].
+  split.
+  - simpl. split. easy. split.
+    + intros H. destruct H as [H | [H | [H | [H | H]]]]. discriminate H. discriminate H. discriminate H. discriminate H. apply H.
+    + split. intros H. destruct H as [H | [H | [H | [H | H]]]]. discriminate H. discriminate H. discriminate H. discriminate H. apply H. reflexivity.
+  - split.
+    + simpl. reflexivity.
+    + unfold d_connected_2. split.
+      * simpl. reflexivity.
+      * split.
+        -- simpl. reflexivity.
+        -- simpl. reflexivity.
+Qed.
+
+
+(*
+PREPROCESSING:
+
+compute topological ordering of original graph
+
+for each node v in topo order:
+  if for v and v', 1) parents are the same; 2) not both assigned a different value:
+    merge v and v' into single node
+    remove u if necessary
+*)
+
+
+
 
