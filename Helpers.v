@@ -94,7 +94,32 @@ Proof.
       intros x Hxl2. specialize (H x). intros Hxt. apply H in Hxl2. unfold not in Hxl2.
       apply Hxl2. right. apply Hxt. }
 Qed.
-  
+
+Theorem no_overlap_non_member_rev: forall l1 l2: list nat,
+  overlap l1 l2 = false <-> forall x: nat, In x l1 -> ~(In x l2).
+Proof.
+  intros l1 l2. split.
+  { intros Hover x HIn.
+  induction l1 as [| h t IH].
+  - simpl in HIn. exfalso. apply HIn.
+  - intros HIn2. simpl in Hover. apply member_In_equiv in HIn2.
+    simpl in HIn. destruct HIn as [Hhx | Hind].
+    + rewrite Hhx in Hover. rewrite HIn2 in Hover. discriminate Hover.
+    + apply IH.
+      * destruct (member h l2) as [|] eqn:Hmem.
+        -- discriminate Hover.
+        -- apply Hover.
+      * apply Hind.
+      * apply member_In_equiv. apply HIn2. }
+  { intros H. induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (member h l2) as [|] eqn:Hmem.
+    + specialize (H h). apply member_In_equiv in Hmem. apply H in Hmem.
+      * exfalso. apply Hmem.
+      * simpl. left. reflexivity.
+    + apply IH. simpl in H. intros x HIn. specialize (H x).
+      apply H. right. apply HIn. }
+Qed.
 
 Fixpoint count (v : nat) (l : list nat) : nat
   := match l with 
@@ -159,6 +184,26 @@ Proof.
   induction l1 as [| h t IH].
   - simpl. reflexivity.
   - simpl. rewrite IH. reflexivity.
+Qed.
+
+Lemma membership_append: forall (X : Type) (l1 l2: list X) (u: X),
+  In u l1 -> In u (l1 ++ l2).
+Proof.
+  intros X l1 l2 u H.
+  induction l1 as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl in H. simpl. destruct H as [H | H].
+    + left. apply H.
+    + right. apply IH. apply H.
+Qed.
+
+Lemma membership_append_r: forall (X : Type) (l1 l2: list X) (u: X),
+  In u l2 -> In u (l1 ++ l2).
+Proof.
+  intros X l1 l2 u H.
+  induction l1 as [| h t IH].
+  - simpl. apply H.
+  - simpl. right. apply IH.
 Qed.
 
 Fixpoint max_list (l: list nat) : nat :=
@@ -416,6 +461,75 @@ Proof.
       * apply IH. apply H2.
 Qed.
 
+Fixpoint prefix (l1 l2: list nat): bool :=
+  match l1 with
+  | [] => true
+  | h1 :: t1 => match l2 with
+                | [] => false
+                | h2 :: t2 => (h1 =? h2) && prefix t1 t2
+                end
+  end.
+
+Fixpoint sublist (l1 l2: list nat) : bool :=
+  match l2 with
+  | [] => eqblist l1 []
+  | h1 :: t1 => prefix l1 l2 || sublist l1 t1
+  end.
+
+Example sublist_1: sublist [2;3] [1;2;3;4] = true.
+Proof. reflexivity. Qed.
+
+Example sublist_2: sublist [2;3] [1;2;4;3;2;3;2] = true.
+Proof. reflexivity. Qed.
+
+Example sublist_3: sublist [2;3] [1;2;4;3] = false.
+Proof. reflexivity. Qed.
+
+Lemma sublist_empty: forall l: list nat, sublist [] l = true.
+Proof.
+  destruct l as [| h t].
+  - simpl. reflexivity.
+  - simpl. reflexivity.
+Qed.
+
+Lemma prefix_member: forall (l1 l2: list nat) (x: nat),
+  In x l1 /\ prefix l1 l2 = true -> In x l2.
+Proof.
+  intros l1.
+  induction l1 as [| h1 t1 IH].
+  - intros l2 x. intros [Hmem Hpre]. exfalso. apply Hmem.
+  - intros l2 x. intros [Hmem Hpre]. destruct l2 as [| h2 t2].
+    + simpl in Hpre. discriminate Hpre.
+    + simpl in Hpre. simpl in Hmem. simpl.
+      apply split_and_true in Hpre. destruct Hpre as [H12 Hpre].
+      destruct Hmem as [Hhx | Hmem].
+      * apply eqb_eq in H12. rewrite H12 in Hhx. left. apply Hhx.
+      * right. apply IH with (l2 := t2). split.
+        -- apply Hmem.
+        -- apply Hpre.
+Qed.
+
+Theorem sublist_member: forall (l1 l2: list nat) (x: nat),
+  In x l1 /\ sublist l1 l2 = true -> In x l2.
+Proof.
+  intros l1 l2 x.
+  intros [Hmem Hsub].
+  induction l2 as [| h2 t2 IH].
+  - destruct l1 as [| h1 t1].
+    + apply Hmem.
+    + simpl in Hsub. discriminate Hsub.
+  - simpl. simpl in Hsub.
+    apply split_orb_true in Hsub. destruct Hsub as [Hpre | Hind].
+    + destruct l1 as [| h1 t1].
+      * exfalso. apply Hmem.
+      * simpl in Hmem. simpl in Hpre. apply split_and_true in Hpre.
+        destruct Hpre as [H12 Hpre].
+        destruct Hmem as [Hhx | Hmem].
+        -- left. rewrite <- Hhx. apply eqb_eq in H12. rewrite H12. reflexivity.
+        -- right. apply prefix_member with (l1 := t1). split.
+           apply Hmem. apply Hpre.
+    + right. apply IH. apply Hind.
+Qed.
 
 (* logic functions *)
 

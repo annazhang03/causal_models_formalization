@@ -234,6 +234,11 @@ Definition node_in_graph (u: node) (G: graph) : bool :=
   | (V, E) => member u V
   end.
 
+Definition max_node_in_graph (G: graph) : node :=
+  match G with
+  | (V, E) => max_list V
+  end.
+
 Definition edge_in_graph (e: edge) (G: graph) : bool :=
   match G with
   | (V, E) => member_edge e E
@@ -278,6 +283,11 @@ Definition G_temp : graph := (V_temp, E_temp).
 Definition V_drug : nodes := [1; 2; 3; 4].
 Definition E_drug : edges := [(1, 2); (3, 2); (4, 1); (4, 3)].
 Definition G_drug : graph := (V_drug, E_drug).
+
+Definition vertex_subset (S: nodes) (G: graph) : bool :=
+  match G with
+  | (V, E) => subset S V
+  end.
 
 Fixpoint no_one_cycles (E: edges) : bool :=
   match E with
@@ -1449,6 +1459,62 @@ Definition find_mediators_in_path (p: path) (G: graph) : nodes :=
   | (u, v, l) => find_mediators_in_nodes (u :: (l ++ [v])) G
   end.
 
+Theorem mediators_vs_edges_in_path: forall (l: nodes) (G: graph) (x: node),
+  In x (find_mediators_in_nodes l G)
+    <-> exists y z: node, sublist [y; x; z] l = true /\ is_edge (y, x) G = true /\ is_edge (x, z) G = true.
+Proof.
+  intros l G x. split.
+  { intros Hmed. induction l as [| h t IH].
+  - simpl in Hmed. exfalso. apply Hmed.
+  - destruct t as [| h' t'].
+    + simpl in Hmed. exfalso. apply Hmed.
+    + destruct t' as [| h'' t''].
+      * simpl in Hmed. exfalso. apply Hmed.
+      * destruct (is_mediator_bool h h'' h' G) as [|] eqn:Hmed2.
+        -- simpl in Hmed. rewrite Hmed2 in Hmed. simpl in Hmed. destruct Hmed as [Hhx | Hind].
+           { exists h. exists h''. split.
+             - rewrite <- Hhx. simpl.
+               rewrite eqb_refl. simpl. rewrite eqb_refl. simpl. rewrite eqb_refl. reflexivity.
+             - unfold is_mediator_bool in Hmed2. apply split_and_true in Hmed2.
+               rewrite <- Hhx. apply Hmed2. }
+           { apply IH in Hind. destruct Hind as [y Hind]. destruct Hind as [z Hind].
+             exists y. exists z. split.
+             - destruct Hind as [Hsub _]. simpl. apply split_orb_true. right. apply Hsub.
+             - destruct Hind as [_ Hedge]. apply Hedge. }
+        -- simpl in Hmed. rewrite Hmed2 in Hmed. simpl in Hmed. apply IH in Hmed.
+           destruct Hmed as [y [z Hmed]]. exists y. exists z.
+           split.
+           { destruct Hmed as [Hsub _]. simpl. apply split_orb_true. right. apply Hsub. }
+           { destruct Hmed as [_ Hedge]. apply Hedge. } }
+  { intros [y [z [Hsub Hedge]]]. induction l as [| h t IH].
+  - simpl in Hsub. discriminate Hsub.
+  - destruct t as [| h' t'].
+    + simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [contra | contra].
+      * rewrite andb_comm in contra. apply andb_true_elim2 in contra. discriminate contra.
+      * discriminate contra.
+    + destruct t' as [| h'' t''].
+      * simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [contra | contra].
+        -- rewrite andb_comm in contra. apply andb_true_elim2 in contra.
+           rewrite andb_comm in contra. apply andb_true_elim2 in contra. discriminate contra.
+        -- apply split_orb_true in contra. destruct contra as [contra | contra].
+           { rewrite andb_comm in contra. apply andb_true_elim2 in contra. discriminate contra. }
+           { discriminate contra. }
+      * simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hyxz | Hind].
+        -- apply split_and_true in Hyxz. destruct Hyxz as [Hy Hxz].
+           apply split_and_true in Hxz. destruct Hxz as [Hx Hz].
+           rewrite andb_comm in Hz. simpl in Hz.
+           assert (Hmed: (is_mediator_bool h h'' h' G) = true).
+           { unfold is_mediator_bool.
+             rewrite eqb_eq in Hy. rewrite <- Hy.
+             rewrite eqb_eq in Hx. rewrite <- Hx.
+             rewrite eqb_eq in Hz. rewrite <- Hz.
+             destruct Hedge as [Hyx Hxz]. rewrite Hyx. rewrite Hxz. reflexivity. }
+           simpl. rewrite Hmed. simpl. left. rewrite eqb_eq in Hx. rewrite Hx. reflexivity.
+        -- apply IH in Hind. destruct (is_mediator_bool h h'' h' G) as [|] eqn:Hmed.
+           { simpl. rewrite Hmed. simpl. right. apply Hind. }
+           { simpl. rewrite Hmed. apply Hind. } }
+Qed.
+
 (* p contains chain A -> B -> C, where B in Z (the conditioning set) *)
 Definition is_blocked_by_mediator_2 (p: path) (G: graph) (Z: nodes) : bool :=
   overlap Z (find_mediators_in_path p G). 
@@ -1899,8 +1965,6 @@ Theorem do_removes_paths_to_X: forall (X: node) (G: graph),
 Proof.
 Admitted.
 
-(* TODO examples from causal inference in statistics for do operator and backdoor criterion *)
-
 Definition satisfies_backdoor_criterion (X Y: node) (G: graph) (Z: nodes) : Prop :=
   (* no node in Z is a descendant of X *)
   overlap Z (find_descendants X G) = false /\
@@ -2028,6 +2092,7 @@ Proof.
       * apply H.
 Qed.
 
+
 Fixpoint create_twin_nodes_helper (all_nodes: nodes) (new_nodes: nodes) (iters: nat) : nodes :=
   match iters with
   | 0 => new_nodes
@@ -2077,38 +2142,292 @@ Fixpoint get_twin_nodes_and_unobserved_edges (V: nodes) (new_nodes: nodes) (new_
   | h :: t => get_twin_nodes_and_unobserved_edges t (new_nodes ++ [h + o; h + o + o]) (new_edges ++ [(h + o + o, h); (h + o + o, h + o)]) o
   end.
 
+Lemma new_nodes_recursion: forall V new_nodes: nodes, forall new_edges: edges, forall o: nat, forall u: node,
+  In u new_nodes -> In u (fst (get_twin_nodes_and_unobserved_edges V new_nodes new_edges o)).
+Proof.
+  intros V. induction V as [| h t IH].
+  - intros V' E' o u Hmem. simpl. apply Hmem.
+  - intros V' E' o u Hmem. simpl.
+    specialize (IH (V' ++ [h + o; h + o + o]) (E' ++ [(h + o + o, h); (h + o + o, h + o)]) o u).
+    apply IH. apply membership_append. apply Hmem.
+Qed.
+
+Lemma twin_nodes_duplicated: forall V V': nodes, forall E': edges, forall o: nat, forall u: node,
+  member u V = true -> member (u + o) (fst (get_twin_nodes_and_unobserved_edges V V' E' o)) = true.
+Proof.
+  intros V.
+  induction V as [| h t IH].
+  - intros V' E' o u Hmem. simpl in Hmem. discriminate Hmem.
+  - intros V' E' o u Hmem. simpl in Hmem. destruct (h =? u) as [|] eqn:Hhu.
+    + simpl. apply member_In_equiv. apply new_nodes_recursion.
+      rewrite eqb_eq in Hhu. rewrite Hhu. apply membership_append_r. simpl. left. reflexivity.
+    + simpl.
+      apply IH with (V' := (V' ++ [h + o; h + o + o])) (E' := (E' ++ [(h + o + o, h); (h + o + o, h + o)])).
+      apply Hmem.
+Qed.
+
 Example twin_network_1: get_twin_nodes_and_unobserved_edges [1;2;3] [] [] 3 = ([4;7;5;8;6;9], [(7,1); (7,4); (8,2); (8,5); (9,3); (9,6)]).
 Proof. reflexivity. Qed.
 
 Example twin_network_2: get_twin_nodes_and_unobserved_edges [1;6] [] [] 6 = ([7;13;12;18], [(13,1); (13,7); (18,6); (18,12)]).
 Proof. reflexivity. Qed.
 
-Fixpoint get_twin_edges (E: edges) (new_edges: edges) (o: nat) : edges :=
+Fixpoint get_twin_edges (E: edges) (o: nat) : edges :=
   match E with
-  | [] => new_edges
+  | [] => []
   | h :: t => match h with
-              | (u, v) => get_twin_edges t (new_edges ++ [(u + o, v + o)]) o
+              | (u, v) => (u + o, v + o) :: (get_twin_edges t o)
               end
   end.
 
-Example twin_edges_1: get_twin_edges [(1, 2); (3, 2)] [] 3 = [(4,5); (6,5)].
+Lemma twin_edges_duplicated: forall E: edges, forall o: nat, forall e: edge,
+  member_edge e E = true -> member_edge (fst e + o, snd e + o) (get_twin_edges E o) = true.
+Proof.
+  intros E o e.
+  intros Hmem.
+  induction E as [| h t IH].
+  - simpl in Hmem. discriminate Hmem.
+  - simpl in Hmem. apply split_orb_true in Hmem. destruct Hmem as [Heq | Hmem].
+    + destruct h as [u v]. simpl. destruct e as [u' v'].
+      unfold eqbedge in Heq. apply split_and_true in Heq. destruct Heq as [Hu Hv].
+      simpl. apply eqb_eq in Hu. apply eqb_eq in Hv. rewrite Hu. rewrite eqb_refl. simpl.
+      rewrite Hv. rewrite eqb_refl. simpl. reflexivity.
+    + apply IH in Hmem. destruct h as [u' v']. simpl. rewrite Hmem.
+      rewrite orb_comm. simpl. reflexivity.
+Qed.
+
+Example twin_edges_1: get_twin_edges [(1, 2); (3, 2)] 3 = [(4,5); (6,5)].
 Proof. reflexivity. Qed.
 
 Definition create_duplicate_network_helper (G: graph) (o: nat): graph :=
   match G with
   | (V, E) => let duplicate_G := get_twin_nodes_and_unobserved_edges V [] [] o in
-              (V ++ (fst duplicate_G), E ++ (snd duplicate_G) ++ (get_twin_edges E [] o))
+              (V ++ (fst duplicate_G), E ++ (snd duplicate_G) ++ (get_twin_edges E o))
+  end.
+
+Definition create_duplicate_network (G: graph): graph :=
+  match G with
+  | (V, E) => create_duplicate_network_helper G (max_list V)
   end.
 
 Example duplicate_graph_1: create_duplicate_network_helper ([1;2;3], [(1, 2); (3, 2)]) 3 
   = ([1;2;3;4;7;5;8;6;9], [(1,2);(3,2);(7,1); (7,4); (8,2); (8,5); (9,3); (9,6); (4,5); (6,5)]).
 Proof. reflexivity. Qed.
 
+Fixpoint shift_nodes_by_offset (Z: nodes) (o: nat) :=
+  match Z with
+  | [] => []
+  | h :: t => (h + o) :: (shift_nodes_by_offset t o)
+  end.
+
+Lemma shift_greater_than_offset: forall l: nodes, forall o: nat, forall x: node,
+  In x (shift_nodes_by_offset l o) -> o <= x.
+Proof.
+  intros l o x.
+  induction l as [| h t IH].
+  - intros H. simpl in H. exfalso. apply H.
+  - simpl. intros H. destruct H as [H | H].
+    + lia.
+    + apply IH. apply H.
+Qed.
+
+Lemma shift_member: forall l: nodes, forall x: node, forall o: nat,
+  In x (shift_nodes_by_offset l o) <-> In (x - o) l /\ o <= x.
+Proof.
+  intros l x o. split.
+  { intros Hmem.
+  induction l as [| h t IH].
+  - simpl in Hmem. exfalso. apply Hmem.
+  - simpl. simpl in Hmem. destruct Hmem as [Heq | Hind].
+    + lia.
+    + split.
+      * right. apply IH. apply Hind.
+      * apply shift_greater_than_offset in Hind. apply Hind. }
+  { intros [Hmem Hox].
+  induction l as [| h t IH].
+  - simpl in Hmem. exfalso. apply Hmem.
+  - simpl. simpl in Hmem. destruct Hmem as [Heq | Hind].
+    + left. lia.
+    + right. apply IH. apply Hind. }
+Qed.
+
+Lemma shift_maintains_overlap: forall (l1 l2: nodes) (o: nat),
+  overlap l1 l2 = false -> overlap (shift_nodes_by_offset l1 o) (shift_nodes_by_offset l2 o) = false.
+Proof.
+  intros l1 l2 o H.
+  apply no_overlap_non_member. intros x Hmem2 Hmem1.
+  apply shift_member in Hmem1. destruct Hmem1 as [Hmem1 _].
+  apply shift_member in Hmem2. destruct Hmem2 as [Hmem2 _].
+  apply no_overlap_non_member with (x := x - o) in H.
+  - unfold not in H. apply H. apply Hmem1.
+  - apply Hmem2.
+Qed.
+
+Lemma shift_maintains_prefix: forall (l1 l2: nodes) (o: nat),
+  prefix l1 l2 = true <-> prefix (shift_nodes_by_offset l1 o) (shift_nodes_by_offset l2 o) = true.
+Proof.
+  induction l1 as [| h1 t1 IH].
+  - intros l2 o. split.
+    { simpl. reflexivity. }
+    { simpl. reflexivity. }
+  - intros l2 o. split.
+    { intros Hpref. destruct l2 as [| h2 t2].
+    + simpl in Hpref. discriminate Hpref.
+    + simpl in Hpref. apply split_and_true in Hpref. destruct Hpref as [H12 Hind].
+      simpl. apply eqb_eq in H12. rewrite H12. rewrite eqb_refl. simpl.
+      apply IH with (l2 := t2). apply Hind. }
+    { intros Hpref. destruct l2 as [| h2 t2].
+    + simpl in Hpref. discriminate Hpref.
+    + simpl in Hpref. apply split_and_true in Hpref. destruct Hpref as [H12o Hind].
+      simpl. apply eqb_eq in H12o.
+      assert (H12: h1 = h2). { lia. }
+      rewrite H12. rewrite eqb_refl. simpl.
+      apply IH with (l2 := t2) (o := o). apply Hind. }
+Qed.
+
+Lemma shift_maintains_subset: forall (l1 l2: nodes) (o: nat),
+  sublist l1 l2 = true <-> sublist (shift_nodes_by_offset l1 o) (shift_nodes_by_offset l2 o) = true.
+Proof.
+  intros l1 l2 o. split.
+  { intros Hsub. induction l2 as [| h2 t2 IH].
+  - destruct l1 as [| h1 t1].
+    + simpl. reflexivity.
+    + simpl in Hsub. discriminate Hsub.
+  - simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hpre | Hind].
+    + simpl. apply shift_maintains_prefix with (o := o) in Hpre.
+      simpl in Hpre. rewrite Hpre. simpl. reflexivity.
+    + apply IH in Hind. simpl. rewrite Hind. rewrite orb_comm. simpl. reflexivity. }
+  { intros Hsub. induction l2 as [| h2 t2 IH].
+  - destruct l1 as [| h1 t1]. 
+    + simpl. reflexivity.
+    + simpl in Hsub. discriminate Hsub.
+  - simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hpre | Hind].
+    + simpl.
+      replace (h2 + o :: shift_nodes_by_offset t2 o) with (shift_nodes_by_offset (h2 :: t2) o) in Hpre.
+      * apply shift_maintains_prefix in Hpre. rewrite Hpre. simpl. reflexivity.
+      * simpl. reflexivity.
+    + apply IH  in Hind. simpl. rewrite Hind. rewrite orb_comm. simpl. reflexivity. }
+Qed.
+
+Lemma shift_maintains_append: forall (l1 l2: nodes) (o: nat),
+  (shift_nodes_by_offset l1 o) ++ (shift_nodes_by_offset l2 o) = shift_nodes_by_offset (l1 ++ l2) o.
+Proof.
+  intros l1 l2 o. induction l1 as [| h1 t1 IH].
+  - simpl. reflexivity.
+  - simpl. apply f_equal. apply IH.
+Qed.
+
+Lemma shift_maintains_mediators: forall (u v: node) (l: nodes) (G: graph) (o: nat) (x: node),
+  o = max_node_in_graph G -> In x (find_mediators_in_path (u, v, l) G) <->
+  In (x + o) (find_mediators_in_path (u + o, v + o, shift_nodes_by_offset l o) (create_duplicate_network G)).
+Proof.
+  intros u v l G o x.
+  unfold find_mediators_in_path. intros Ho. split.
+  { intros Hmem.
+  apply mediators_vs_edges_in_path in Hmem. destruct Hmem as [y [z Hmem]].
+  destruct Hmem as [Hsub Hedge].
+  apply mediators_vs_edges_in_path. exists (y + o). exists (z + o). split.
+  - apply shift_maintains_subset with (o := o) in Hsub.
+    replace (shift_nodes_by_offset [y; x; z] o) with ([y + o; x + o; z + o]) in Hsub.
+    replace (shift_nodes_by_offset (u :: l ++ [v]) o) with (u + o :: (shift_nodes_by_offset l o) ++ [v + o]) in Hsub.
+    + apply Hsub.
+    + simpl. replace (shift_nodes_by_offset (l ++ [v]) o) with (shift_nodes_by_offset l o ++ [v + o]).
+      * reflexivity.
+      * apply shift_maintains_append with (l2 := [v]).
+    + simpl. reflexivity.
+  - destruct G as [V E]. simpl in Ho. split.
+    + simpl. destruct Hedge as [Hyx Hxz]. unfold is_edge in Hyx. apply split_and_true in Hyx. destruct Hyx as [Hmem Hedge].
+      apply split_and_true in Hmem. destruct Hmem as [Hy Hx].
+      assert (Hmemy: member (y + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
+      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hy.
+        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
+        apply Hy. } rewrite Hmemy. simpl.
+      assert (Hmemx: member (x + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
+      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hx.
+        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
+        apply Hx. } rewrite Hmemx. simpl.
+      apply twin_edges_duplicated with (o := o) in Hedge. simpl in Hedge.
+      apply member_edge_In_equiv. apply membership_append_r. apply membership_append_r.
+      rewrite <- Ho. apply member_edge_In_equiv. apply Hedge.
+    + simpl. destruct Hedge as [Hyx Hxz]. unfold is_edge in Hxz. apply split_and_true in Hxz. destruct Hxz as [Hmem Hedge].
+      apply split_and_true in Hmem. destruct Hmem as [Hx Hz].
+      assert (Hmemx: member (x + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
+      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hx.
+        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
+        apply Hx. } rewrite Hmemx. simpl.
+      assert (Hmemz: member (z + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
+      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hz.
+        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
+        apply Hz. } rewrite Hmemz. simpl.
+      apply twin_edges_duplicated with (o := o) in Hedge. simpl in Hedge.
+      apply member_edge_In_equiv. apply membership_append_r. apply membership_append_r.
+      rewrite <- Ho. apply member_edge_In_equiv. apply Hedge. }
+  { intros Hmem.
+    apply mediators_vs_edges_in_path in Hmem. destruct Hmem as [y' [z' Hmem]].
+    destruct Hmem as [Hsub Hedge].
+    apply mediators_vs_edges_in_path.
+    assert (Hshift: (@cons node (add u o)
+               (@app node (shift_nodes_by_offset l o)
+                  (@cons node (add v o) (@nil node)))) = (shift_nodes_by_offset (u :: l ++ [v]) o)).
+      { simpl. rewrite <- shift_maintains_append. simpl. reflexivity. }
+    rewrite Hshift in Hsub.
+    assert (Hz: exists z, z + o = z').
+      { exists (z' - o). assert (Hz': In z' (shift_nodes_by_offset (u :: l ++ [v]) o)).
+        { apply sublist_member with (l1 := [y'; x + o; z']). split.
+          - simpl. right. right. left. reflexivity.
+          - apply Hsub. }
+        apply shift_greater_than_offset in Hz'. lia. }
+    assert (Hy: exists y, y + o = y').
+    { exists (y' - o). assert (Hy': In y' (shift_nodes_by_offset (u :: l ++ [v]) o)).
+      { apply sublist_member with (l1 := [y'; x + o; z']). split.
+        - simpl. left. reflexivity.
+        - apply Hsub. }
+      apply shift_greater_than_offset in Hy'. lia. }
+    destruct Hz as [z Hz]. destruct Hy as [y Hy].
+    exists y. exists z. rewrite <- Hz in Hsub. rewrite <- Hy in Hsub.
+    split.
+    - replace ((@cons node (add y o)
+               (@cons node (add x o) (@cons node (add z o) (@nil node))))) with (shift_nodes_by_offset [y; x; z] o) in Hsub.
+      + apply shift_maintains_subset in Hsub. apply Hsub.
+      + simpl. reflexivity.
+    - 
+Admitted.
+
+Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes, forall p: path,
+  path_start_and_end p u v = true /\ node_in_graph u G = true /\ node_in_graph v G = true /\ o = max_node_in_graph G ->
+  d_connected_2 p G Z <-> 
+    exists p', d_connected_2 p' (create_duplicate_network G) (shift_nodes_by_offset Z o).
+Proof.
+  intros G u v o Z p.
+  intros [Hp [Hu [Hv Ho]]]. split.
+  - intros Hcon. destruct p as [[u' v'] l]. apply path_start_end_equal in Hp. destruct Hp as [Hu' Hv'].
+    rewrite Hu' in Hcon. rewrite Hv' in Hcon.
+    exists (u + o, v + o, shift_nodes_by_offset l o).
+    unfold d_connected_2. split.
+    + unfold d_connected_2 in Hcon. destruct Hcon as [Hmed _].
+      apply shift_maintains_overlap with (o := o) in Hmed.
+      apply no_overlap_non_member.
+      intros x Hxmed HxZ.
+      assert (Hol: forall x: node,
+                   In x (shift_nodes_by_offset (find_mediators_in_path (u, v, l) G) o) -> ~(In x (shift_nodes_by_offset Z o))).
+      { apply no_overlap_non_member. apply Hmed. }
+      specialize (Hol x). apply Hol.
+      { remember (x - o) as y.
+        assert (Hox: o <= x). { apply shift_greater_than_offset in HxZ. apply HxZ. }
+      replace x with (y + o) in Hxmed.
+      * apply shift_maintains_mediators with (x := y) in Hxmed.
+        -- rewrite Heqy in Hxmed. apply shift_member. split. apply Hxmed. apply Hox.
+        -- apply Ho.
+      * rewrite Heqy. lia. }
+      apply HxZ.
+    + 
+Admitted.
+
 Fixpoint do_several (G: graph) (fixed: nodes): graph :=
   match fixed with
   | [] => G
   | h :: t => do_several (do h G) t
-  end. (* TODO does the order this is done in matter? *)
+  end.
 
 Fixpoint remove_unobserved (original_V: nodes) (new_nodes: nodes) (new_edges: edges) (o: nat) : graph :=
   match original_V with
@@ -2119,9 +2438,8 @@ Fixpoint remove_unobserved (original_V: nodes) (new_nodes: nodes) (new_edges: ed
 
 Definition create_initial_twin_network (G: graph) (obs: assignments) (cf: assignments): graph :=
   match G with
-  | (V, E) => let offset := max_list V in
-              let duplicate_G := create_duplicate_network_helper G offset in
-              (do_several (do_several duplicate_G (fsts obs)) (shift_list (fsts cf) offset))
+  | (V, E) => let duplicate_G := create_duplicate_network G in
+              (do_several (do_several duplicate_G (fsts obs)) (shift_list (fsts cf) (max_list V)))
   end.
 
 Example twin_1: create_initial_twin_network ([1;2;3], [(1, 2); (3, 2)]) [] [(1, 70)]
