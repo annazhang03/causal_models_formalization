@@ -2092,27 +2092,6 @@ Proof.
       * apply H.
 Qed.
 
-
-Fixpoint create_twin_nodes_helper (all_nodes: nodes) (new_nodes: nodes) (iters: nat) : nodes :=
-  match iters with
-  | 0 => new_nodes
-  | S iters' => let v := (find_new_node all_nodes) in
-                create_twin_nodes_helper (v :: all_nodes) (new_nodes ++ [v]) iters'
-  end.
-
-Definition create_twin_nodes (V: nodes) : nodes :=
-  create_twin_nodes_helper V [] (length V).
-
-Example twin_nodes_1: create_twin_nodes [1] = [2].
-Proof. reflexivity. Qed.
-
-Example twin_nodes_2: create_twin_nodes [3;5] = [6;7].
-Proof. reflexivity. Qed.
-
-Example twin_nodes_3: create_twin_nodes [100; 94; 892] = [893; 894; 895].
-Proof. reflexivity. Qed.
-
-
 (*
 BEFORE PREPROCESSING:
 
@@ -2136,41 +2115,36 @@ for each u in U:
 return (V + V' + U, edges)
 *)
 
-Fixpoint get_twin_nodes_and_unobserved_edges (V: nodes) (new_nodes: nodes) (new_edges: edges) (o: nat) : nodes * edges :=
+Fixpoint get_twin_nodes (V: nodes) (o: nat) : nodes :=
   match V with
-  | [] => (new_nodes, new_edges)
-  | h :: t => get_twin_nodes_and_unobserved_edges t (new_nodes ++ [h + o; h + o + o]) (new_edges ++ [(h + o + o, h); (h + o + o, h + o)]) o
+  | [] => []
+  | h :: t => (h + o) :: (get_twin_nodes t o)
   end.
 
-Lemma new_nodes_recursion: forall V new_nodes: nodes, forall new_edges: edges, forall o: nat, forall u: node,
-  In u new_nodes -> In u (fst (get_twin_nodes_and_unobserved_edges V new_nodes new_edges o)).
-Proof.
-  intros V. induction V as [| h t IH].
-  - intros V' E' o u Hmem. simpl. apply Hmem.
-  - intros V' E' o u Hmem. simpl.
-    specialize (IH (V' ++ [h + o; h + o + o]) (E' ++ [(h + o + o, h); (h + o + o, h + o)]) o u).
-    apply IH. apply membership_append. apply Hmem.
-Qed.
-
-Lemma twin_nodes_duplicated: forall V V': nodes, forall E': edges, forall o: nat, forall u: node,
-  member u V = true -> member (u + o) (fst (get_twin_nodes_and_unobserved_edges V V' E' o)) = true.
+Lemma twin_nodes_duplicated: forall V, forall o: nat, forall u: node,
+  member u V = true <-> member (u + o) (get_twin_nodes V o) = true.
 Proof.
   intros V.
   induction V as [| h t IH].
-  - intros V' E' o u Hmem. simpl in Hmem. discriminate Hmem.
-  - intros V' E' o u Hmem. simpl in Hmem. destruct (h =? u) as [|] eqn:Hhu.
-    + simpl. apply member_In_equiv. apply new_nodes_recursion.
-      rewrite eqb_eq in Hhu. rewrite Hhu. apply membership_append_r. simpl. left. reflexivity.
-    + simpl.
-      apply IH with (V' := (V' ++ [h + o; h + o + o])) (E' := (E' ++ [(h + o + o, h); (h + o + o, h + o)])).
-      apply Hmem.
+  - intros o u. split.
+    { intros Hmem. simpl in Hmem. discriminate Hmem. }
+    { intros Hmem. simpl in Hmem. discriminate Hmem. }
+  - intros o u. split.
+    { intros Hmem. simpl in Hmem. destruct (h + o =? u + o) as [|] eqn:Hhu.
+    + simpl. rewrite Hhu. reflexivity.
+    + simpl. rewrite Hhu. 
+      apply IH. destruct (h =? u) as [|] eqn:Hhu1.
+      * rewrite eqb_eq in Hhu1. rewrite Hhu1 in Hhu.
+        rewrite eqb_refl in Hhu. discriminate Hhu.
+      * apply Hmem. }
+    { intros Hmem. simpl in Hmem. simpl. destruct (h =? u) as [|] eqn:Hhu.
+    + reflexivity.
+    + destruct (h + o =? u + o) as [|] eqn:Hhu1.
+      * rewrite eqb_eq in Hhu1. assert (H: h = u). { lia. }
+        rewrite H in Hhu.
+        rewrite eqb_refl in Hhu. discriminate Hhu.
+      * apply IH in Hmem. apply Hmem. }
 Qed.
-
-Example twin_network_1: get_twin_nodes_and_unobserved_edges [1;2;3] [] [] 3 = ([4;7;5;8;6;9], [(7,1); (7,4); (8,2); (8,5); (9,3); (9,6)]).
-Proof. reflexivity. Qed.
-
-Example twin_network_2: get_twin_nodes_and_unobserved_edges [1;6] [] [] 6 = ([7;13;12;18], [(13,1); (13,7); (18,6); (18,12)]).
-Proof. reflexivity. Qed.
 
 Fixpoint get_twin_edges (E: edges) (o: nat) : edges :=
   match E with
@@ -2181,10 +2155,10 @@ Fixpoint get_twin_edges (E: edges) (o: nat) : edges :=
   end.
 
 Lemma twin_edges_duplicated: forall E: edges, forall o: nat, forall e: edge,
-  member_edge e E = true -> member_edge (fst e + o, snd e + o) (get_twin_edges E o) = true.
+  member_edge e E = true <-> member_edge (fst e + o, snd e + o) (get_twin_edges E o) = true.
 Proof.
-  intros E o e.
-  intros Hmem.
+  intros E o e. split.
+  { intros Hmem.
   induction E as [| h t IH].
   - simpl in Hmem. discriminate Hmem.
   - simpl in Hmem. apply split_orb_true in Hmem. destruct Hmem as [Heq | Hmem].
@@ -2193,25 +2167,42 @@ Proof.
       simpl. apply eqb_eq in Hu. apply eqb_eq in Hv. rewrite Hu. rewrite eqb_refl. simpl.
       rewrite Hv. rewrite eqb_refl. simpl. reflexivity.
     + apply IH in Hmem. destruct h as [u' v']. simpl. rewrite Hmem.
-      rewrite orb_comm. simpl. reflexivity.
+      rewrite orb_comm. simpl. reflexivity. }
+  { intros Hmem.
+  induction E as [| h t IH].
+  - simpl in Hmem. discriminate Hmem.
+  - destruct e as [u v]. destruct h as [u' v']. simpl in Hmem. simpl.
+    apply split_orb_true in Hmem. destruct Hmem as [Heq | Hind].
+    + apply split_and_true in Heq. destruct Heq as [Hu Hv].
+      rewrite eqb_eq in Hu. assert (Hu1: u' = u). { lia. }
+      rewrite eqb_eq in Hv. assert (Hv1: v' = v). { lia. }
+      rewrite Hu1. rewrite Hv1. rewrite eqb_refl. simpl. rewrite eqb_refl. simpl.
+      reflexivity.
+    + simpl in IH. apply IH in Hind. rewrite Hind. rewrite orb_comm. simpl.
+      reflexivity. }
 Qed.
 
-Example twin_edges_1: get_twin_edges [(1, 2); (3, 2)] 3 = [(4,5); (6,5)].
-Proof. reflexivity. Qed.
-
-Definition create_duplicate_network_helper (G: graph) (o: nat): graph :=
+Definition duplicate_graph (G: graph) : graph :=
   match G with
-  | (V, E) => let duplicate_G := get_twin_nodes_and_unobserved_edges V [] [] o in
-              (V ++ (fst duplicate_G), E ++ (snd duplicate_G) ++ (get_twin_edges E o))
+  | (V, E) => (get_twin_nodes V (max_list V), get_twin_edges E (max_list V))
+  end.
+
+Fixpoint get_unobserved_nodes_and_edges
+  (V: nodes) (E: edges) (new_nodes: nodes) (new_edges: edges) (o: nat): graph :=
+  match V with
+  | [] => (new_nodes, new_edges)
+  | h :: t => get_unobserved_nodes_and_edges t E ((h + o + o) :: new_nodes) ((h + o + o, h) :: (h + o + o, h + o) :: new_edges) o
   end.
 
 Definition create_duplicate_network (G: graph): graph :=
   match G with
-  | (V, E) => create_duplicate_network_helper G (max_list V)
+  | (V, E) => let unobs := get_unobserved_nodes_and_edges V E [] [] (max_list V) in
+              let dup := duplicate_graph G in
+              (V ++ (fst dup) ++ (fst unobs), E ++ (snd dup) ++ (snd unobs))
   end.
 
-Example duplicate_graph_1: create_duplicate_network_helper ([1;2;3], [(1, 2); (3, 2)]) 3 
-  = ([1;2;3;4;7;5;8;6;9], [(1,2);(3,2);(7,1); (7,4); (8,2); (8,5); (9,3); (9,6); (4,5); (6,5)]).
+Example duplicate_graph_1: create_duplicate_network ([1; 2; 3], [(1, 2); (3, 2)])
+  = ([1;2;3;4;5;6;9;8;7], [(1,2); (3,2); (4,5); (6,5); (9,3); (9,6); (8,2); (8,5); (7,1); (7,4)]).
 Proof. reflexivity. Qed.
 
 Fixpoint shift_nodes_by_offset (Z: nodes) (o: nat) :=
@@ -2319,7 +2310,7 @@ Qed.
 
 Lemma shift_maintains_mediators: forall (u v: node) (l: nodes) (G: graph) (o: nat) (x: node),
   o = max_node_in_graph G -> In x (find_mediators_in_path (u, v, l) G) <->
-  In (x + o) (find_mediators_in_path (u + o, v + o, shift_nodes_by_offset l o) (create_duplicate_network G)).
+  In (x + o) (find_mediators_in_path (u + o, v + o, shift_nodes_by_offset l o) (duplicate_graph G)).
 Proof.
   intros u v l G o x.
   unfold find_mediators_in_path. intros Ho. split.
@@ -2338,30 +2329,28 @@ Proof.
   - destruct G as [V E]. simpl in Ho. split.
     + simpl. destruct Hedge as [Hyx Hxz]. unfold is_edge in Hyx. apply split_and_true in Hyx. destruct Hyx as [Hmem Hedge].
       apply split_and_true in Hmem. destruct Hmem as [Hy Hx].
-      assert (Hmemy: member (y + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
-      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hy.
-        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
-        apply Hy. } rewrite Hmemy. simpl.
-      assert (Hmemx: member (x + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
-      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hx.
-        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
-        apply Hx. } rewrite Hmemx. simpl.
+      assert (Hmemy: member (y + o) (get_twin_nodes V (max_list V)) = true).
+      { apply twin_nodes_duplicated with (o := o) in Hy.
+        rewrite <- Ho. apply Hy. }
+      rewrite Hmemy. simpl.
+      assert (Hmemx: member (x + o) (get_twin_nodes V (max_list V)) = true).
+      { apply twin_nodes_duplicated with (o := o) in Hx.
+        rewrite <- Ho. apply Hx. }
+      rewrite Hmemx. simpl.
       apply twin_edges_duplicated with (o := o) in Hedge. simpl in Hedge.
-      apply member_edge_In_equiv. apply membership_append_r. apply membership_append_r.
-      rewrite <- Ho. apply member_edge_In_equiv. apply Hedge.
+      rewrite <- Ho. apply Hedge.
     + simpl. destruct Hedge as [Hyx Hxz]. unfold is_edge in Hxz. apply split_and_true in Hxz. destruct Hxz as [Hmem Hedge].
       apply split_and_true in Hmem. destruct Hmem as [Hx Hz].
-      assert (Hmemx: member (x + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
-      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hx.
-        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
-        apply Hx. } rewrite Hmemx. simpl.
-      assert (Hmemz: member (z + o) (V ++ fst (get_twin_nodes_and_unobserved_edges V [] [] (max_list V))) = true).
-      { apply twin_nodes_duplicated with (V' := []) (E' := []) (o := o) in Hz.
-        apply member_In_equiv. apply membership_append_r. rewrite <- Ho. apply member_In_equiv.
-        apply Hz. } rewrite Hmemz. simpl.
+      assert (Hmemx: member (x + o) (get_twin_nodes V (max_list V)) = true).
+      { apply twin_nodes_duplicated with (o := o) in Hx.
+        rewrite <- Ho. apply Hx. }
+      rewrite Hmemx. simpl.
+      assert (Hmemz: member (z + o) (get_twin_nodes V (max_list V)) = true).
+      { apply twin_nodes_duplicated with (o := o) in Hz.
+        rewrite <- Ho. apply Hz. }
+      rewrite Hmemz. simpl.
       apply twin_edges_duplicated with (o := o) in Hedge. simpl in Hedge.
-      apply member_edge_In_equiv. apply membership_append_r. apply membership_append_r.
-      rewrite <- Ho. apply member_edge_In_equiv. apply Hedge. }
+      rewrite <- Ho. apply Hedge. }
   { intros Hmem.
     apply mediators_vs_edges_in_path in Hmem. destruct Hmem as [y' [z' Hmem]].
     destruct Hmem as [Hsub Hedge].
@@ -2390,13 +2379,33 @@ Proof.
                (@cons node (add x o) (@cons node (add z o) (@nil node))))) with (shift_nodes_by_offset [y; x; z] o) in Hsub.
       + apply shift_maintains_subset in Hsub. apply Hsub.
       + simpl. reflexivity.
-    - 
-Admitted.
+    - split.
+      + destruct Hedge as [Hedge _]. unfold is_edge in Hedge. rewrite <- Hy in Hedge.
+        unfold is_edge. destruct G as [V E]. unfold duplicate_graph in Hedge.
+        apply split_and_true in Hedge. destruct Hedge as [Hnode Hedge].
+        apply split_and_true in Hnode. destruct Hnode as [Hmemy Hmemx].
+        simpl in Ho. rewrite <- Ho in Hmemy.
+        apply twin_nodes_duplicated in Hmemy. rewrite Hmemy. simpl.
+        rewrite <- Ho in Hmemx.
+        apply twin_nodes_duplicated in Hmemx. rewrite Hmemx. simpl.
+        rewrite <- Ho in Hedge.
+        apply twin_edges_duplicated with (e := (y, x)) in Hedge. apply Hedge.
+      + destruct Hedge as [_ Hedge]. unfold is_edge in Hedge. rewrite <- Hz in Hedge.
+        unfold is_edge. destruct G as [V E]. unfold duplicate_graph in Hedge.
+        apply split_and_true in Hedge. destruct Hedge as [Hnode Hedge].
+        apply split_and_true in Hnode. destruct Hnode as [Hmemx Hmemz].
+        simpl in Ho. rewrite <- Ho in Hmemx.
+        apply twin_nodes_duplicated in Hmemx. rewrite Hmemx. simpl.
+        rewrite <- Ho in Hmemz.
+        apply twin_nodes_duplicated in Hmemz. rewrite Hmemz. simpl.
+        rewrite <- Ho in Hedge.
+        apply twin_edges_duplicated with (e := (x, z)) in Hedge. apply Hedge. }
+Qed.
 
 Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes, forall p: path,
   path_start_and_end p u v = true /\ node_in_graph u G = true /\ node_in_graph v G = true /\ o = max_node_in_graph G ->
   d_connected_2 p G Z <-> 
-    exists p', d_connected_2 p' (create_duplicate_network G) (shift_nodes_by_offset Z o).
+    exists p', d_connected_2 p' (duplicate_graph G) (shift_nodes_by_offset Z o).
 Proof.
   intros G u v o Z p.
   intros [Hp [Hu [Hv Ho]]]. split.
@@ -2423,6 +2432,7 @@ Proof.
     + 
 Admitted.
 
+
 Fixpoint do_several (G: graph) (fixed: nodes): graph :=
   match fixed with
   | [] => G
@@ -2443,7 +2453,7 @@ Definition create_initial_twin_network (G: graph) (obs: assignments) (cf: assign
   end.
 
 Example twin_1: create_initial_twin_network ([1;2;3], [(1, 2); (3, 2)]) [] [(1, 70)]
-  = ([1;2;3;4;7;5;8;6;9], [(1,2); (3,2); (7,1); (8,2); (8,5); (9,3); (9,6); (4,5); (6,5)]).
+  = ([1;2;3;4;5;6;9;8;7], [(1,2); (3,2); (4,5); (6,5); (9,3); (9,6); (8,2); (8,5); (7,1)]).
 Proof. reflexivity. Qed.
 
 Definition create_twin_network_before_preprocess (G: graph) (obs: assignments) (cf: assignments): graph :=
@@ -2458,7 +2468,7 @@ Definition sequential_G: graph := (sequential_V, sequential_E).
 
 Definition sequential_twin: graph := create_twin_network_before_preprocess sequential_G [] [(1, 1); (3, 2)].
 Example sequential_twin_network: sequential_twin (* fix counterfactuals a=1, b=2 *)
-  = ([1; 2; 3; 4; 5; 6; 7; 12; 8; 9; 14; 10; 15], sequential_E ++ [(12, 2); (12, 7); (14, 4); (14, 9); (15, 5); (15, 10)] ++ [(6, 9); (7, 9); (9, 10); (8, 10)]).
+  = ([1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 15; 14; 12], sequential_E ++ [(6, 9); (7, 9); (9, 10); (8, 10)] ++ [(15, 5); (15, 10); (14, 4); (14, 9); (12, 2); (12, 7)]).
 Proof. reflexivity. Qed.
 
 Example sequential_twin_network_error: d_separated_bool 10 3 sequential_twin [4;1] = false.
