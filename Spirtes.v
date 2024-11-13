@@ -194,7 +194,7 @@ Proof.
               { intros C Hcol. unfold path_is_blocked_bool in HUblocked.
                 rewrite orb_comm in HUblocked. apply orb_true_elim2 in HUblocked.
                 unfold is_blocked_by_collider_2 in HUblocked.
-                unfold collider_descendants_not_conditioned2 in HUblocked.
+                unfold collider_descendants_not_conditioned in HUblocked.
                 remember (fun c : node => descendants_not_in_Z_bool (find_descendants c G) O') as P.
                 remember (find_colliders_in_path U G) as ls.
                 destruct (demorgan_many_bool_2 node P ls) as [Hf _].

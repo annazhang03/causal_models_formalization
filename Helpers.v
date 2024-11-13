@@ -121,6 +121,30 @@ Proof.
       apply H. right. apply HIn. }
 Qed.
 
+Theorem overlap_has_member_in_common: forall l1 l2: list nat,
+  overlap l1 l2 = true <-> exists x: nat, In x l1 /\ In x l2.
+Proof.
+  intros l1 l2. split.
+  - intros H. induction l1 as [| h1 t1 IH].
+    + simpl in H. discriminate H.
+    + simpl in H. destruct (member h1 l2) as [|] eqn:Hmem.
+      * simpl. exists h1. split.
+        -- left. reflexivity.
+        -- apply member_In_equiv. apply Hmem.
+      * apply IH in H. destruct H as [x [H1 H2]].
+        exists x. split.
+        -- simpl. right. apply H1.
+        -- apply H2.
+  - intros [x [H1 H2]]. induction l1 as [| h1 t1 IH].
+    + simpl in H1. exfalso. apply H1.
+    + simpl. destruct (member h1 l2) as [|] eqn:Hmem.
+      * reflexivity.
+      * simpl in H1. destruct H1 as [H1 | H1].
+        -- rewrite <- H1 in H2. apply member_In_equiv in H2. rewrite H2 in Hmem.
+           discriminate Hmem.
+        -- apply IH. apply H1.
+Qed.
+
 Fixpoint count (v : nat) (l : list nat) : nat
   := match l with 
       | nil => 0
