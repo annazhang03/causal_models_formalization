@@ -2232,6 +2232,17 @@ Proof.
       * apply IH in Hmem. apply Hmem. }
 Qed.
 
+Lemma twin_nodes_greater_than_offset: forall V: nodes, forall o: nat, forall x: node,
+  In x (get_twin_nodes V o) -> o <= x.
+Proof.
+  intros V o x.
+  induction V as [| h t IH].
+  - intros H. simpl in H. exfalso. apply H.
+  - simpl. intros H. destruct H as [H | H].
+    + lia.
+    + apply IH. apply H.
+Qed.
+
 Fixpoint get_twin_edges (E: edges) (o: nat) : edges :=
   match E with
   | [] => []
@@ -2510,12 +2521,94 @@ Proof.
            rewrite Hcol. simpl. specialize (IH h v). apply IH. apply Ho.
 Qed.
 
-Lemma duplicate_graph_maintains_descendants: forall (u: node) (G: graph) (o: nat),
+Lemma duplicate_graph_maintains_dir_paths: forall (u v: node) (l: nodes) (G: graph) (o: nat),
   o = max_node_in_graph G ->
-  find_descendants (u + o) (duplicate_graph G)
-  = shift_nodes_by_offset (find_descendants u G) o.
+  is_directed_path_in_graph (u, v, l) G = true <->
+  is_directed_path_in_graph (u + o, v + o, shift_nodes_by_offset l o) (duplicate_graph G) = true.
 Proof.
-Admitted.
+  intros u v l G o Ho.
+  unfold is_directed_path_in_graph.
+  generalize dependent v. generalize dependent u.
+  induction l as [| h t IH].
+  - intros u v. simpl. split.
+    + intros H. rewrite andb_comm in H. simpl in H.
+      apply duplicate_graph_maintains_edges with (o := o) in H.
+      unfold node in *. rewrite H. reflexivity. apply Ho.
+    + intros H. rewrite andb_comm in H. simpl in H.
+      apply duplicate_graph_maintains_edges in H. rewrite H. reflexivity. apply Ho.
+  - intros u v. split.
+    + simpl. intros Hdir. destruct (is_edge (u, h) G) as [|] eqn:Hedge.
+      * simpl in Hdir. apply duplicate_graph_maintains_edges with (o := o) in Hedge.
+        unfold node in *. rewrite Hedge. simpl. specialize (IH h v). apply IH. apply Hdir. apply Ho.
+      * simpl in Hdir. discriminate Hdir.
+    + simpl. intros Hdir. destruct (is_edge (u + o, h + o) (duplicate_graph G)) as [|] eqn:Hedge.
+      * unfold node in *. rewrite Hedge in Hdir. simpl in Hdir. apply duplicate_graph_maintains_edges in Hedge.
+        unfold node in *. rewrite Hedge. simpl. specialize (IH h v). apply IH. apply Hdir. apply Ho.
+      * unfold node in *. rewrite Hedge in Hdir. simpl in Hdir. discriminate Hdir.
+Qed.
+
+Lemma duplicate_graph_shifts_dir_paths: forall (u' v': node) (l': nodes) (G: graph) (o: nat),
+  o = max_node_in_graph G ->
+  is_directed_path_in_graph (u', v', l') (duplicate_graph G) = true ->
+  exists u v l, u' = u + o /\ v' = v + o /\ l' = shift_nodes_by_offset l o.
+Proof.
+  intros u' v' l' G o Ho Hdir.
+  generalize dependent v'. generalize dependent u'.
+  induction l' as [| h t IH].
+  - intros u' v' Hdir. simpl in Hdir. rewrite andb_comm in Hdir. simpl in Hdir.
+    exists (u' - o). exists (v' - o). exists [].
+    unfold is_edge in Hdir. destruct G as [V E]. simpl in Hdir.
+    apply split_and_true in Hdir. destruct Hdir as [Hmem Hedge].
+    apply split_and_true in Hmem. destruct Hmem as [Hu' Hv']. simpl in Ho.
+    repeat split.
+    + rewrite <- Ho in Hu'. apply member_In_equiv in Hu'.
+      apply twin_nodes_greater_than_offset in Hu'. lia.
+    + rewrite <- Ho in Hv'. apply member_In_equiv in Hv'.
+      apply twin_nodes_greater_than_offset in Hv'. lia.
+  - intros u' v' Hdir. simpl in Hdir.
+    destruct (is_edge (u', h) (duplicate_graph G)) as [|] eqn:Hedge.
+    + unfold is_edge in Hedge. destruct G as [V E]. simpl in Hedge.
+      apply split_and_true in Hedge. destruct Hedge as [Hmem Hedge].
+      apply split_and_true in Hmem. destruct Hmem as [Hu' Hh']. simpl in Ho.
+      simpl in Hdir. specialize (IH h v'). apply IH in Hdir.
+      destruct Hdir as [h1 [v [t' [Hh [Hv Ht]]]]].
+      exists (u' - o), v, ((h - o) :: t'). repeat split.
+      * rewrite <- Ho in Hu'. apply member_In_equiv in Hu'.
+        apply twin_nodes_greater_than_offset in Hu'. lia.
+      * apply Hv.
+      * simpl. assert (Hho: h = h - o + o).
+        { rewrite <- Ho in Hh'. apply member_In_equiv in Hh'.
+          apply twin_nodes_greater_than_offset in Hh'. lia. }
+        rewrite <- Hho. f_equal. apply Ht.
+    + simpl in Hdir. discriminate Hdir.
+Qed.
+
+Lemma duplicate_graph_maintains_descendants: forall (u: node) (G: graph) (o: nat) (d: node),
+  o = max_node_in_graph G ->
+  In d (find_descendants u G) <->
+  In (d + o) (find_descendants (u + o) (duplicate_graph G)).
+Proof.
+  intros u G o d Ho. split.
+  - intros Hd. apply find_descendants_correct in Hd.
+    destruct Hd as [p [Hdir Hse]].
+    destruct p as [[u' d'] l]. apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
+    apply find_descendants_correct.
+    exists (u + o, d + o, shift_nodes_by_offset l o). split.
+    + rewrite Hu in Hdir. rewrite Hd in Hdir.
+      apply duplicate_graph_maintains_dir_paths with (o := o) in Hdir. apply Hdir. apply Ho.
+    + apply path_start_end_refl.
+  - intros Hd. apply find_descendants_correct in Hd.
+    destruct Hd as [p' [Hdir Hse]].
+    destruct p' as [[u' d'] l'].
+    apply duplicate_graph_shifts_dir_paths with (o := o) in Hdir as Huvl.
+    destruct Huvl as [u1 [d1 [l [Hu1 [Hd1 Hl]]]]].
+    apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
+    + apply find_descendants_correct. exists (u, d, l). split.
+      * rewrite Hu in Hdir. rewrite Hd in Hdir. rewrite Hl in Hdir.
+        apply duplicate_graph_maintains_dir_paths in Hdir. apply Hdir. apply Ho.
+      * apply path_start_end_refl.
+    + apply Ho.
+Qed.
 
 Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes,
   o = max_node_in_graph G ->
@@ -2591,12 +2684,9 @@ Proof.
       apply overlap_has_member_in_common in Hdesc. destruct Hdesc as [d [Hdesc HdZ]].
       remember (d + o) as d'.
       assert (Hdesc': In d' (find_descendants c' (duplicate_graph G))).
-      { rewrite Hc'. rewrite duplicate_graph_maintains_descendants.
-        rewrite Heqd'. apply shift_member. split.
-        - assert (Hd': d' - o = d). { lia. } rewrite <- Hd' in Hdesc.
-          rewrite Heqd' in Hdesc. apply Hdesc.
-        - lia.
-        - apply Ho. }
+      { rewrite Hc'. rewrite Heqd'. apply duplicate_graph_maintains_descendants.
+        - apply Ho.
+        - apply Hdesc. }
       assert (HdZ': In d' (shift_nodes_by_offset Z o)).
       { apply shift_member. split.
         - assert (Hd': d' - o = d). { lia. } rewrite <- Hd' in HdZ. apply HdZ.
@@ -2668,9 +2758,13 @@ Proof.
         apply overlap_has_member_in_common in Hdesc. destruct Hdesc as [d' [Hdesc' HdZ']].
         remember (d' - o) as d.
         assert (Hdesc: In d (find_descendants c G)).
-        { rewrite Heqc' in Hdesc'. rewrite duplicate_graph_maintains_descendants in Hdesc'.
-          apply shift_member in Hdesc'. destruct Hdesc' as [Hdesc' Hod'].
-          rewrite <- Heqd in Hdesc'. apply Hdesc'. apply Ho. }
+        { apply duplicate_graph_maintains_descendants with (o := o).
+          - apply Ho.
+          - rewrite <- Heqc'.
+            assert (Hd': d' = d + o).
+            { assert (Hdo': o <= d'). { apply shift_greater_than_offset in HdZ'. apply HdZ'. }
+              lia. }
+            rewrite <- Hd'. apply Hdesc'. }
         assert (HdZ: In d Z).
         { apply shift_member in HdZ'. destruct HdZ' as [HdZ' Hod'].
           rewrite <- Heqd in HdZ'. apply HdZ'. }
