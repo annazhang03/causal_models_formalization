@@ -53,6 +53,15 @@ Proof.
         -- apply IH. apply H.
 Qed.
 
+Theorem length_member: forall (l: list nat) (n': nat),
+  (length l = S n') -> exists x, In x l.
+Proof.
+  intros l n' H.
+  destruct l as [| h t].
+  - simpl in H. discriminate H.
+  - exists h. simpl. left. reflexivity.
+Qed.
+
 Fixpoint overlap (s1 : list nat) (s2 : list nat) : bool
   := match s1 with 
       | nil => false
@@ -298,6 +307,77 @@ Proof.
   - rewrite <- H. destruct c eqn: Ec.
     + reflexivity.
     + reflexivity.
+Qed.
+
+Fixpoint index (l: list nat) (x: nat) : option nat :=
+  match l with
+  | [] => None
+  | h :: t => if (h =? x) then Some 0 else
+              match (index t x) with
+              | None => None
+              | Some i => Some (S i)
+              end
+  end.
+
+Theorem index_correct: forall (l: list nat) (x: nat) (i: nat),
+  Some i = index l x -> nth_error l i = Some x.
+Proof.
+  intros l x i H.
+  generalize dependent i. induction l as [| h t IH].
+  - intros i H. simpl in H. discriminate H.
+  - intros i H. simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+    + inversion H. apply eqb_eq in Hhx. rewrite Hhx. simpl. reflexivity.
+    + destruct i as [| i'] eqn:Hi.
+      * destruct (index t x) as [|] eqn:Hr.
+        -- inversion H.
+        -- discriminate H.
+      * simpl. specialize IH with (i := i'). apply IH.
+        destruct (index t x) as [|] eqn:Hr.
+        -- inversion H. reflexivity.
+        -- discriminate H.
+Qed.
+
+Theorem index_in_range: forall (l: list nat) (x: nat) (i: nat),
+  Some i = index l x -> i < (length l).
+Proof.
+  intros l x i H.
+  generalize dependent i. induction l as [| h t IH].
+  - intros i H. simpl in H. discriminate H.
+  - intros i H. simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+    + inversion H. simpl. lia.
+    + simpl. destruct (index t x) as [|] eqn:Hr.
+      * inversion H. specialize IH with (i := n).
+        assert (H2: n < length t). { apply IH. reflexivity. }
+        apply succ_lt_mono in H2. apply H2.
+      * discriminate H.
+Qed.
+
+Theorem index_exists: forall (l: list nat) (x: nat),
+  In x l <-> exists i: nat, Some i = index l x.
+Proof.
+  intros l x. split.
+  - intros H. induction l as [| h t IH].
+    + simpl in H. exfalso. apply H.
+    + simpl in H. destruct H as [Hhx | Hmem].
+      * exists 0. rewrite Hhx. simpl. rewrite eqb_refl. reflexivity.
+      * simpl. destruct (h =? x) as [|] eqn:Hhx.
+        -- exists 0. reflexivity.
+        -- apply IH in Hmem. destruct Hmem as [i Hind]. exists (S i).
+           destruct (index t x) as [|] eqn:Hr.
+           ++ inversion Hind. reflexivity.
+           ++ discriminate Hind.
+  - intros [i H]. generalize dependent i. induction l as [| h t IH].
+    + intros i H. simpl in H. discriminate H.
+    + intros i H. simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+      * apply eqb_eq in Hhx. rewrite Hhx. simpl. left. reflexivity.
+      * destruct i as [| i'] eqn:Hi.
+        -- destruct (index t x) as [|] eqn:Hr.
+           ++ inversion H.
+           ++ discriminate H.
+        -- destruct (index t x) as [|] eqn:Hr.
+           ++ inversion H. specialize IH with (i := i').
+              simpl. right. apply IH. rewrite H1. reflexivity.
+           ++ discriminate H.
 Qed.
 
 Lemma split_and_true : forall a b, a && b = true -> a = true /\ b = true.

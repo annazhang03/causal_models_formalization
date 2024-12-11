@@ -81,6 +81,7 @@ Proof.
     + reflexivity.
 Qed.
 
+
 Definition path_start (p: path) : node :=
   match p with
   | (u, v, l) => u
@@ -116,7 +117,7 @@ Proof.
   split. apply H. apply H0.
 Qed.
 
-Definition path_contains_node (U: path) (X: node) : bool :=
+Definition node_in_path (X: node) (U: path) : bool :=
   (X =? (path_start U)) || (X =? (path_end U)) || (member X (path_int U)).
 
 Definition concat (u1 mid v2: node) (l1 l2: nodes) : path :=
@@ -239,9 +240,33 @@ Definition max_node_in_graph (G: graph) : node :=
   | (V, E) => max_list V
   end.
 
+Definition nodes_in_graph (G: graph) : nodes :=
+  match G with
+  | (V, E) => V
+  end.
+
 Definition edge_in_graph (e: edge) (G: graph) : bool :=
   match G with
   | (V, E) => member_edge e E
+  end.
+
+Definition remove_associated_edges (u: node) (E: edges) : edges :=
+  filter (fun edg => negb (snd edg =? u) && negb (fst edg =? u)) E.
+
+Definition remove_node (u: node) (V: nodes) : nodes :=
+  filter (fun v => negb (v =? u) ) V.
+
+Definition remove_node_from_graph (G: graph) (u: node) : graph :=
+  match G with
+  | (V, E) => (remove_node u V, remove_associated_edges u E)
+  end.
+
+(* TODO
+Theorem subgraph_is_smaller: *)
+
+Definition num_nodes (G: graph) : nat :=
+  match G with
+  | (V, E) => length V
   end.
 
 Theorem edge_corresponds_to_nodes_in_well_formed: forall (G: graph) (u v: node),
@@ -352,10 +377,86 @@ Fixpoint is_path_in_graph_helper (l: nodes) (G: graph) : bool :=
               end
   end.
 
+Lemma first_node_in_path_in_graph: forall (G: graph) (l: nodes) (s e: node),
+  is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph s G = true.
+Proof.
+  intros G l s e Hpath.
+  destruct G as [V E].
+  simpl in Hpath. destruct (l ++ [e]) as [| h t] eqn:Hl.
+  * destruct l as [| h' t']. 
+    -- simpl in Hl. discriminate Hl.
+    -- simpl in Hl. discriminate Hl.
+  * apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+    apply split_orb_true in Hpath as [Hpath | Hpath].
+    -- apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+       apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+       simpl. apply Hpath.
+    -- apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+       apply split_and_true in Hpath. destruct Hpath as [_ Hpath].
+       simpl. apply Hpath.
+Qed.
+
+Lemma last_node_in_path_in_graph: forall (G: graph) (l: nodes) (s e: node),
+  (length ((s :: l) ++ [e]) > 1) /\ is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph e G = true.
+Proof.
+  intros G l s e [Hlen Hpath].
+  induction (s :: l) as [| h t IH].
+  - simpl in Hlen. lia.
+  - destruct t as [| h' t'].
+    + simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [H _].
+      apply split_orb_true in H. destruct H as [H | H].
+      * unfold is_edge in H. apply split_and_true in H. destruct H as [H _].
+        apply split_and_true in H. destruct H as [_ H]. simpl. apply H.
+      * unfold is_edge in H. apply split_and_true in H. destruct H as [H _].
+        apply split_and_true in H. destruct H as [H _]. simpl. apply H.
+    + apply IH.
+      * simpl. rewrite app_length. simpl. lia.
+      * simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ H]. apply H.
+Qed.
+
+Lemma middle_node_in_path_in_graph: forall (G: graph) (l: nodes) (s x e: node),
+  In x (s :: l) -> (length ((s :: l) ++ [e]) > 1) /\ is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph x G = true.
+Proof.
+  intros G l s x e Hmem [Hlen Hpath].
+  induction (s :: l) as [| h t IH].
+  - simpl in Hlen. lia.
+  - simpl in Hmem. destruct Hmem as [Hhx | Hmem].
+    + rewrite <- Hhx. apply first_node_in_path_in_graph with (s := h) (l := t) (e := e). apply Hpath.
+    + destruct t as [| h1 t1].
+      * simpl in Hmem. exfalso. apply Hmem.
+      * apply IH.
+        -- apply Hmem.
+        -- simpl. rewrite app_length. simpl. lia.
+        -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ H].
+           apply H.
+Qed.
+
 Definition is_path_in_graph (p: path) (G: graph) : bool :=
   match p with
   | (u, v, l) => is_path_in_graph_helper ((u :: l) ++ [v]) G
   end.
+
+Lemma nodes_in_graph_in_V: forall (G: graph) (p: path) (u: node),
+  node_in_path u p = true /\ is_path_in_graph p G = true -> node_in_graph u G = true.
+Proof.
+  intros G [[s e] l] u. intros [Hnode Hpath].
+  unfold node_in_path in Hnode. apply split_orb_true in Hnode. destruct Hnode as [Hse | Hint].
+  - apply split_orb_true in Hse. destruct Hse as [Hs | He].
+    + simpl in Hs. unfold is_path_in_graph in Hpath. destruct G as [V E].
+      apply eqb_eq in Hs. rewrite Hs.
+      apply first_node_in_path_in_graph with (l := l) (e := e). apply Hpath.
+    + simpl in He. unfold is_path_in_graph in Hpath. destruct G as [V E].
+      apply eqb_eq in He. rewrite He.
+      apply last_node_in_path_in_graph with (s := s) (l := l). split.
+      * simpl. rewrite app_length. simpl. lia.
+      * apply Hpath.
+  - simpl in Hint. unfold is_path_in_graph in Hpath. destruct G as [V E].
+    apply middle_node_in_path_in_graph with (x := u) (s := s) (l := l) (e := e).
+    + simpl. right. apply member_In_equiv. apply Hint.
+    + split.
+      * simpl. rewrite app_length. simpl. lia.
+      * apply Hpath.
+Qed.
 
 Example path_in_graph: is_path_in_graph (2, 4, [1]) G = true.
 Proof. reflexivity. Qed.
@@ -645,7 +746,10 @@ Fixpoint find_all_paths_to_end (v: node) (l: paths) : paths :=
 
 (* determine all paths existing in the graph made up of edges E *)
 Definition find_all_paths_from_start_to_end (u v: node) (G: graph) : paths :=
-  find_all_paths_to_end v (find_all_paths_from_start u G).
+  match G with
+  | (V, E) => filter (fun p => v =? path_end p)
+          (extend_paths_from_start_iter E (edges_as_paths_from_start u E) (length V))
+  end.
 
 Example paths_from_4_to_2: find_all_paths_from_start_to_end 4 2 G = [(4, 2, [1]); (4, 2, [1; 3])].
 Proof. reflexivity. Qed.
@@ -1102,6 +1206,249 @@ Proof.
       apply member_In_equiv in H. rewrite <- Hneighbors in H. apply H.
 Qed.
 
+
+(* Topological sort *)
+
+Definition get_indegree (u: node) (G: graph): nat :=
+  length (find_parents u G).
+
+Definition get_indegree_zero (G: graph): nodes :=
+  match G with
+  | (V, E) => filter (fun v => (get_indegree v G) =? 0) V
+  end.
+
+Fixpoint construct_path (G: graph) (p: path) (iters: nat) : path :=
+  match iters with
+  | 0 => p
+  | S iters' => match p with
+                | (u, v, l) => match (find_parents u G) with
+                               | [] => p
+                               | h :: t => (construct_path G (h, v, u :: l) iters')
+                               end
+                end
+  end.
+
+Definition contains_any_node (G: graph): bool :=
+  match G with
+  | (V, E) => negb (eqblist V [])
+  end.
+
+Theorem constructed_path_in_graph: forall (G: graph) (p: path) (iters: nat),
+  is_path_in_graph p G = true -> is_path_in_graph (construct_path G p iters) G = true.
+Proof.
+Admitted.
+
+Theorem constructed_path_adds_length_iters: forall (G: graph) (p: path) (iters: nat),
+  contains_any_node G = true /\ get_indegree_zero G = []
+  -> measure_path (construct_path G p iters) = (measure_path p) + iters.
+Proof.
+Admitted.
+
+Theorem pigeonhole: forall (V: nodes) (V': nodes),
+  (forall (u: node), In u V' -> In u V) /\ (length V < length V') -> exists (v: node), (count v V' > 1).
+Proof.
+Admitted.
+
+Theorem acyclic_has_indegree_zero: forall (G: graph),
+  G_well_formed G = true /\ contains_any_node G = true /\ contains_cycle G = false
+  -> exists u, ((node_in_graph u G) && (get_indegree u G =? 0)) = true.
+Proof.
+  intros G [HGwf [Hnode Hcyc]].
+  destruct G as [V E] eqn: HG.
+  destruct (get_indegree_zero (V, E)) as [| h t] eqn:Hindeg.
+  - (* assume there are 0 nodes with indegree 0. Show a contradiction by showing that G is cyclic. *)
+    destruct V as [| v V'] eqn:HV.
+    + simpl in Hnode. discriminate Hnode.
+    + destruct (get_indegree v G) as [| n'] eqn:Hvindeg.
+      * exists v. simpl. rewrite eqb_refl. rewrite <- HG. rewrite Hvindeg. rewrite eqb_refl. reflexivity.
+      * unfold get_indegree in Hvindeg. apply length_member in Hvindeg. destruct Hvindeg as [p Hp].
+        apply edge_from_parent_to_child in Hp.
+        assert (HpV: node_in_graph p G = true /\ node_in_graph v G = true).
+        { apply edge_corresponds_to_nodes_in_well_formed. split. rewrite HG. apply HGwf. apply Hp. }
+        destruct HpV as [HpV _].
+        remember (construct_path G (p, v, []) (length V)) as cycle. (* extend (p, v) backwards |V| times *)
+        assert (Hpath: is_path_in_graph cycle G = true).
+        { rewrite Heqcycle. apply constructed_path_in_graph. rewrite HG. simpl.
+          rewrite HG in HpV. simpl in HpV. rewrite HpV. rewrite eqb_refl.
+          rewrite HG in Hp. simpl in Hp. rewrite Hp. simpl. reflexivity. }
+        assert (Hrepeat: exists (r: node), (count r ([path_start cycle; path_end cycle] ++ (path_int cycle)) > 1)).
+        { apply pigeonhole with (V := V). split.
+          - intros x Hx.
+            assert (Heq: node_in_graph x G = true).
+            { apply nodes_in_graph_in_V with (p := cycle). split.
+              - unfold node_in_path. simpl in Hx.
+                destruct Hx as [Hs | [He | Hint]].
+                + rewrite Hs. rewrite eqb_refl. simpl. reflexivity.
+                + rewrite He. rewrite eqb_refl. simpl.
+                  apply split_orb_true. left. apply split_orb_true. right. reflexivity.
+                + apply member_In_equiv in Hint. rewrite Hint. apply split_orb_true. right. reflexivity.
+              - apply Hpath. }
+            rewrite HG in Heq. rewrite <- HV in Heq. simpl in Heq. apply member_In_equiv. apply Heq.
+          - assert (Hlen: measure_path cycle = 2 + (length V)).
+            { rewrite Heqcycle. apply constructed_path_adds_length_iters. split.
+              - rewrite HG. apply Hnode.
+              - rewrite HG. apply Hindeg. }
+            destruct cycle as [[s e] l]. unfold measure_path in Hlen. simpl.
+            apply add_cancel_l in Hlen. rewrite Hlen. lia. }
+        assert (Hcycle: ~(acyclic_path_2 cycle)).
+        { unfold not. intros H. apply acyclic_path_correct in H. destruct Hrepeat as [r Hrepeat].
+          apply acyclic_path_intermediate_nodes with (x := r) in H. destruct H as [H0 | H1].
+          - rewrite H0 in Hrepeat. lia.
+          - rewrite H1 in Hrepeat. lia. }
+        assert (contra: contains_cycle G = true).
+        { apply contains_cycle_true_correct with (p := cycle). split.
+          - apply Hpath.
+          - apply Hcycle. }
+        rewrite HG in contra. rewrite Hcyc in contra. discriminate contra.
+  - exists h.
+    unfold get_indegree_zero in Hindeg.
+    assert (Hh: In h (filter
+           (fun v : node =>
+            get_indegree v (V, E) =? 0) V)). { rewrite Hindeg. simpl. left. reflexivity. }
+    apply filter_true in Hh. unfold node_in_graph. rewrite <- member_In_equiv in Hh.
+    destruct Hh as [HhV Hhdeg]. rewrite HhV. rewrite Hhdeg. reflexivity.
+Qed.
+
+Fixpoint topological_sort_helper (G: graph) (iters: nat) : option nodes :=
+  match iters with
+  | 0 => Some []
+  | S iters' => let ind := get_indegree_zero G in
+                match ind with
+                | [] => None (* G contains cycle *)
+                | h :: t => let rec := topological_sort_helper (remove_node_from_graph G h) iters' in
+                            match rec with
+                            | None => None
+                            | Some r => Some (h :: r)
+                            end
+                end
+  end.
+
+Definition topological_sort (G: graph) : option nodes :=
+  match G with
+  | (V, E) => topological_sort_helper G (length V)
+  end.
+
+Definition V_topo: nodes := [3; 1; 2; 0; 4; 5].
+Definition E_topo: edges := [(5, 0); (5, 2); (2, 3); (3, 1); (4, 0); (4, 1)].
+
+Example toposort_1: topological_sort (V_topo, E_topo) = Some [4; 5; 2; 3; 1; 0].
+Proof. reflexivity. Qed.
+
+Lemma topo_sort_exists_for_acyclic: forall (G: graph),
+  G_well_formed G = true /\ contains_cycle G = false -> exists sorted: nodes, topological_sort G = Some sorted.
+Proof.
+Admitted.
+
+Lemma topo_sort_length_correct: forall (G: graph) (sorted: nodes),
+  topological_sort G = Some sorted -> length sorted = num_nodes G.
+Proof.
+Admitted.
+
+Lemma topo_sort_contains_nodes: forall (G: graph) (u: node) (sorted: nodes),
+  topological_sort G = Some sorted -> (In u sorted <-> node_in_graph u G = true).
+Proof.
+Admitted.
+
+Theorem topo_sort_correct: forall (G: graph) (u v: node) (sorted: nodes),
+  G_well_formed G = true /\ edge_in_graph (u, v) G = true /\ topological_sort G = Some sorted
+  -> exists (i j: nat), Some i = index sorted u /\ Some j = index sorted v /\ i < j.
+Proof.
+Admitted.
+
+Corollary topo_sort_parents: forall (G: graph) (c p: node) (sorted: nodes),
+  G_well_formed G = true /\ contains_cycle G = false -> In p (find_parents c G)
+  -> exists (i j: nat), Some i = index sorted p /\ Some j = index sorted c /\ i < j.
+Proof.
+Admitted.
+
+
+(* semantics *)
+Definition nodefun : Type := nat * (list nat) -> nat. (* takes in unobserved term and values for each parent *)
+Definition graphfun : Type := node -> nodefun. (* takes in node and returns function for that node *)
+
+Definition assignment : Type := node * nat.
+Definition assignments : Type := list assignment.
+
+Fixpoint is_assigned (A: assignments) (u: node) : bool :=
+  match A with
+  | [] => false
+  | h :: t => (u =? (fst h)) || is_assigned t u
+  end.
+
+Fixpoint get_assigned_value (A: assignments) (u: node) : option nat :=
+  match A with
+  | [] => None
+  | h :: t => if ((fst h) =? u) then Some (snd h) else (get_assigned_value t u)
+  end.
+
+(* returns None if some parent hasn't been assigned a value, else returns list of assignments *)
+Fixpoint get_parent_assignments (A: assignments) (P: nodes) : option (list nat) :=
+  match P with
+  | [] => Some []
+  | h :: t => match (get_assigned_value A h) with
+              | Some x => match (get_parent_assignments A t) with
+                          | Some l => Some (x :: l)
+                          | None => None
+                          end
+              | None => None
+              end
+  end.
+
+Lemma parent_assignments_exist: forall (A: assignments) (P: nodes),
+  forallb (fun u: node => is_assigned A u) P = true
+  -> exists L: list nat, Some L = get_parent_assignments A P.
+Proof.
+Admitted.
+
+Definition add_assignment (A: assignments) (u: node) (x: nat) : assignments :=
+  (u, x) :: A.
+
+(* makes things cleaner in below function *)
+Definition add_assignment_or_none (A: option assignments) (u: node) (x: nat) : option assignments :=
+  match A with
+  | Some A' => Some (add_assignment A' u x)
+  | None => None
+  end.
+
+Fixpoint get_values_from_topo_sort (ts: nodes) (G: graph) (g: graphfun) (U: assignments)
+                                   (A: assignments) (so_far: assignments) : option assignments :=
+  match ts with
+  | [] => Some []
+  | u :: ts' => match (get_assigned_value A u) with
+                | Some x => (* value already assigned *)
+                            add_assignment_or_none (get_values_from_topo_sort ts' G g U A (add_assignment so_far u x)) u x
+                | None => (* find value of parents and use node function *)
+                          match (get_assigned_value U u) with
+                          | Some unobs => match (get_parent_assignments so_far (find_parents u G)) with
+                                          | Some p => let x := ((g u) (unobs, p)) in
+                                                      add_assignment_or_none (get_values_from_topo_sort ts' G g U A (add_assignment so_far u x)) u x
+                                          | None => None (* won't reach this, contradicts topo correctness *)
+                                          end
+                          | None => None (* error, U needs to have unobserved value of all nodes *)
+                          end
+                end
+  end.
+
+Definition get_values (G: graph) (g: graphfun) (U: assignments) (A: assignments) : option assignments :=
+  match (topological_sort G) with
+  | Some ts => get_values_from_topo_sort ts G g U A []
+  | None => None (* graph is cyclic *)
+  end.
+
+Definition find_value (G: graph) (g: graphfun) (u: node) (U: assignments) (A: assignments): option nat :=
+  match (get_values G g U A) with
+  | Some values => get_assigned_value values u
+  | None => None
+  end.
+
+Theorem conditional_independence_semantics: forall (G: graph) (u v: node) (Z: nodes) (A: assignments),
+  (forallb (fun x: node => is_assigned A x) Z) = true
+  -> forall (a b: nat) (U: assignments), (forallb (fun x: node => is_assigned U x) (nodes_in_graph G)) = true
+  -> forall (g: graphfun),
+      find_value G g u U (add_assignment A v a) = find_value G g u U (add_assignment A v b) /\
+      find_value G g v U (add_assignment A u a) = find_value G g v U (add_assignment A u b).
+Proof.
+Admitted.
 
 
 
@@ -2016,9 +2363,6 @@ Admitted.
 
 
 (* counterfactuals *)
-Definition assignment : Type := node * nat.
-Definition assignments : Type := list assignment.
-
 Definition no_repeat_nodes (V: nodes) : bool :=
   forallb (fun x: node => count x V =? 1) V.
 
