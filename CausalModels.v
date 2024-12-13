@@ -228,6 +228,7 @@ Definition G_well_formed (G: graph) : bool :=
   match G with
   | (V, E) => forallb (fun e => match e with
                                 | (u, v) => member u V && member v V end) E
+              && forallb (fun v => count v V =? 1) V
   end.
 
 Definition node_in_graph (u: node) (G: graph) : bool :=
@@ -261,8 +262,47 @@ Definition remove_node_from_graph (G: graph) (u: node) : graph :=
   | (V, E) => (remove_node u V, remove_associated_edges u E)
   end.
 
-(* TODO
-Theorem subgraph_is_smaller: *)
+Lemma remove_node_preserves_well_formed: forall (G: graph) (u: node),
+  G_well_formed G = true -> G_well_formed (remove_node_from_graph G u) = true.
+Proof.
+  intros [V E] u H.
+  unfold G_well_formed. simpl.
+  unfold G_well_formed in H. apply split_and_true in H. destruct H as [He Hv].
+  assert (He': forallb
+    (fun e : nat * nat =>
+     let (u0, v) := e in
+     member u0 (remove_node u V) && member v (remove_node u V))
+    (remove_associated_edges u E) = true).
+  { apply forallb_true_iff_mem. intros [e1 e2]. intros Hmem.
+    unfold remove_associated_edges in Hmem. apply filter_true in Hmem.
+    destruct Hmem as [Hmem Heq].
+    simpl in Heq. apply split_and_true in Heq. destruct Heq as [He2 He1].
+    unfold remove_node.
+    assert (HVmem: forall x: nat * nat, In x E -> (let (u, v) := x in member u V && member v V) = true).
+    { apply forallb_true_iff_mem. apply He. }
+    specialize HVmem with (x := (e1, e2)). apply HVmem in Hmem.
+    apply split_and_true in Hmem. destruct Hmem as [He1V He2V].
+    assert (He1mem: In e1 (filter (fun v : nat => negb (v =? u)) V)).
+    { apply filter_true. split.
+      - apply member_In_equiv. apply He1V.
+      - apply He1. }
+    assert (He2mem: In e2 (filter (fun v : nat => negb (v =? u)) V)).
+    { apply filter_true. split.
+      - apply member_In_equiv. apply He2V.
+      - apply He2. }
+    apply member_In_equiv in He1mem. apply member_In_equiv in He2mem.
+    rewrite He1mem. rewrite He2mem. reflexivity. }
+  rewrite He'. simpl.
+  apply forallb_true_iff_mem. intros x Hmem.
+  unfold remove_node in Hmem. apply filter_true in Hmem. destruct Hmem as [Hmem Hxu].
+  unfold remove_node.
+  assert (H: count x V = count x (filter (fun v : nat => negb (v =? u)) V)).
+  { apply count_filter. apply Hxu. }
+  rewrite <- H.
+  assert (HVc: forall x: nat, In x V -> (count x V =? 1) = true).
+  { apply forallb_true_iff_mem. apply Hv. }
+  specialize HVc with (x := x). apply HVc in Hmem. apply Hmem.
+Qed.
 
 Definition num_nodes (G: graph) : nat :=
   match G with
@@ -274,7 +314,8 @@ Theorem edge_corresponds_to_nodes_in_well_formed: forall (G: graph) (u v: node),
   -> node_in_graph u G = true /\ node_in_graph v G = true.
 Proof.
   intros [V E] u v [HG Hedge].
-  unfold G_well_formed in HG. apply forallb_true with (x:=(u,v)) in HG.
+  unfold G_well_formed in HG. apply split_and_true in HG. destruct HG as [HG _].
+  apply forallb_true with (x:=(u,v)) in HG.
   - apply split_and_true in HG. destruct HG as [Hu Hv]. simpl.
     rewrite Hu. rewrite Hv. split. reflexivity. reflexivity.
   - simpl in Hedge. apply member_edge_In_equiv. apply Hedge.
@@ -1334,8 +1375,13 @@ Definition E_topo: edges := [(5, 0); (5, 2); (2, 3); (3, 1); (4, 0); (4, 1)].
 Example toposort_1: topological_sort (V_topo, E_topo) = Some [4; 5; 2; 3; 1; 0].
 Proof. reflexivity. Qed.
 
+Lemma topo_sort_subgraph: forall (G: graph) (u: node) (ts: nodes),
+  topological_sort G = Some (u :: ts) -> topological_sort (remove_node_from_graph G u) = Some ts.
+Proof.
+Admitted.
+
 Lemma topo_sort_exists_for_acyclic: forall (G: graph),
-  G_well_formed G = true /\ contains_cycle G = false -> exists sorted: nodes, topological_sort G = Some sorted.
+  G_well_formed G = true /\ contains_cycle G = false <-> exists sorted: nodes, topological_sort G = Some sorted.
 Proof.
 Admitted.
 
@@ -1344,10 +1390,66 @@ Lemma topo_sort_length_correct: forall (G: graph) (sorted: nodes),
 Proof.
 Admitted.
 
-Lemma topo_sort_contains_nodes: forall (G: graph) (u: node) (sorted: nodes),
-  topological_sort G = Some sorted -> (In u sorted <-> node_in_graph u G = true).
+Lemma topo_sort_contains_nodes: forall (G: graph) (sorted: nodes),
+  topological_sort G = Some sorted ->
+  forall (u: node), (In u sorted <-> node_in_graph u G = true).
 Proof.
 Admitted.
+
+Lemma topo_sort_contains_nodes_exactly_once: forall (G: graph) (sorted: nodes),
+  G_well_formed G = true /\ topological_sort G = Some sorted -> 
+  forall (u: node), node_in_graph u G = true -> count u sorted = 1.
+Proof.
+  intros G ts [Hwf Hts].
+  assert (HV: forall (u: node), In u (nodes_in_graph G) -> count u (nodes_in_graph G) = 1).
+  { intros u Hmem. destruct G as [V E].
+    unfold G_well_formed in Hwf. apply split_and_true in Hwf. destruct Hwf as [_ Hwf].
+    apply forallb_true_iff_mem with (x := u) in Hwf.
+    - simpl. apply eqb_eq in Hwf. apply Hwf.
+    - simpl in Hmem. apply Hmem. }
+  assert (HVts: forall (u: node), count u (nodes_in_graph G) = count u ts).
+  { intros u.
+    apply topo_sort_length_correct in Hts as Hlen.
+    generalize dependent G. induction ts as [| h t IH].
+    - intros G Hwf Hts Hu Hlen. simpl. simpl in Hlen. destruct G as [V E]. destruct V as [| h1 t1].
+      + simpl. reflexivity.
+      + discriminate Hlen.
+    - intros G Hwf Hts Hnode Hlen. simpl.
+      specialize IH with (G := remove_node_from_graph G h).
+      assert (H: count u (nodes_in_graph (remove_node_from_graph G h)) = count u t).
+      { apply IH.
+        - apply remove_node_preserves_well_formed. apply Hwf.
+        - apply topo_sort_subgraph. apply Hts.
+        - intros u1 Hmem. destruct G as [V E]. simpl in Hmem. simpl.
+          unfold remove_node in Hmem. apply filter_true in Hmem. destruct Hmem as [Hmem Huu1].
+          simpl in Hnode. specialize Hnode with (u := u1). apply Hnode in Hmem.
+          unfold remove_node. 
+          assert (H1: count u1 V = count u1 (filter (fun v : nat => negb (v =? h)) V)).
+          { apply count_filter. apply Huu1. }
+          rewrite <- H1. apply Hmem.
+        - destruct G as [V E]. simpl. simpl in Hnode.
+          specialize Hnode with (u := h). simpl in Hlen.
+          assert (H1: length V = S (length (filter (fun v : nat => negb (v =? h)) V))).
+          { apply count_length. apply Hnode.
+            apply topo_sort_contains_nodes with (u := h) in Hts. simpl in Hts.
+            apply member_In_equiv. apply Hts. left. reflexivity. }
+          rewrite H1 in Hlen. inversion Hlen. unfold remove_node. apply H0. }
+      destruct (h =? u) as [|] eqn:Hhu.
+      + destruct G as [V E]. simpl. simpl in H. simpl in Hnode.
+        assert (HcV: count u V = 1).
+        { apply topo_sort_contains_nodes with (u := h) in Hts. simpl in Hts.
+          specialize Hnode with (u := u). apply Hnode.
+          apply member_In_equiv. apply eqb_eq in Hhu. rewrite <- Hhu. apply Hts. left. reflexivity. }
+        assert (Hct: count u t = 0).
+        { rewrite <- H. unfold remove_node. apply eqb_eq in Hhu. rewrite Hhu. apply count_remove_element. }
+        rewrite HcV. rewrite Hct. reflexivity.
+      + destruct G as [V E]. simpl. simpl in H. unfold remove_node in H.
+        rewrite <- H. apply count_filter. rewrite eqb_sym. rewrite Hhu. simpl. reflexivity. }
+  intros u H.
+  specialize HVts with (u := u). rewrite <- HVts.
+  specialize HV with (u := u). apply HV. destruct G as [V E].
+  simpl in H. simpl. apply member_In_equiv. apply H.
+Qed.
 
 Theorem topo_sort_correct: forall (G: graph) (u v: node) (sorted: nodes),
   G_well_formed G = true /\ edge_in_graph (u, v) G = true /\ topological_sort G = Some sorted
@@ -1356,10 +1458,28 @@ Proof.
 Admitted.
 
 Corollary topo_sort_parents: forall (G: graph) (c p: node) (sorted: nodes),
-  G_well_formed G = true /\ contains_cycle G = false -> In p (find_parents c G)
+  G_well_formed G = true /\ contains_cycle G = false /\ topological_sort G = Some sorted
+  -> In p (find_parents c G)
   -> exists (i j: nat), Some i = index sorted p /\ Some j = index sorted c /\ i < j.
 Proof.
 Admitted.
+
+Lemma topo_sort_first_node_no_parents: forall (G: graph) (u: node) (ts: nodes),
+  G_well_formed G = true /\ topological_sort G = Some (u :: ts) -> find_parents u G = [].
+Proof.
+  intros G u ts [Hwf Hts].
+  destruct (find_parents u G) as [| h t] eqn:HP.
+  - reflexivity.
+  - (* contradiction: u is first in topological sort *)
+    assert (Hcyc: contains_cycle G = false).
+    { apply topo_sort_exists_for_acyclic. exists (u :: ts). apply Hts. }
+    assert (Hcontra: exists (i j: nat), Some i = index (u :: ts) h /\ Some j = index (u :: ts) u /\ i < j).
+    { apply topo_sort_parents with (G := G).
+      - repeat split. apply Hwf. apply Hcyc. apply Hts.
+      - rewrite HP. simpl. left. reflexivity. }
+    destruct Hcontra as [i [j [Hi [Hj Hij]]]].
+    simpl in Hj. rewrite eqb_refl in Hj. inversion Hj. rewrite H0 in Hij. lia.
+Qed.
 
 
 (* semantics *)
@@ -1375,11 +1495,60 @@ Fixpoint is_assigned (A: assignments) (u: node) : bool :=
   | h :: t => (u =? (fst h)) || is_assigned t u
   end.
 
+Lemma is_assigned_app: forall (A1 A2: assignments) (u: node),
+  is_assigned A1 u = true -> is_assigned (A1 ++ A2) u = true.
+Proof.
+  intros A1 A2 u H. induction A1 as [| h t IH].
+  - simpl in H. discriminate H.
+  - simpl. simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + rewrite H. simpl. reflexivity.
+    + apply IH in H. rewrite H. rewrite orb_comm. simpl. reflexivity.
+Qed.
+
+Lemma is_assigned_app2: forall (A1 A2: assignments) (u: node),
+  is_assigned A2 u = true -> is_assigned (A1 ++ A2) u = true.
+Proof.
+  intros A1 A2 u H. induction A1 as [| h t IH].
+  - simpl. apply H.
+  - simpl. rewrite IH. rewrite orb_comm. simpl. reflexivity.
+Qed.
+
 Fixpoint get_assigned_value (A: assignments) (u: node) : option nat :=
   match A with
   | [] => None
   | h :: t => if ((fst h) =? u) then Some (snd h) else (get_assigned_value t u)
   end.
+
+Definition is_assignment_for (A: assignments) (Z: nodes) : bool :=
+  (forallb (fun x: node => is_assigned A x) Z).
+
+Lemma assigned_has_value: forall (A: assignments) (u: node) (L: nodes),
+  In u L /\ is_assignment_for A L = true -> exists x: nat, get_assigned_value A u = Some x.
+Proof.
+  intros A u L [Hmem HA].
+  unfold is_assignment_for in HA. apply forallb_true_iff_mem with (X := node) (x := u) in HA.
+  - induction A as [| h t IH].
+    + simpl in HA. discriminate HA.
+    + simpl in HA. apply split_orb_true in HA. destruct HA as [Hu | Hind].
+      * destruct h as [u1 x1]. exists x1. simpl in Hu. simpl.
+        apply eqb_eq in Hu. rewrite Hu. rewrite eqb_refl. reflexivity.
+      * apply IH in Hind. destruct Hind as [x Hind].
+        simpl. destruct (fst h =? u) as [|] eqn:Hhu.
+        -- exists (snd h). reflexivity.
+        -- exists x. apply Hind.
+  - apply Hmem.
+Qed.
+
+Lemma assigned_is_true: forall (A: assignments) (u: node),
+  (exists x: nat, get_assigned_value A u = Some x) -> is_assigned A u = true.
+Proof.
+  intros A u [x H].
+  induction A as [| h t IH].
+  - simpl in H. discriminate H.
+  - simpl in H. destruct (fst h =? u) as [|] eqn:Hhu.
+    + simpl. apply eqb_eq in Hhu. rewrite Hhu. rewrite eqb_refl. simpl. reflexivity.
+    + simpl. apply IH in H. rewrite H. rewrite orb_comm. simpl. reflexivity.
+Qed.
 
 (* returns None if some parent hasn't been assigned a value, else returns list of assignments *)
 Fixpoint get_parent_assignments (A: assignments) (P: nodes) : option (list nat) :=
@@ -1395,37 +1564,64 @@ Fixpoint get_parent_assignments (A: assignments) (P: nodes) : option (list nat) 
   end.
 
 Lemma parent_assignments_exist: forall (A: assignments) (P: nodes),
-  forallb (fun u: node => is_assigned A u) P = true
-  -> exists L: list nat, Some L = get_parent_assignments A P.
+  is_assignment_for A P = true -> exists L: list nat, Some L = get_parent_assignments A P.
 Proof.
-Admitted.
+  intros A P H.
+  induction P as [| h t IH].
+  - simpl. exists []. reflexivity.
+  - simpl in H. apply split_and_true in H. destruct H as [Hh Hind].
+    assert (Hhx: exists x: nat, get_assigned_value A h = Some x).
+    { apply assigned_has_value with (L := h :: t). split.
+      - simpl. left. reflexivity.
+      - simpl. rewrite Hh. rewrite Hind. reflexivity. }
+    destruct Hhx as [x Hhx].
+    simpl. rewrite Hhx.
+    apply IH in Hind. destruct Hind as [L Hind].
+    exists (x :: L). rewrite <- Hind. reflexivity.
+Qed.
 
 Definition add_assignment (A: assignments) (u: node) (x: nat) : assignments :=
-  (u, x) :: A.
+  A ++ [(u, x)].
 
-(* makes things cleaner in below function *)
-Definition add_assignment_or_none (A: option assignments) (u: node) (x: nat) : option assignments :=
-  match A with
-  | Some A' => Some (add_assignment A' u x)
-  | None => None
+Definition get_value_of_node (u: node) (G: graph) (g: graphfun) (U A so_far: assignments) : option nat :=
+  match (get_assigned_value A u) with
+  | Some x => (* value already assigned *) Some x
+  | None => (* find value of parents and use node function *)
+            match (get_assigned_value U u) with
+            | Some unobs => match (get_parent_assignments so_far (find_parents u G)) with
+                            | Some p => Some ((g u) (unobs, p))
+                            | None => None (* won't reach this, contradicts topo correctness *)
+                            end
+            | None => None (* error, U needs to have unobserved value of all nodes *)
+            end
   end.
+
+Lemma value_exists_if_parents_are_assigned: forall (u: node) (G: graph) (g: graphfun) (U A so_far: assignments),
+  is_assignment_for so_far (find_parents u G) = true /\ is_assignment_for U (nodes_in_graph G) = true
+  /\ node_in_graph u G = true
+  -> exists x: nat, get_value_of_node u G g U A so_far = Some x.
+Proof.
+  intros u [V E] g U A so_far [Hsf [HU Hu]].
+  unfold get_value_of_node. destruct (get_assigned_value A u) as [x|] eqn:HA.
+  - exists x. reflexivity.
+  - assert (HUu: exists hu: nat, get_assigned_value U u = Some hu).
+    { apply assigned_has_value with (L := V). split.
+      - simpl in Hu. apply member_In_equiv. apply Hu.
+      - simpl in HU. apply HU. }
+    destruct HUu as [hu HUu]. rewrite HUu.
+    assert (HP: exists p, Some p = get_parent_assignments so_far (find_parents u (V, E))).
+    { apply parent_assignments_exist. apply Hsf. }
+    destruct HP as [p HP].
+    rewrite <- HP. exists (g u (hu, p)). reflexivity.
+Qed.
 
 Fixpoint get_values_from_topo_sort (ts: nodes) (G: graph) (g: graphfun) (U: assignments)
                                    (A: assignments) (so_far: assignments) : option assignments :=
   match ts with
-  | [] => Some []
-  | u :: ts' => match (get_assigned_value A u) with
-                | Some x => (* value already assigned *)
-                            add_assignment_or_none (get_values_from_topo_sort ts' G g U A (add_assignment so_far u x)) u x
-                | None => (* find value of parents and use node function *)
-                          match (get_assigned_value U u) with
-                          | Some unobs => match (get_parent_assignments so_far (find_parents u G)) with
-                                          | Some p => let x := ((g u) (unobs, p)) in
-                                                      add_assignment_or_none (get_values_from_topo_sort ts' G g U A (add_assignment so_far u x)) u x
-                                          | None => None (* won't reach this, contradicts topo correctness *)
-                                          end
-                          | None => None (* error, U needs to have unobserved value of all nodes *)
-                          end
+  | [] => Some so_far
+  | u :: ts' => match (get_value_of_node u G g U A so_far) with
+                | Some x => get_values_from_topo_sort ts' G g U A (add_assignment so_far u x)
+                | None => None
                 end
   end.
 
@@ -1435,15 +1631,193 @@ Definition get_values (G: graph) (g: graphfun) (U: assignments) (A: assignments)
   | None => None (* graph is cyclic *)
   end.
 
+Lemma assigned_if_in_so_far: forall (ts: nodes) (G: graph) (g: graphfun) (U A so_far values: assignments) (u: node),
+  get_values_from_topo_sort ts G g U A so_far = Some values /\ is_assigned so_far u = true ->
+  is_assigned values u = true.
+Proof.
+  intros ts G g U A so_far values u.
+  intros [H1 H2].
+  generalize dependent so_far. induction ts as [| h t IH].
+  - intros so_far H1 H2. simpl in H1. inversion H1. rewrite <- H0. apply H2.
+  - intros so_far H1 H2. simpl in H1. unfold get_value_of_node in H1.
+    destruct (get_assigned_value A h) as [x|] eqn:HA.
+    + specialize IH with (so_far := (add_assignment so_far h x)).
+      apply IH.
+      * apply H1.
+      * unfold add_assignment. apply is_assigned_app. apply H2.
+    + destruct (get_assigned_value U h) as [unobs|] eqn:HU.
+      * destruct (get_parent_assignments so_far (find_parents h G)) as [p|] eqn:HP.
+        -- specialize IH with (so_far := (add_assignment so_far h (g h (unobs, p)))).
+           apply IH.
+           ++ apply H1.
+           ++ unfold add_assignment. apply is_assigned_app. apply H2.
+        -- discriminate H1.
+      * discriminate H1.
+Qed.
+
+Lemma get_values_exists_then_all_nodes_assigned_helper: forall (ts: nodes) (G: graph) (g: graphfun) (U A so_far values: assignments),
+  topological_sort G = Some ts /\ get_values_from_topo_sort ts G g U A so_far = Some values
+  -> is_assignment_for values (nodes_in_graph G) = true.
+Proof.
+  intros ts G g U A so_far values [Hts H].
+  unfold is_assignment_for. apply forallb_true_iff_mem. intros u Hmem.
+  assert (Huts: In u ts).
+  { apply topo_sort_contains_nodes with (u := u) in Hts as Hu.
+    apply Hu. destruct G as [V E]. simpl. simpl in Hmem. apply member_In_equiv. apply Hmem. }
+  clear Hts.
+  generalize dependent values. generalize dependent so_far. induction ts as [| h t IH].
+  + exfalso. apply Huts.
+  + intros so_far values H. simpl in Huts. destruct Huts as [Huh | Hut].
+    * simpl in H. unfold get_value_of_node in H. destruct (get_assigned_value A u) as [x|] eqn:Hassigned.
+      -- rewrite <- Huh in Hassigned. rewrite Hassigned in H. unfold add_assignment in H.
+         apply assigned_if_in_so_far with (ts := t) (G := G) (g := g) (U := U) (A := A) (so_far := so_far ++ [(h, x)]).
+         split.
+         ++ apply H.
+         ++ rewrite <- Huh. apply is_assigned_app2. simpl. rewrite eqb_refl. simpl. reflexivity.
+      -- rewrite <- Huh in Hassigned. rewrite Hassigned in H.
+         destruct (get_assigned_value U h) as [unobs|] eqn:HU.
+         ++ destruct (get_parent_assignments so_far (find_parents h G)) as [p|] eqn:HP.
+            ** unfold add_assignment in H.
+               apply assigned_if_in_so_far with (ts := t) (G := G) (g := g) (U := U) (A := A) (so_far := so_far ++ [(h, g h (unobs, p))]).
+               split.
+              { apply H. } { rewrite <- Huh. apply is_assigned_app2. simpl. rewrite eqb_refl. simpl. reflexivity. }
+            ** discriminate H.
+         ++ discriminate H.
+    * simpl in H. unfold get_value_of_node in H. destruct (get_assigned_value A h) as [x|] eqn:HA.
+      -- unfold add_assignment in H. specialize IH with (so_far := (so_far ++ [(h, x)])) (values := values).
+         apply IH. apply Hut. apply H.
+      -- destruct (get_assigned_value U h) as [Uh|] eqn:HU.
+         ++ destruct (get_parent_assignments so_far (find_parents h G)) as [p|] eqn:HP.
+            ** specialize IH with (so_far := (add_assignment so_far h (g h (Uh, p)))) (values := values).
+               apply IH. apply Hut. apply H.
+            ** discriminate H.
+         ++ discriminate H.
+Qed.
+
+Theorem get_values_exists_then_all_nodes_assigned: forall (G: graph) (g: graphfun) (U A values: assignments),
+  get_values G g U A = Some values -> is_assignment_for values (nodes_in_graph G) = true.
+Proof.
+  intros G g U A values H. destruct (topological_sort G) as [ts|] eqn:Hts.
+  - apply get_values_exists_then_all_nodes_assigned_helper with (ts := ts) (g := g) (U := U) (A := A) (so_far := []).
+    split. apply Hts. unfold get_values in H. rewrite Hts in H. apply H. 
+  - unfold get_values in H. rewrite Hts in H. discriminate H.
+Qed.
+
+Lemma get_values_existence_helper: forall (ts_pre ts_suff: nodes) (G: graph) (g: graphfun) (U A so_far: assignments),
+  G_well_formed G = true ->
+  topological_sort G = Some (ts_pre ++ ts_suff) /\ is_assignment_for so_far ts_pre = true /\
+  is_assignment_for U (nodes_in_graph G) = true
+  -> exists (values: assignments), get_values_from_topo_sort ts_suff G g U A so_far = Some values.
+Proof.
+  intros tsp tss G g U A so_far.
+  intros Hwf [Hts [Hsf HU]].
+  generalize dependent tsp. generalize dependent so_far. induction tss as [| h t IH].
+  - intros so_far tsp Hts Hsf. simpl. exists so_far. reflexivity.
+  - intros so_far tsp Hts Hsf. simpl.
+    assert (Hh: exists x: nat, get_value_of_node h G g U A so_far = Some x).
+    { apply value_exists_if_parents_are_assigned. repeat split.
+      - assert (Hp: forall (p: node), In p (find_parents h G) -> In p tsp).
+        { intros p Hp.
+          apply topo_sort_parents with (sorted := (tsp ++ h :: t)) in Hp.
+          - (* i < j, so p must appear in tsp *)
+            destruct Hp as [i [j [Hi [Hj Hij]]]].
+            assert (Hmem: ~(In h tsp)).
+            { intros Hhtsp.
+              (* contradict that h appears only once in the topological sort of G *)
+              assert (Hc: count h (tsp ++ h :: t) >= 2).
+              { apply member_count_at_least_1 in Hhtsp.
+                rewrite count_app. simpl. rewrite eqb_refl. lia. }
+              assert (Hc2: count h (tsp ++ h :: t) = 1).
+              { apply topo_sort_contains_nodes_exactly_once with (G := G).
+                - split. apply Hwf. apply Hts.
+                - apply topo_sort_contains_nodes with (u := h) in Hts. apply Hts.
+                  apply membership_append_r. simpl. left. reflexivity. }
+              lia. }
+            assert (Hj2: index (tsp ++ h :: t) h = Some (length tsp + 0)).
+            { apply index_append with (l1 := tsp) (l2 := h :: t) (i := 0). split.
+              - apply Hmem.
+              - simpl. rewrite eqb_refl. reflexivity. }
+            rewrite Hj2 in Hj. inversion Hj. rewrite add_0_r in H0. rewrite H0 in Hij.
+            assert (Hptsp: index tsp p = Some i).
+            { apply index_append_2 with (l2 := h :: t). split.
+              - symmetry. apply Hi.
+              - apply Hij. }
+            apply index_exists. exists i. symmetry. apply Hptsp.
+          - repeat split.
+            + apply Hwf.
+            + apply topo_sort_exists_for_acyclic. exists (tsp ++ h :: t). apply Hts.
+            + apply Hts. }
+        unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
+        specialize Hp with (p := p). apply Hp in Hmem.
+        apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
+        + apply Hmem.
+        + apply Hsf.
+      - apply HU.
+      - apply topo_sort_contains_nodes with (u := h) in Hts. apply Hts.
+        apply membership_append_r. simpl. left. reflexivity. }
+    destruct Hh as [x Hh]. rewrite Hh.
+    specialize IH with (so_far := (add_assignment so_far h x)) (tsp := tsp ++ [h]).
+    apply IH.
+    + rewrite Hts. f_equal. rewrite append_vs_concat. reflexivity.
+    + unfold add_assignment. unfold is_assignment_for.
+      apply forallb_true_iff_mem. intros v Hmem.
+      apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
+      * apply is_assigned_app. apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
+        -- apply Hmem.
+        -- apply Hsf.
+      * apply is_assigned_app2. apply assigned_is_true. apply assigned_has_value with (L := [h]). split.
+        -- apply Hmem.
+        -- simpl. rewrite eqb_refl. simpl. reflexivity.
+Qed.
+
+Theorem get_values_existence: forall (G: graph) (g: graphfun) (U A: assignments),
+  G_well_formed G = true /\ contains_cycle G = false ->
+  is_assignment_for U (nodes_in_graph G) = true ->
+  exists (values: assignments), get_values G g U A = Some values.
+Proof.
+  intros G g U A. destruct G as [V E] eqn:HG.
+  intros [Hwf Hcyc]. intros HU. simpl in HU. simpl.
+  assert (Hts: exists ts: nodes, topological_sort G = Some ts).
+  { apply topo_sort_exists_for_acyclic. split.
+    - rewrite HG. apply Hwf.
+    - rewrite HG. apply Hcyc. }
+  destruct Hts as [ts Hts].
+  unfold get_values. rewrite HG in Hts. rewrite Hts.
+  apply get_values_existence_helper with (ts_pre := []).
+  - apply Hwf.
+  - repeat split.
+    + rewrite Hts. simpl. reflexivity.
+    + simpl. apply HU.
+Qed.
+
 Definition find_value (G: graph) (g: graphfun) (u: node) (U: assignments) (A: assignments): option nat :=
   match (get_values G g U A) with
   | Some values => get_assigned_value values u
   | None => None
   end.
 
+Theorem find_value_existence: forall (G: graph) (g: graphfun) (U A: assignments) (u: node),
+  G_well_formed G = true /\ contains_cycle G = false ->
+  is_assignment_for U (nodes_in_graph G) = true /\ node_in_graph u G = true ->
+  exists (x: nat), find_value G g u U A = Some x.
+Proof.
+  intros G g U A u. intros [Hwf Hcyc]. intros [HU Hu].
+  assert (Hval: exists (values: assignments), get_values G g U A = Some values).
+  { apply get_values_existence.
+    - split.
+      + apply Hwf.
+      + apply Hcyc.
+    - apply HU. }
+  unfold find_value. destruct Hval as [values Hval].
+  rewrite Hval. apply get_values_exists_then_all_nodes_assigned in Hval.
+  apply assigned_has_value with (L := (nodes_in_graph G)). split.
+  - destruct G as [V E]. simpl. simpl in Hu. apply member_In_equiv. apply Hu.
+  - apply Hval.
+Qed.
+
 Theorem conditional_independence_semantics: forall (G: graph) (u v: node) (Z: nodes) (A: assignments),
-  (forallb (fun x: node => is_assigned A x) Z) = true
-  -> forall (a b: nat) (U: assignments), (forallb (fun x: node => is_assigned U x) (nodes_in_graph G)) = true
+  is_assignment_for A Z = true
+  -> forall (a b: nat) (U: assignments), is_assignment_for U (nodes_in_graph G) = true
   -> forall (g: graphfun),
       find_value G g u U (add_assignment A v a) = find_value G g u U (add_assignment A v b) /\
       find_value G g v U (add_assignment A u a) = find_value G g v U (add_assignment A u b).

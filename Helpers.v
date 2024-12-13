@@ -171,6 +171,78 @@ Proof.
     * apply IH in H. apply H.
 Qed.
 
+Lemma member_count_at_least_1: forall (l: list nat) (x: nat),
+  In x l -> count x l >= 1.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + lia.
+    + simpl in H. destruct H as [contra | Hind].
+      * rewrite contra in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+      * apply IH. apply Hind.
+Qed.
+
+Lemma count_app: forall (l1 l2: list nat) (x: nat),
+  count x (l1 ++ l2) = count x l1 + count x l2.
+Proof.
+  intros l1 l2 x.
+  induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + rewrite IH. simpl. reflexivity.
+    + rewrite IH. reflexivity.
+Qed.
+
+Lemma count_filter: forall (l: list nat) (x: nat) (test : nat -> bool),
+  test x = true -> count x l = count x (filter test l).
+Proof.
+  intros l x test H.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + apply eqb_eq in Hhx. rewrite <- Hhx in H. rewrite H. simpl.
+      rewrite Hhx. rewrite eqb_refl. rewrite IH. reflexivity.
+    + destruct (test h) as [|] eqn:Hh.
+      * simpl. rewrite Hhx. apply IH.
+      * apply IH.
+Qed.
+
+Lemma filter_test_not_satisfied: forall (l: list nat) (x: nat),
+  count x l = 0 -> l = (filter (fun v : nat => negb (v =? x)) l).
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+    + discriminate H.
+    + apply IH in H. simpl. rewrite Hhx. simpl. f_equal. apply H.
+Qed.
+
+Lemma count_length: forall (l: list nat) (x: nat),
+  count x l = 1 -> length l = S (length (filter (fun v : nat => negb (v =? x)) l)).
+Proof.
+  intros l x.
+  intros Hc.
+  induction l as [| h t IH].
+  - simpl in Hc. discriminate Hc.
+  - simpl in Hc. simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + simpl. f_equal. inversion Hc. apply filter_test_not_satisfied in H0.
+      rewrite <- H0. reflexivity.
+    + f_equal. simpl. apply IH in Hc. apply Hc.
+Qed.
+
+Lemma count_remove_element: forall (l: list nat) (x: nat),
+  count x (filter (fun v : nat => negb (v =? x)) l) = 0.
+Proof.
+  intros l x.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + simpl. apply IH.
+    + simpl. rewrite Hhx. apply IH.
+Qed.
 
 (* return true iff last elt of l1 is the same as first elt of l2 *)
 Fixpoint first_and_last_elts_same (l1 l2: list nat) : bool :=
@@ -203,7 +275,7 @@ Proof.
     + apply IH.
 Qed.
 
-Theorem append_identity: forall l: list nat, l ++ [] = l.
+Theorem append_identity: forall X, forall l: list X, l ++ [] = l.
 Proof.
   induction l as [| h t IH].
   - reflexivity.
@@ -237,6 +309,19 @@ Proof.
   induction l1 as [| h t IH].
   - simpl. apply H.
   - simpl. right. apply IH.
+Qed.
+
+Lemma membership_append_or: forall (X : Type) (l1 l2: list X) (u: X),
+  In u (l1 ++ l2) -> In u l1 \/ In u l2.
+Proof.
+  intros X l1 l2 u H.
+  induction l1 as [| h t IH].
+  - simpl in H. right. apply H.
+  - simpl in H. destruct H as [H | H].
+    + left. rewrite H. simpl. left. reflexivity.
+    + apply IH in H. destruct H as [H | H].
+      * left. right. apply H.
+      * right. apply H.
 Qed.
 
 Fixpoint max_list (l: list nat) : nat :=
@@ -318,6 +403,45 @@ Fixpoint index (l: list nat) (x: nat) : option nat :=
               | Some i => Some (S i)
               end
   end.
+
+Lemma index_append: forall (l1 l2: list nat) (x i: nat),
+  ~(In x l1) /\ index l2 x = Some i
+  -> index (l1 ++ l2) x = Some (length l1 + i).
+Proof.
+  intros l1 l2 x i [Hmem Hl2].
+  unfold not in Hmem.
+  induction l1 as [| h t IH].
+  - simpl. apply Hl2.
+  - simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + exfalso. apply Hmem. simpl. left. apply eqb_eq in Hhx. apply Hhx.
+    + simpl in Hmem. replace (index (t ++ l2) x) with (Some (length t + i)).
+      * reflexivity.
+      * symmetry. apply IH. intros H. apply Hmem. right. apply H.
+Qed.
+
+Lemma index_append_2: forall (l1 l2: list nat) (x i: nat),
+  index (l1 ++ l2) x = Some i /\ i < length l1 ->
+  index l1 x = Some i.
+Proof.
+  intros l1 l2 x i [H1 H2].
+  generalize dependent i. induction l1 as [| h t IH].
+  - intros i H1 H2. simpl in H2. lia.
+  - intros i H1 H2. simpl in H1. destruct (h =? x) as [|] eqn:Hhx.
+    + inversion H1. rewrite eqb_eq in Hhx. rewrite Hhx. simpl.
+      rewrite eqb_refl. reflexivity.
+    + simpl. rewrite Hhx. destruct (index (t ++ l2) x) as [j|] eqn:H3.
+      * destruct i as [| i'] eqn:Hi.
+        -- discriminate H1.
+        -- specialize IH with (i := i').
+           inversion H1. inversion H2.
+           ++ replace (index t x) with (Some i').
+              ** reflexivity.
+              ** symmetry. apply IH. rewrite H0. reflexivity. lia.
+           ++ replace (index t x) with (Some i').
+              ** reflexivity.
+              ** symmetry. apply IH. rewrite H0. reflexivity. lia.
+      * discriminate H1.
+Qed.
 
 Theorem index_correct: forall (l: list nat) (x: nat) (i: nat),
   Some i = index l x -> nth_error l i = Some x.
@@ -778,6 +902,27 @@ Proof.
       destruct (test h) as [|] eqn:Hh.
       * apply IH. apply H2.
       * apply H1.
+Qed.
+
+Theorem forallb_true_iff_mem : forall X test (l : list X),
+  forallb test l = true <-> (forall x: X, In x l -> test x = true).
+Proof.
+  intros X test.
+  intros l.
+  split.
+  - intros H. intros x Hmem. induction l as [| h t IH].
+    + simpl in Hmem. exfalso. apply Hmem.
+    + simpl in H. simpl in Hmem. destruct Hmem as [Hhx | Hmem].
+      * apply split_and_true in H. destruct H as [H _]. rewrite Hhx in H. apply H.
+      * apply IH.
+        -- apply split_and_true in H. destruct H as [_ H]. apply H.
+        -- apply Hmem.
+  - intros H. induction l as [| h t IH].
+    + simpl. reflexivity.
+    + simpl. assert (Hh: test h = true).
+      { specialize H with (x := h). apply H. simpl. left. reflexivity. }
+      rewrite Hh. simpl. apply IH. intros x Hind.
+      apply H. simpl. right. apply Hind.
 Qed.
 
 Theorem filter_true : forall (X : Type) (test : X -> bool) (x : X) (l: list X),
