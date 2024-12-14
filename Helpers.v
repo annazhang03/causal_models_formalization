@@ -233,6 +233,33 @@ Proof.
     + f_equal. simpl. apply IH in Hc. apply Hc.
 Qed.
 
+Lemma filter_makes_list_shorter: forall (X : Type) (test : X -> bool) (l: list X),
+  length (filter test l) <= length l.
+Proof.
+  intros X test l.
+  induction l as [| h t IH].
+  - simpl. lia.
+  - simpl. destruct (test h) as [|] eqn:H.
+    + simpl. apply succ_le_mono with (m := length t). apply IH.
+    + lia.
+Qed.
+
+Lemma filter_length_membership: forall (l: list nat) (x: nat),
+  In x l -> S (length (filter (fun v : nat => negb (v =? x)) l)) <= length l.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - exfalso. simpl in H. apply H.
+  - simpl in H. destruct H as [Hhx | Hmem].
+    + simpl. rewrite Hhx. rewrite eqb_refl. simpl. apply succ_le_mono with (m := length t).
+      apply filter_makes_list_shorter.
+    + apply IH in Hmem. replace (length (h :: t)) with (S (length t)).
+      * simpl. destruct (h =? x) as [|] eqn:Hhx.
+        -- simpl. apply le_le_succ_r with (m := length t). apply Hmem.
+        -- simpl. apply succ_le_mono with (m := length t). apply Hmem.
+      * simpl. reflexivity.
+Qed.
+
 Lemma count_remove_element: forall (l: list nat) (x: nat),
   count x (filter (fun v : nat => negb (v =? x)) l) = 0.
 Proof.

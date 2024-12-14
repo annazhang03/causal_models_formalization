@@ -1275,20 +1275,84 @@ Definition contains_any_node (G: graph): bool :=
   end.
 
 Theorem constructed_path_in_graph: forall (G: graph) (p: path) (iters: nat),
-  is_path_in_graph p G = true -> is_path_in_graph (construct_path G p iters) G = true.
+  G_well_formed G = true -> is_path_in_graph p G = true -> is_path_in_graph (construct_path G p iters) G = true.
 Proof.
-Admitted.
+  intros G p iters Hwf H.
+  generalize dependent p. induction iters as [| iters' IH].
+  - intros p H. simpl. apply H.
+  - intros p H. destruct p as [[u v] l]. simpl. destruct (find_parents u G) as [| h t] eqn:HP.
+    + apply H.
+    + specialize IH with (p := (h, v, u :: l)). apply IH.
+      destruct G as [V E]. simpl in H. simpl. rewrite H.
+      assert (Hedge: edge_in_graph (h, u) (V, E) = true).
+      { apply edge_from_parent_to_child. rewrite HP. simpl. left. reflexivity. }
+      simpl in Hedge. rewrite Hedge.
+      assert (Hnode: node_in_graph h (V, E) = true /\ node_in_graph u (V, E) = true).
+      { apply edge_corresponds_to_nodes_in_well_formed. split.
+        - apply Hwf.
+        - simpl. apply Hedge. }
+      simpl in Hnode. destruct Hnode as [Hh Hu]. rewrite Hh. rewrite Hu. simpl. reflexivity.
+Qed.
 
 Theorem constructed_path_adds_length_iters: forall (G: graph) (p: path) (iters: nat),
-  contains_any_node G = true /\ get_indegree_zero G = []
+  G_well_formed G = true /\ is_path_in_graph p G = true /\ get_indegree_zero G = []
   -> measure_path (construct_path G p iters) = (measure_path p) + iters.
 Proof.
-Admitted.
+  intros G p iters [Hwf [Hpath Hindeg]].
+  generalize dependent p. induction iters as [| iters' IH].
+  - intros p Hpath. simpl. rewrite add_0_r. reflexivity.
+  - intros p Hpath. destruct p as [[u v] l]. simpl. destruct (find_parents u G) as [| h t] eqn:HP.
+    + (* contradiction: u should be in get_indegree_zero G = [] *)
+      assert (contra: In u (get_indegree_zero G)).
+      { destruct G as [V E]. unfold get_indegree_zero.
+        apply filter_true. split.
+        - assert (Hu: node_in_graph u (V, E) = true).
+          { apply first_node_in_path_in_graph with (e := v) (l := l). unfold is_path_in_graph in Hpath. apply Hpath. }
+          simpl in Hu. apply member_In_equiv. apply Hu.
+        - unfold get_indegree. rewrite HP. simpl. reflexivity. }
+      rewrite Hindeg in contra. exfalso. simpl in contra. apply contra.
+    + specialize IH with (p := (h, v, u :: l)). rewrite IH.
+      * simpl. lia.
+      * destruct G as [V E]. simpl. unfold is_path_in_graph in Hpath. simpl in Hpath.
+        rewrite Hpath.
+        assert (Hhu: edge_in_graph (h, u) (V, E) = true).
+        { apply edge_from_parent_to_child. rewrite HP. simpl. left. reflexivity. }
+        simpl in Hhu. rewrite Hhu.
+        assert (Hnode: node_in_graph h (V, E) = true /\ node_in_graph u (V, E) = true).
+        { apply edge_corresponds_to_nodes_in_well_formed. split.
+          - apply Hwf.
+          - simpl. apply Hhu. }
+        simpl in Hnode. destruct Hnode as [Hh Hu]. rewrite Hh. rewrite Hu. simpl. reflexivity.
+Qed.
 
 Theorem pigeonhole: forall (V: nodes) (V': nodes),
   (forall (u: node), In u V' -> In u V) /\ (length V < length V') -> exists (v: node), (count v V' > 1).
 Proof.
-Admitted.
+  intros V V'. intros [Hu Hlen].
+  generalize dependent V. induction V' as [| h' t' IH].
+  - intros V Hu Hlen. simpl in Hlen. lia.
+  - intros V Hu Hlen. destruct (member h' t') as [|] eqn:Hmem.
+    + exists h'. simpl. rewrite eqb_refl.
+      assert (Hc: count h' t' >= 1).
+      { apply member_count_at_least_1. apply member_In_equiv. apply Hmem. }
+      lia.
+    + specialize IH with (V := (filter (fun v : nat => negb (v =? h')) V)).
+      assert (H: exists v : node, count v t' > 1).
+      { apply IH.
+        - intros u Hmem2. apply filter_true. split.
+          + apply Hu with (u := u). simpl. right. apply Hmem2.
+          + destruct (u =? h') as [|] eqn:H.
+            * apply eqb_eq in H. rewrite H in Hmem2. apply member_In_equiv in Hmem2. rewrite Hmem2 in Hmem. discriminate Hmem.
+            * simpl. reflexivity.
+        - assert (Hlen': S (length (filter (fun v : nat => negb (v =? h')) V)) <= length V).
+          { apply filter_length_membership. apply Hu with (u := h'). simpl. left. reflexivity. }
+          simpl in Hlen. apply succ_lt_mono. apply le_lt_trans with (m := (length V)).
+          + apply Hlen'.
+          + apply Hlen. }
+      destruct H as [v H]. exists v. simpl. destruct (h' =? v) as [|] eqn:Hhv.
+      -- lia.
+      -- apply H.
+Qed.
 
 Theorem acyclic_has_indegree_zero: forall (G: graph),
   G_well_formed G = true /\ contains_any_node G = true /\ contains_cycle G = false
@@ -1309,7 +1373,7 @@ Proof.
         destruct HpV as [HpV _].
         remember (construct_path G (p, v, []) (length V)) as cycle. (* extend (p, v) backwards |V| times *)
         assert (Hpath: is_path_in_graph cycle G = true).
-        { rewrite Heqcycle. apply constructed_path_in_graph. rewrite HG. simpl.
+        { rewrite Heqcycle. apply constructed_path_in_graph. rewrite HG. apply HGwf. rewrite HG. simpl.
           rewrite HG in HpV. simpl in HpV. rewrite HpV. rewrite eqb_refl.
           rewrite HG in Hp. simpl in Hp. rewrite Hp. simpl. reflexivity. }
         assert (Hrepeat: exists (r: node), (count r ([path_start cycle; path_end cycle] ++ (path_int cycle)) > 1)).
@@ -1326,8 +1390,15 @@ Proof.
               - apply Hpath. }
             rewrite HG in Heq. rewrite <- HV in Heq. simpl in Heq. apply member_In_equiv. apply Heq.
           - assert (Hlen: measure_path cycle = 2 + (length V)).
-            { rewrite Heqcycle. apply constructed_path_adds_length_iters. split.
-              - rewrite HG. apply Hnode.
+            { rewrite Heqcycle. apply constructed_path_adds_length_iters. repeat split.
+              - rewrite HG. apply HGwf.
+              - rewrite HG. simpl. rewrite eqb_refl.
+                assert (Hmemp: node_in_graph p G = true /\ node_in_graph v G = true).
+                { apply edge_corresponds_to_nodes_in_well_formed. split.
+                  - rewrite HG. apply HGwf.
+                  - apply Hp. } destruct Hmemp as [Hmemp _].
+                rewrite HG in Hmemp. simpl in Hmemp. rewrite Hmemp. rewrite HG in Hp. simpl in Hp. rewrite Hp.
+                simpl. reflexivity.
               - rewrite HG. apply Hindeg. }
             destruct cycle as [[s e] l]. unfold measure_path in Hlen. simpl.
             apply add_cancel_l in Hlen. rewrite Hlen. lia. }
