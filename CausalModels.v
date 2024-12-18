@@ -257,6 +257,11 @@ Definition remove_associated_edges (u: node) (E: edges) : edges :=
 Definition remove_node (u: node) (V: nodes) : nodes :=
   filter (fun v => negb (v =? u) ) V.
 
+Lemma remove_node_from_well_formed: forall (V: nodes) (E: edges) (u: node),
+  node_in_graph u (V, E) = true /\ G_well_formed (V, E) = true -> length V = S (length (remove_node u V)).
+Proof.
+Admitted.
+
 Definition remove_node_from_graph (G: graph) (u: node) : graph :=
   match G with
   | (V, E) => (remove_node u V, remove_associated_edges u E)
@@ -914,10 +919,15 @@ Proof. reflexivity. Qed.
 Example but_not_when_only_one_added: contains_cycle (V_cf, E_cf ++ [(6, 1)]) = false.
 Proof. reflexivity. Qed.
 
-Theorem contains_cycle_true_correct : forall G: graph, forall p: path,
-  (is_path_in_graph p G = true) /\ ~(acyclic_path_2 p) <-> 
-  contains_cycle G = true.
-Proof. 
+Lemma remove_node_preserves_acyclic: forall (G: graph) (u: node),
+  contains_cycle G = false -> contains_cycle (remove_node_from_graph G u) = false.
+Proof.
+Admitted.
+
+Theorem contains_cycle_true_correct : forall G: graph,
+  (exists p: path, is_path_in_graph p G = true /\ ~(acyclic_path_2 p))
+  <-> contains_cycle G = true.
+Proof.
 Admitted.
 
 Theorem contains_cycle_false_correct : forall G: graph, forall p: path,
@@ -925,13 +935,13 @@ Theorem contains_cycle_false_correct : forall G: graph, forall p: path,
 Proof.
   intros G p.
   pose proof contains_cycle_true_correct as cycle_true.
-  specialize (cycle_true G p).
-  intros acyc path.
-  rewrite path in cycle_true. 
+  specialize (cycle_true G).
+  intros Hcyc Hpath.
   destruct (classic (acyclic_path_2 p)) as [HnC | HC].
   - apply HnC.
-  - assert (H: true = true /\ ~ acyclic_path_2 p). { split. reflexivity. apply HC. }
-    apply cycle_true in H. rewrite H in acyc. discriminate acyc.
+  - assert (H: (exists p' : path, is_path_in_graph p' G = true /\ ~ acyclic_path_2 p')).
+    { exists p. split. apply Hpath. apply HC. }
+    apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc.
 Qed.
 
 
@@ -1408,7 +1418,7 @@ Proof.
           - rewrite H0 in Hrepeat. lia.
           - rewrite H1 in Hrepeat. lia. }
         assert (contra: contains_cycle G = true).
-        { apply contains_cycle_true_correct with (p := cycle). split.
+        { apply contains_cycle_true_correct. exists cycle. split.
           - apply Hpath.
           - apply Hcycle. }
         rewrite HG in contra. rewrite Hcyc in contra. discriminate contra.
@@ -1447,25 +1457,190 @@ Example toposort_1: topological_sort (V_topo, E_topo) = Some [4; 5; 2; 3; 1; 0].
 Proof. reflexivity. Qed.
 
 Lemma topo_sort_subgraph: forall (G: graph) (u: node) (ts: nodes),
-  topological_sort G = Some (u :: ts) -> topological_sort (remove_node_from_graph G u) = Some ts.
+  G_well_formed G = true /\ node_in_graph u G = true
+  -> topological_sort G = Some (u :: ts) -> topological_sort (remove_node_from_graph G u) = Some ts.
 Proof.
+  intros [V E] u ts [Hwf Hu] H.
+  unfold topological_sort in H.
+  destruct (length V) as [| l'] eqn:Hlen.
+  - simpl in H. inversion H.
+  - simpl in H. destruct (get_indegree_zero (V, E)) as [| h t] eqn:Hind.
+    + unfold get_indegree_zero in Hind. rewrite Hind in H. discriminate H.
+    + unfold get_indegree_zero in Hind. rewrite Hind in H. 
+      destruct (topological_sort_helper (remove_node h V, remove_associated_edges h E) l') as [r|] eqn:Hr.
+      * inversion H. unfold topological_sort. simpl. rewrite <- H1.
+        assert (Hlen': length V = S (length (remove_node h V))).
+        { apply remove_node_from_well_formed with (E := E). split.
+          - rewrite H1. apply Hu.
+          - apply Hwf. }
+        rewrite Hlen in Hlen'. inversion Hlen'. rewrite <- H3. rewrite <- H2. apply Hr.
+      * discriminate H.
+Qed.
+
+Lemma topo_sort_exists_for_acyclic_helper: forall (G: graph) (iters: nat),
+  G_well_formed G = true /\ contains_any_node G = true /\ iters <= num_nodes G ->
+  contains_cycle G = false
+  <-> exists sorted: nodes, topological_sort_helper G iters = Some sorted.
+Proof.
+  intros G iters. intros [Hwf [Hnode Hiters]]. split.
+  - intros Hcyc.
+    generalize dependent G. induction iters as [| iters' IH].
+    + intros G Hwf Hnode Hiters Hcyc. simpl. exists []. reflexivity.
+    + intros [V E] Hwf Hnode Hiters Hcyc. simpl. destruct (filter (fun v : node => get_indegree v (V, E) =? 0) V) as [| h t] eqn:Hind.
+      * assert (contra: exists u, ((node_in_graph u (V, E)) && (get_indegree u (V, E) =? 0)) = true).
+        { apply acyclic_has_indegree_zero. repeat split.
+          - apply Hwf.
+          - apply Hnode.
+          - apply Hcyc. }
+        destruct contra as [u contra].
+        assert (contra': In u (filter (fun v : node => get_indegree v (V, E) =? 0) V)).
+        { apply filter_true. apply split_and_true in contra. simpl in contra. rewrite <- member_In_equiv. apply contra. }
+        rewrite Hind in contra'. exfalso. simpl in contra'. apply contra'.
+      * destruct iters' as [| iters''] eqn:Hiters'.
+        -- simpl. exists [h]. reflexivity.
+        -- specialize IH with (G := (remove_node h V, remove_associated_edges h E)).
+           assert (Hlen: length V = S (length (remove_node h V))).
+            { apply remove_node_from_well_formed with (E := E). split.
+              - simpl. assert (H: In h (filter (fun v : node => get_indegree v (V, E) =? 0) V)).
+                { rewrite Hind. simpl. left. reflexivity. }
+                apply filter_true in H. destruct H as [H _]. apply member_In_equiv. apply H.
+              - apply Hwf. }
+        assert (H: exists sorted : nodes,
+            topological_sort_helper (remove_node_from_graph (V, E) h) iters' = Some sorted).
+        { rewrite Hiters'. apply IH.
+          - apply remove_node_preserves_well_formed with (u := h) in Hwf. simpl in Hwf. apply Hwf.
+          - simpl. simpl in Hiters.
+            rewrite Hlen in Hiters. destruct (remove_node h V) as [| h' t'].
+            + simpl in Hiters. lia.
+            + simpl. reflexivity.
+          - simpl. simpl in Hiters. lia.
+          - apply remove_node_preserves_acyclic with (u := h) in Hcyc. apply Hcyc. }
+        destruct H as [r H]. simpl in H. rewrite Hiters' in H. rewrite H. exists (h :: r). reflexivity.
+  - 
 Admitted.
 
 Lemma topo_sort_exists_for_acyclic: forall (G: graph),
   G_well_formed G = true /\ contains_cycle G = false <-> exists sorted: nodes, topological_sort G = Some sorted.
 Proof.
+  intros [V E]. split.
+  - intros [Hwf Hcyc].
+    unfold topological_sort. destruct (length V) as [| l'] eqn:Hlen.
+    + simpl. exists []. reflexivity.
+    + apply topo_sort_exists_for_acyclic_helper.
+      * repeat split.
+        -- apply Hwf.
+        -- simpl. destruct V as [| h t].
+           ++ simpl in Hlen. discriminate Hlen.
+           ++ simpl. reflexivity.
+        -- simpl. rewrite Hlen. lia.
+      * apply Hcyc.
+  - 
 Admitted.
+
+Lemma topo_sort_length_correct_helper: forall (G: graph) (iters: nat) (sorted: nodes),
+  topological_sort_helper G iters = Some sorted -> length sorted = iters.
+Proof.
+  intros G iters sorted H.
+  generalize dependent G. generalize dependent sorted. induction iters as [| iters' IH].
+  - intros sorted G H. simpl in H. inversion H. simpl. reflexivity.
+  - intros sorted G H. simpl in H. destruct (get_indegree_zero G) as [| h t].
+    + discriminate H.
+    + destruct (topological_sort_helper (remove_node_from_graph G h) iters') as [r|] eqn:Hr.
+      * specialize IH with (sorted := r) (G := (remove_node_from_graph G h)).
+        apply IH in Hr. inversion H. simpl. rewrite Hr. reflexivity.
+      * discriminate H.
+Qed.
 
 Lemma topo_sort_length_correct: forall (G: graph) (sorted: nodes),
   topological_sort G = Some sorted -> length sorted = num_nodes G.
 Proof.
-Admitted.
+  intros G sorted H.
+  unfold topological_sort in H. destruct G as [V E].
+  apply topo_sort_length_correct_helper in H. simpl. apply H.
+Qed.
+
+Lemma topo_sort_contains_nodes_helper: forall (G: graph) (iters: nat) (sorted: nodes),
+  iters >= num_nodes G /\ topological_sort_helper G iters = Some sorted ->
+  forall (u: node), (In u sorted <-> node_in_graph u G = true).
+Proof.
+  intros G iters sorted [Hiters Hts].
+  intros u. split.
+  - intros Hmem. generalize dependent G. generalize dependent sorted.
+    induction iters as [| iters' IH].
+    + intros sorted Hmem G Hiters Hts. simpl in Hts. inversion Hts. rewrite <- H0 in Hmem. simpl in Hmem.
+      exfalso. apply Hmem.
+    + intros sorted Hmem G Hiters Hts. simpl in Hts. destruct (get_indegree_zero G) as [| h t] eqn:Hd.
+      * discriminate Hts.
+      * destruct (topological_sort_helper (remove_node_from_graph G h) iters') as [r|] eqn:Hr.
+        -- inversion Hts. rewrite <- H0 in Hmem. simpl in Hmem.
+           assert (Hmemh: node_in_graph h G = true).
+           { unfold get_indegree_zero in Hd. destruct G as [V E].
+              assert (H: In h (filter (fun v : node => get_indegree v (V, E) =? 0) V)).
+              { rewrite Hd. simpl. left. reflexivity. }
+              apply filter_true in H. destruct H as [H _]. simpl.
+              apply member_In_equiv. apply H. }
+           destruct Hmem as [Hhu | Hind].
+           ++ unfold get_indegree_zero in Hd. rewrite Hhu in Hmemh. apply Hmemh.
+           ++ specialize IH with (sorted := r) (G := (remove_node_from_graph G h)).
+              apply IH in Hind. destruct G as [V E].
+              ** simpl in Hind. unfold remove_node in Hind.
+                 apply member_In_equiv in Hind. apply filter_true in Hind. destruct Hind as [Hind _].
+                 simpl. apply member_In_equiv. apply Hind.
+              ** destruct G as [V E]. simpl in Hiters. simpl.
+                 assert (H: S (length (remove_node h V)) <= length V).
+                 { unfold remove_node. apply filter_length_membership. simpl in Hmemh. apply member_In_equiv. apply Hmemh. }
+                 lia.
+              ** apply Hr.
+        -- discriminate Hts.
+  - intros Hnode. generalize dependent G. generalize dependent sorted.
+    induction iters as [| iters' IH].
+    + intros sorted G Hiters Hts Hnode.
+      destruct G as [V E]. simpl in Hiters. simpl in Hnode.
+      destruct (length V) as [| l] eqn:Hl.
+      * destruct V as [| h t] eqn:HV.
+        -- simpl in Hnode. discriminate Hnode.
+        -- simpl in Hl. discriminate Hl.
+      * lia.
+    + intros sorted G Hiters Hts Hnode. simpl in Hts.
+      destruct (get_indegree_zero G) as [| h t] eqn:Hd.
+      * discriminate Hts.
+      * destruct (topological_sort_helper (remove_node_from_graph G h) iters') as [r|] eqn:Hr.
+        -- inversion Hts. destruct G as [V E]. simpl in Hnode.
+           destruct (u =? h) as [|] eqn:Huh.
+           ++ apply eqb_eq in Huh. rewrite Huh. simpl. left. reflexivity.
+           ++ assert (Hmem: node_in_graph u (remove_node_from_graph (V, E) h) = true).
+              { simpl. unfold remove_node. apply member_In_equiv.
+                apply filter_true. split.
+                - apply member_In_equiv. apply Hnode.
+                - rewrite Huh. simpl. reflexivity. }
+              specialize IH with (sorted := r) (G := (remove_node_from_graph (V, E) h)).
+              simpl. right. apply IH.
+              ** simpl in Hiters. simpl.
+                 assert (Hmemh: node_in_graph h (V, E) = true).
+                 { unfold get_indegree_zero in Hd.
+                    assert (H: In h (filter (fun v : node => get_indegree v (V, E) =? 0) V)).
+                    { rewrite Hd. simpl. left. reflexivity. }
+                    apply filter_true in H. destruct H as [H _]. simpl.
+                    apply member_In_equiv. apply H. }
+                 assert (H: S (length (remove_node h V)) <= length V).
+                 { unfold remove_node. apply filter_length_membership. simpl in Hmemh. apply member_In_equiv. apply Hmemh. }
+                 lia.
+              ** apply Hr.
+              ** apply Hmem.
+        -- discriminate Hts.
+Qed.
 
 Lemma topo_sort_contains_nodes: forall (G: graph) (sorted: nodes),
   topological_sort G = Some sorted ->
   forall (u: node), (In u sorted <-> node_in_graph u G = true).
 Proof.
-Admitted.
+  intros G sorted Hts.
+  intros u.
+  apply topo_sort_contains_nodes_helper with (iters := (num_nodes G)).
+  split.
+  - apply le_n.
+  - destruct G as [V E]. unfold topological_sort in Hts. simpl. apply Hts.
+Qed.
 
 Lemma topo_sort_contains_nodes_exactly_once: forall (G: graph) (sorted: nodes),
   G_well_formed G = true /\ topological_sort G = Some sorted -> 
@@ -1490,7 +1665,10 @@ Proof.
       assert (H: count u (nodes_in_graph (remove_node_from_graph G h)) = count u t).
       { apply IH.
         - apply remove_node_preserves_well_formed. apply Hwf.
-        - apply topo_sort_subgraph. apply Hts.
+        - apply topo_sort_subgraph.
+          + split. apply Hwf.
+            apply topo_sort_contains_nodes with (u := h) in Hts. apply Hts. simpl. left. reflexivity.
+          + apply Hts.
         - intros u1 Hmem. destruct G as [V E]. simpl in Hmem. simpl.
           unfold remove_node in Hmem. apply filter_true in Hmem. destruct Hmem as [Hmem Huu1].
           simpl in Hnode. specialize Hnode with (u := u1). apply Hnode in Hmem.
