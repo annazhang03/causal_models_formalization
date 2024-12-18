@@ -400,7 +400,7 @@ Fixpoint shift_list (l: list nat) (shift: nat) : list nat :=
 Example shift_1: shift_list [1;2;3] 4 = [5;6;7].
 Proof. reflexivity. Qed.
 
-Fixpoint fsts (l: list (nat * nat)) : list nat :=
+Fixpoint fsts {X Y: Type} (l: list (X * Y)) : list X :=
   match l with
   | [] => []
   | h :: t => (fst h) :: (fsts t)
