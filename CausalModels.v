@@ -1733,6 +1733,42 @@ Proof.
     simpl in Hj. rewrite eqb_refl in Hj. inversion Hj. rewrite H0 in Hij. lia.
 Qed.
 
+Lemma topo_sort_parents_before: forall (G: graph) (h: node) (tsp t: nodes),
+  G_well_formed G = true /\ topological_sort G = Some (tsp ++ h :: t)
+  -> forall (v: node), In v (find_parents h G) -> In v tsp.
+Proof.
+  intros G h tsp t [Hwf Hts] p Hp.
+  apply topo_sort_parents with (sorted := (tsp ++ h :: t)) in Hp.
+  - (* i < j, so p must appear in tsp *)
+    destruct Hp as [i [j [Hi [Hj Hij]]]].
+    assert (Hmem: ~(In h tsp)).
+    { intros Hhtsp.
+      (* contradict that h appears only once in the topological sort of G *)
+      assert (Hc: count h (tsp ++ h :: t) >= 2).
+      { apply member_count_at_least_1 in Hhtsp.
+        rewrite count_app. simpl. rewrite eqb_refl. lia. }
+      assert (Hc2: count h (tsp ++ h :: t) = 1).
+      { apply topo_sort_contains_nodes_exactly_once with (G := G).
+        - split. apply Hwf. apply Hts.
+        - apply topo_sort_contains_nodes with (u := h) in Hts. apply Hts.
+          apply membership_append_r. simpl. left. reflexivity. }
+      lia. }
+    assert (Hj2: index (tsp ++ h :: t) h = Some (length tsp + 0)).
+    { apply index_append with (l1 := tsp) (l2 := h :: t) (i := 0). split.
+      - apply Hmem.
+      - simpl. rewrite eqb_refl. reflexivity. }
+    rewrite Hj2 in Hj. inversion Hj. rewrite add_0_r in H0. rewrite H0 in Hij.
+    assert (Hptsp: index tsp p = Some i).
+    { apply index_append_2 with (l2 := h :: t). split.
+      - symmetry. apply Hi.
+      - apply Hij. }
+    apply index_exists. exists i. symmetry. apply Hptsp.
+  - split.
+    + apply Hwf.
+    + apply Hts.
+Qed.
+
+
 
 (* semantics *)
 Definition nodefun (X: Type) : Type := X * (list X) -> X. (* takes in unobserved term and values for each parent *)
@@ -1771,6 +1807,42 @@ Fixpoint get_assigned_value {X: Type} (A: assignments X) (u: node) : option X :=
   | h :: t => if ((fst h) =? u) then Some (snd h) else (get_assigned_value t u)
   end.
 
+Lemma get_assigned_app_None: forall X (A1 A2: assignments X) (u: node),
+  get_assigned_value A1 u = None -> get_assigned_value (A1 ++ A2) u = get_assigned_value A2 u.
+Proof.
+  intros X A1 A2 u H. induction A1 as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. simpl in H. destruct (fst h =? u) as [|] eqn:Hhu.
+    + discriminate H.
+    + apply IH. apply H.
+Qed.
+
+Lemma get_assigned_app_Some: forall X (A1 A2: assignments X) (u: node) (x: X),
+  get_assigned_value A1 u = Some x -> get_assigned_value (A1 ++ A2) u = Some x.
+Proof.
+  intros X A1 A2 u x H. induction A1 as [| h t IH].
+  - simpl in H. discriminate H.
+  - simpl. simpl in H. destruct (fst h =? u) as [|] eqn:Hhu.
+    + apply H.
+    + apply IH. apply H.
+Qed.
+
+Lemma get_assigned_app2: forall X (A1 A1' A2 A2': assignments X) (u: node),
+  get_assigned_value A1 u = get_assigned_value A2 u
+    /\ get_assigned_value A1' u = get_assigned_value A2' u
+  -> get_assigned_value (A1 ++ A1') u = get_assigned_value (A2 ++ A2') u.
+Proof.
+  intros X A1 A1' A2 A2' u.
+  intros [H H'].
+  induction A1 as [| h t IH].
+  - simpl in H. simpl. symmetry in H. apply get_assigned_app_None with (A1 := A2) (A2 := A2') in H.
+    rewrite H. apply H'.
+  - simpl in H. simpl. destruct (fst h =? u) as [|] eqn:Hhu.
+    + symmetry in H. apply get_assigned_app_Some with (A1 := A2) (A2 := A2') in H.
+      rewrite H. reflexivity.
+    + apply IH. apply H.
+Qed.
+
 Definition is_assignment_for {X: Type} (A: assignments X) (Z: nodes) : bool :=
   (forallb (fun x: node => is_assigned A x) Z).
 
@@ -1800,6 +1872,18 @@ Proof.
   - simpl in H. destruct (fst h =? u) as [|] eqn:Hhu.
     + simpl. apply eqb_eq in Hhu. rewrite Hhu. rewrite eqb_refl. simpl. reflexivity.
     + simpl. apply IH in H. rewrite H. rewrite orb_comm. simpl. reflexivity.
+Qed.
+
+Lemma assigned_is_false: forall X (A: assignments X) (u: node),
+  is_assigned A u = false -> get_assigned_value A u = None.
+Proof.
+  intros X A u H.
+  induction A as [| h t IH].
+  - simpl. reflexivity.
+  - simpl in H. destruct (u =? fst h) as [|] eqn:Huh.
+    + simpl in H. discriminate H.
+    + simpl. rewrite eqb_sym. rewrite Huh. apply IH.
+      simpl in H. apply H.
 Qed.
 
 (* returns None if some parent hasn't been assigned a value, else returns list of assignments *)
@@ -1868,6 +1952,49 @@ Proof.
     rewrite <- HP. exists (g u (hu, p)). reflexivity.
 Qed.
 
+Lemma value_same_if_parents_are_same:
+  forall X (u: node) (G: graph) (g: graphfun) (U1 U2 A1 A2 V1 V2: assignments X),
+  is_assignment_for V1 (find_parents u G) = true /\ is_assignment_for V2 (find_parents u G) = true
+  /\ is_assignment_for U1 (nodes_in_graph G) = true /\ is_assignment_for U2 (nodes_in_graph G) = true
+  /\ get_assigned_value U1 u = get_assigned_value U2 u
+  /\ get_assigned_value A1 u = get_assigned_value A2 u
+  /\ (forall (v: node), In v (find_parents u G) -> get_assigned_value V1 v = get_assigned_value V2 v)
+  /\ node_in_graph u G = true
+  -> get_value_of_node u G g U1 A1 V1 = get_value_of_node u G g U2 A2 V2.
+Proof.
+  intros X u [V E] g U1 U2 A1 A2 V1 V2.
+  intros [HV1 [HV2 [HU1 [HU2 [HU [HA [Hv Hu]]]]]]].
+  unfold get_value_of_node. rewrite <- HA.
+  destruct (get_assigned_value A1 u) as [x|] eqn:HA1.
+  - reflexivity.
+  - rewrite <- HU. assert (HUu: exists hu: X, get_assigned_value U1 u = Some hu).
+    { apply assigned_has_value with (L := V). split.
+      - simpl in Hu. apply member_In_equiv. apply Hu.
+      - simpl in HU1. apply HU1. }
+    destruct HUu as [hu HUu]. rewrite HUu.
+    assert (HP: exists p, Some p = get_parent_assignments V1 (find_parents u (V, E))).
+    { apply parent_assignments_exist. apply HV1. }
+    destruct HP as [p HP].
+    assert (HP2: get_parent_assignments V2 (find_parents u (V, E)) = Some p).
+    { generalize dependent p. induction (find_parents u (V, E)) as [| h t IH].
+      - intros p HP. simpl. simpl in HP. inversion HP. reflexivity.
+      - intros p HP. simpl in HP. destruct (get_assigned_value V1 h) as [a|] eqn:Hh.
+        + simpl. assert (Hh2: get_assigned_value V2 h = Some a).
+          { rewrite <- Hh. symmetry. specialize Hv with (v := h). apply Hv. simpl. left. reflexivity. }
+          rewrite Hh2. destruct (get_parent_assignments V1 t) as [l|] eqn:Hl.
+          * specialize IH with (p := l).
+            assert (Hl2: get_parent_assignments V2 t = Some l).
+            { apply IH.
+              - simpl in HV1. apply split_and_true in HV1. destruct HV1 as [_ HV1]. apply HV1.
+              - simpl in HV2. apply split_and_true in HV2. destruct HV2 as [_ HV2]. apply HV2.
+              - intros v Hmem. apply Hv. simpl. right. apply Hmem.
+              - reflexivity. }
+            rewrite Hl2. symmetry. apply HP.
+          * discriminate HP.
+        + discriminate HP. }
+    rewrite <- HP. rewrite HP2. reflexivity.
+Qed.
+
 Fixpoint get_values_from_topo_sort {X: Type} (ts: nodes) (G: graph) (g: graphfun) (U: assignments X)
                                    (A: assignments X) (A_eval: assignments X) : option (assignments X) :=
   match ts with
@@ -1906,6 +2033,23 @@ Proof.
            ++ unfold add_assignment. apply is_assigned_app. apply H2.
         -- discriminate H1.
       * discriminate H1.
+Qed.
+
+Lemma get_assigned_if_in_A_eval:
+  forall X (ts: nodes) (G: graph) (g: graphfun) (U A A_eval values: assignments X) (u: node) (x: X),
+  get_values_from_topo_sort ts G g U A A_eval = Some values /\ get_assigned_value A_eval u = Some x ->
+  get_assigned_value values u = Some x.
+Proof.
+  intros X ts G g U A A' values u x.
+  intros [Hts HA'].
+  generalize dependent A'. induction ts as [| h t IH].
+  - intros A' Hts HA'. simpl in Hts. inversion Hts. rewrite <- H0. apply HA'.
+  - intros A' Hts HA'. simpl in Hts. destruct (get_value_of_node h G g U A A') as [hv|] eqn:Hhv.
+    + specialize IH with (A' := (add_assignment A' h hv)). apply IH.
+      * apply Hts.
+      * unfold add_assignment. apply get_assigned_app_Some with (A2 := [(h, hv)]) in HA'.
+        apply HA'.
+    + discriminate Hts.
 Qed.
 
 Lemma get_values_exists_then_all_nodes_assigned_helper: forall X (ts: nodes) (G: graph) (g: graphfun)
@@ -1957,6 +2101,148 @@ Proof.
   - unfold get_values in H. rewrite Hts in H. discriminate H.
 Qed.
 
+Lemma get_values_only_dependent_on_parents_helper:
+  forall X (G: graph) (ts_pre ts_suff: nodes) (u: node) (g: graphfun)
+           (U1 U2 A1 A2 A1' A2' V1 V2: assignments X),
+  G_well_formed G = true /\ topological_sort G = Some (ts_pre ++ ts_suff) /\ node_in_graph u G = true ->
+  get_values_from_topo_sort ts_suff G g U1 A1 A1' = Some V1
+  /\ get_values_from_topo_sort ts_suff G g U2 A2 A2' = Some V2
+  /\ is_assignment_for A1' ts_pre = true /\ is_assignment_for A2' ts_pre = true
+  /\ get_assigned_value A1' u = get_assigned_value A2' u /\ True
+  /\ get_assigned_value U1 u = get_assigned_value U2 u
+  /\ is_assignment_for U1 (nodes_in_graph G) = true /\ is_assignment_for U2 (nodes_in_graph G) = true
+  /\ get_assigned_value A1 u = get_assigned_value A2 u
+  /\ (forall (v: node), In v (find_parents u G)
+          -> get_assigned_value V1 v = get_assigned_value V2 v) ->
+  get_assigned_value V1 u = get_assigned_value V2 u.
+Proof.
+  intros X G tsp tss u g U1 U2 A1 A2 A1' A2' V1 V2.
+  intros [Hwf [Hts Hu]] [HV1 [HV2 [HA1' [HA2' [HA1u [HA2u [HU [HU1 [HU2 [HA HP]]]]]]]]]].
+  generalize dependent V1. generalize dependent V2. generalize dependent tsp.
+  generalize dependent A1'. generalize dependent A2'.
+  induction tss as [| h t IH].
+  - intros A2' A1' HA1u. intros tsp Hts HA1' HA2' V2 HV2 V1 HV1 Hv.
+    simpl in HV1. inversion HV1. rewrite <- H0.
+    simpl in HV2. inversion HV2. rewrite <- H1.
+    apply HA1u.
+  - intros A2' A1' HA1u. intros tsp Hts HA1' HA2' V2 HV2 V1 HV1 Hv.
+    simpl in HV1. simpl in HV2.
+    destruct (get_value_of_node h G g U1 A1 A1') as [hv1|] eqn:Hhv1.
+    + destruct (get_value_of_node h G g U2 A2 A2') as [hv2|] eqn:Hhv2.
+      * unfold add_assignment in HV1. unfold add_assignment in HV2.
+        specialize IH with (A2' := (A2' ++ [(h, hv2)])) (A1' := (A1' ++ [(h, hv1)])).
+        specialize IH with (tsp := tsp ++ [h]) (V2 := V2) (V1 := V1).
+        apply IH.
+        -- destruct (get_assigned_value A1' u) as [x|] eqn:Hx.
+           ++ apply get_assigned_app_Some with (A2 := [(h, hv1)]) in Hx. rewrite Hx.
+              symmetry in HA1u. apply get_assigned_app_Some with (A2 := [(h, hv2)]) in HA1u. rewrite HA1u.
+              reflexivity.
+           ++ apply get_assigned_app_None with (A2 := [(h, hv1)]) in Hx. rewrite Hx.
+              symmetry in HA1u. apply get_assigned_app_None with (A2 := [(h, hv2)]) in HA1u. rewrite HA1u.
+              (* if h=u, then hv1=hv2. *)
+              destruct (h =? u) as [|] eqn:Hhu.
+              ** assert (Hp: forall v: node, In v (find_parents u G) -> In v tsp).
+                 { apply topo_sort_parents_before with (t := t). split. apply Hwf.
+                   apply eqb_eq in Hhu. rewrite Hhu in Hts. apply Hts. }
+                 unfold get_assigned_value. simpl. rewrite Hhu. apply eqb_eq in Hhu. 
+                 assert (H: get_value_of_node u G g U1 A1 A1' = get_value_of_node u G g U2 A2 A2').
+                 { apply value_same_if_parents_are_same. repeat split.
+                 - unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
+                   specialize Hp with (v := p). apply Hp in Hmem.
+                   apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
+                   + apply Hmem.
+                   + apply HA1'.
+                 - unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
+                   specialize Hp with (v := p). apply Hp in Hmem.
+                   apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
+                   + apply Hmem.
+                   + apply HA2'.
+                 - apply HU1.
+                 - apply HU2.
+                 - apply HU.
+                 - apply HA.
+                 - intros p Hpmem. specialize Hv with (v := p).
+                   assert (HA1p: exists x: X, get_assigned_value A1' p = Some x).
+                   { apply assigned_has_value with (L := tsp). split.
+                     - specialize Hp with (v := p). apply Hp. apply Hpmem.
+                     - apply HA1'. }
+                   destruct HA1p as [x1 HA1p]. rewrite HA1p.
+                   assert (HV1p: get_assigned_value V1 p = Some x1).
+                   { apply get_assigned_if_in_A_eval with (ts := t) (G := G) (g := g) (U := U1)
+                                                          (A := A1) (A_eval := (A1' ++ [(h, hv1)])).
+                     split. apply HV1. apply get_assigned_app_Some with (A2 := [(h, hv1)]) in HA1p.
+                     apply HA1p. }
+                   assert (HA2p: exists x: X, get_assigned_value A2' p = Some x).
+                   { apply assigned_has_value with (L := tsp). split.
+                     - specialize Hp with (v := p). apply Hp. apply Hpmem.
+                     - apply HA2'. }
+                   destruct HA2p as [x2 HA2p]. rewrite HA2p.
+                   assert (HV2p: get_assigned_value V2 p = Some x2).
+                   { apply get_assigned_if_in_A_eval with (ts := t) (G := G) (g := g) (U := U2)
+                                                          (A := A2) (A_eval := (A2' ++ [(h, hv2)])).
+                     split. apply HV2. apply get_assigned_app_Some with (A2 := [(h, hv2)]) in HA2p.
+                     apply HA2p. }
+                   apply Hv in Hpmem. rewrite HV1p in Hpmem. rewrite HV2p in Hpmem. apply Hpmem.
+                 - apply Hu. }
+                 rewrite <- Hhu in H. rewrite Hhv1 in H. rewrite Hhv2 in H.
+                 apply H.
+              ** simpl. rewrite Hhu. reflexivity.
+        -- rewrite append_vs_concat. apply Hts.
+        -- unfold is_assignment_for. apply forallb_true_iff_mem. intros x Hmem.
+           apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
+           ++ apply is_assigned_app. apply assigned_is_true. apply assigned_has_value with (L := tsp).
+              split. apply Hmem. apply HA1'.
+           ++ apply is_assigned_app2. apply assigned_is_true. apply assigned_has_value with (L := [h]).
+              split. apply Hmem. simpl. rewrite eqb_refl. simpl. reflexivity.
+        -- unfold is_assignment_for. apply forallb_true_iff_mem. intros x Hmem.
+           apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
+           ++ apply is_assigned_app. apply assigned_is_true. apply assigned_has_value with (L := tsp).
+              split. apply Hmem. apply HA2'.
+           ++ apply is_assigned_app2. apply assigned_is_true. apply assigned_has_value with (L := [h]).
+              split. apply Hmem. simpl. rewrite eqb_refl. simpl. reflexivity.
+        -- apply HV2.
+        -- apply HV1.
+        -- apply Hv.
+      * discriminate HV2.
+    + discriminate HV1.
+Qed.
+
+(* as long as u has the same error term,
+   its parents have the same values,
+   and it has either not been assigned or been assigned the same value,
+   then it will have the same find_value *)
+Theorem get_values_only_dependent_on_parents:
+  forall X (G: graph) (u: node) (g: graphfun) (U1 U2 A1 A2 V1 V2: assignments X),
+  G_well_formed G = true /\ node_in_graph u G = true ->
+  get_values G g U1 A1 = Some V1 /\ get_values G g U2 A2 = Some V2 ->
+  (forall (v: node), In v (find_parents u G) 
+          -> get_assigned_value V1 v = get_assigned_value V2 v)
+  /\ get_assigned_value U1 u = get_assigned_value U2 u
+  /\ is_assignment_for U1 (nodes_in_graph G) = true /\ is_assignment_for U2 (nodes_in_graph G) = true
+  /\ get_assigned_value A1 u = get_assigned_value A2 u ->
+  get_assigned_value V1 u = get_assigned_value V2 u.
+Proof.
+  intros X G u g U1 U2 A1 A2 V1 V2.
+  intros [Hwf Hu] [HV1 HV2] [Hp [HU [HU1 [HU2 HA]]]].
+  unfold get_values in HV1. destruct (topological_sort G) as [ts|] eqn:Hts.
+  - unfold get_values in HV2. rewrite Hts in HV2.
+    apply get_values_only_dependent_on_parents_helper with (G := G) (ts_pre := []) (ts_suff := ts)
+                    (g := g) (U1 := U1) (U2 := U2) (A1 := A1) (A2 := A2) (A1' := []) (A2' := []).
+    + repeat split.
+      * apply Hwf.
+      * simpl. apply Hts.
+      * apply Hu.
+    + repeat split.
+      * apply HV1.
+      * apply HV2.
+      * apply HU.
+      * apply HU1.
+      * apply HU2.
+      * apply HA.
+      * apply Hp.
+  - discriminate HV1.
+Qed.
+
 Lemma get_values_existence_helper: forall X (ts_pre ts_suff: nodes) (G: graph) (g: graphfun) (U A A_eval: assignments X),
   G_well_formed G = true ->
   topological_sort G = Some (ts_pre ++ ts_suff) /\ is_assignment_for A_eval ts_pre = true /\
@@ -1971,35 +2257,7 @@ Proof.
     assert (Hh: exists x: X, get_value_of_node h G g U A A_eval = Some x).
     { apply value_exists_if_parents_are_assigned. repeat split.
       - assert (Hp: forall (p: node), In p (find_parents h G) -> In p tsp).
-        { intros p Hp.
-          apply topo_sort_parents with (sorted := (tsp ++ h :: t)) in Hp.
-          - (* i < j, so p must appear in tsp *)
-            destruct Hp as [i [j [Hi [Hj Hij]]]].
-            assert (Hmem: ~(In h tsp)).
-            { intros Hhtsp.
-              (* contradict that h appears only once in the topological sort of G *)
-              assert (Hc: count h (tsp ++ h :: t) >= 2).
-              { apply member_count_at_least_1 in Hhtsp.
-                rewrite count_app. simpl. rewrite eqb_refl. lia. }
-              assert (Hc2: count h (tsp ++ h :: t) = 1).
-              { apply topo_sort_contains_nodes_exactly_once with (G := G).
-                - split. apply Hwf. apply Hts.
-                - apply topo_sort_contains_nodes with (u := h) in Hts. apply Hts.
-                  apply membership_append_r. simpl. left. reflexivity. }
-              lia. }
-            assert (Hj2: index (tsp ++ h :: t) h = Some (length tsp + 0)).
-            { apply index_append with (l1 := tsp) (l2 := h :: t) (i := 0). split.
-              - apply Hmem.
-              - simpl. rewrite eqb_refl. reflexivity. }
-            rewrite Hj2 in Hj. inversion Hj. rewrite add_0_r in H0. rewrite H0 in Hij.
-            assert (Hptsp: index tsp p = Some i).
-            { apply index_append_2 with (l2 := h :: t). split.
-              - symmetry. apply Hi.
-              - apply Hij. }
-            apply index_exists. exists i. symmetry. apply Hptsp.
-          - split.
-            + apply Hwf.
-            + apply Hts. }
+        { apply topo_sort_parents_before with (t := t). split. apply Hwf. apply Hts. }
         unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
         specialize Hp with (p := p). apply Hp in Hmem.
         apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
@@ -2858,13 +3116,55 @@ Proof.
                  apply IH in col. apply col.
 Qed.
 
-Theorem conditional_independence_semantics: forall X (G: graph) (u v: node) (Z: nodes) (A: assignments X),
-  is_assignment_for A Z = true ->
+Definition find_values_independent {X: Type} (G: graph) (u v: node) (Z: nodes) (A: assignments X)
+                                            (a b: X) (U: assignments X): Prop :=
+  forall (g: graphfun),
+  find_value G g u U (add_assignment A v a) = find_value G g u U (add_assignment A v b) /\
+  find_value G g v U (add_assignment A u a) = find_value G g v U (add_assignment A u b).
+
+Definition find_values_independent_2 {X: Type} (G: graph) (u v: node) (Z: nodes) (A: assignments X)
+                                            (a b: X) (U: assignments X): Prop :=
+  forall (g: graphfun) (x: X),
+  (find_value G g v U A = Some a -> find_value G g u U A = Some x)
+  -> (find_value G g v U A = Some b -> find_value G g u U A = Some x).
+
+Lemma mediator_independence: forall X (G: graph) (u v m: node) (Z: nodes) (A: assignments X),
+  G_well_formed G = true /\ contains_cycle G = false ->
+  (find_all_paths_from_start_to_end u v G = [(u, v, [m])] /\ is_mediator_bool u v m G = true /\ In m Z) -> 
   d_separated_bool u v G Z = true <->
-  (forall (a b: X) (U: assignments X), is_assignment_for U (nodes_in_graph G) = true
-    -> forall (g: graphfun),
-        find_value G g u U (add_assignment A v a) = find_value G g u U (add_assignment A v b) /\
-        find_value G g v U (add_assignment A u a) = find_value G g v U (add_assignment A u b)).
+  (is_assignment_for A Z = true ->
+   forall (a b: X) (U: assignments X), is_assignment_for U (nodes_in_graph G) = true
+    -> find_values_independent_2 G u v Z A a b U).
+Proof.
+  intros X G u v m Z A.
+  intros [Hwf Hcyc] [Hpath [Hmed Hmem]].
+  split.
+  { intros Hdsep HA a b U HU. unfold find_values_independent_2. intros g. intros x Ha Hb.
+(*   - assert (H: exists x1: X, find_value G g u U (add_assignment A v a) = Some x1).
+    { apply find_value_existence.
+      - split. apply Hwf. apply Hcyc.
+      - split. apply HU. admit. }
+    destruct H as [x1 Hva].
+    assert (H: exists x2: X, find_value G g u U (add_assignment A v b) = Some x2).
+    { apply find_value_existence.
+      - split. apply Hwf. apply Hcyc.
+      - split. apply HU. admit. }
+    destruct H as [x2 Hvb].
+    rewrite Hva. rewrite Hvb. apply f_equal.
+    unfold find_value in Hva.
+    destruct (get_values G g U (add_assignment A v a)) as [values |] eqn:Hval.
+    + unfold get_values in Hval. destruct (topological_sort G) as [ts |] eqn:Hts.
+      * simpl in Hval. admit.
+      * discriminate Hval.
+    + discriminate Hva.
+  -  *)
+Admitted.
+
+Theorem conditional_independence_semantics: forall X (G: graph) (u v: node) (Z: nodes) (A: assignments X),
+  d_separated_bool u v G Z = true <->
+  (is_assignment_for A Z = true ->
+   forall (a b: X) (U: assignments X), is_assignment_for U (nodes_in_graph G) = true
+    -> find_values_independent G u v Z A a b U).
 Proof.
 Admitted.
 
