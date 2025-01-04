@@ -124,7 +124,7 @@ Admitted.
 
 (* for an undirected path U in G from A to B, any node on U is an ancestor of A, B, or some collider on U *)
 Theorem path_nodes_ancestors: forall U: path, forall G: graph, forall A B X: node,
-  is_path_in_graph U G = true /\ path_start_and_end U A B = true /\ path_contains_node U X = true
+  is_path_in_graph U G = true /\ path_start_and_end U A B = true /\ node_in_path X U = true
   -> In X (find_ancestors A G) \/ In X (find_ancestors B G) 
      \/ (exists C, In C (find_colliders_in_path U G) /\ In X (find_ancestors C G)).
 Proof. (* TODO do this by induction on distance from A or distance to B? *)
@@ -269,8 +269,8 @@ Proof.
                { unfold all_given_nodes_are_ancestors. intros x Hmem.
                  assert (H: is_path_in_graph (u, v, l) G = true /\ 
                             path_start_and_end (u, v, l) A B = true /\ 
-                            path_contains_node (u, v, l) x = true).
-                 { split. apply HUpath. split. apply HUse. unfold path_contains_node.
+                            node_in_path x (u, v, l) = true).
+                 { split. apply HUpath. split. apply HUse. unfold node_in_path.
                    simpl. apply member_In_equiv in Hmem. rewrite Hmem. apply orb_comm. }
                  apply path_nodes_ancestors in H. destruct H as [H | [H | H]].
                  - apply descendants_ancestors_correct in H. left. apply H.

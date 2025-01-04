@@ -944,6 +944,17 @@ Proof.
     apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc.
 Qed.
 
+Lemma acyclic_no_self_loop: forall (G: graph) (u: node),
+  contains_cycle G = false -> is_edge (u, u) G = false.
+Proof.
+  intros G u Hcyc.
+  destruct (is_edge (u, u) G) as [|] eqn:Hedge.
+  - apply contains_cycle_false_correct with (p := (u, u, [])) in Hcyc.
+    + simpl in Hcyc. destruct Hcyc as [Hcyc _]. unfold not in Hcyc.
+        exfalso. apply Hcyc. reflexivity.
+    + destruct G as [V E]. simpl. unfold is_edge in Hedge. rewrite Hedge. simpl. reflexivity.
+  - reflexivity.
+Qed.
 
 (* find all descendants of a node *)
 
@@ -1084,10 +1095,10 @@ Definition find_parents (X: node) (G: graph) : nodes :=
   end.
 
 Theorem edge_from_parent_to_child: forall (X P: node) (G: graph),
-  In P (find_parents X G) -> edge_in_graph (P, X) G = true.
+  In P (find_parents X G) <-> edge_in_graph (P, X) G = true.
 Proof.
-  intros X P [V E].
-  intros Hmem. simpl. simpl in Hmem.
+  intros X P [V E]. split.
+  { intros Hmem. simpl. simpl in Hmem.
   induction E as [| h t IH].
   - simpl in Hmem. exfalso. apply Hmem.
   - destruct h as [u v]. destruct (v =? X) as [|] eqn:HvX.
@@ -1100,9 +1111,18 @@ Proof.
     + simpl in Hmem. rewrite HvX in Hmem. simpl. rewrite HvX.
       destruct (u =? P) as [|] eqn:HuP.
       * simpl. apply IH. apply Hmem.
-      * simpl. apply IH. apply Hmem.
+      * simpl. apply IH. apply Hmem. }
+  { intros H. simpl. induction E as [| h t IH].
+  - simpl in H. discriminate H.
+  - destruct h as [a b]. simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + apply split_and_true in H. destruct H as [H1 H2]. simpl.
+      destruct (b =? X) as [|] eqn:Hbv.
+      * simpl. left. apply eqb_eq. apply H1.
+      * discriminate H2.
+    + simpl. destruct (b =? X) as [|] eqn:Hbv.
+      * simpl. right. apply IH. simpl. apply H.
+      * apply IH. simpl. apply H. }
 Qed.
-
 
 (* find all undirected acyclic paths in G *)
 
@@ -1846,6 +1866,15 @@ Qed.
 Definition is_assignment_for {X: Type} (A: assignments X) (Z: nodes) : bool :=
   (forallb (fun x: node => is_assigned A x) Z).
 
+Lemma is_assignment_for_cat: forall X (A: assignments X) (u: node) (x: X) (V: nodes),
+  is_assignment_for A V = true -> is_assignment_for ((u, x) :: A) V = true.
+Proof.
+  intros X A u x V H. induction V as [| h t IH].
+  - simpl. reflexivity.
+  - simpl in H. apply split_and_true in H. destruct H as [H1 H2].
+    simpl. rewrite H1. rewrite orb_comm. simpl. apply IH. apply H2.
+Qed.
+
 Lemma assigned_has_value: forall X (A: assignments X) (u: node) (L: nodes),
   In u L /\ is_assignment_for A L = true -> exists x: X, get_assigned_value A u = Some x.
 Proof.
@@ -1914,6 +1943,29 @@ Proof.
     simpl. rewrite Hhx.
     apply IH in Hind. destruct Hind as [L Hind].
     exists (x :: L). rewrite <- Hind. reflexivity.
+Qed.
+
+Lemma parent_assignments_preserves_index: forall X (P: assignments X) (V: nodes) (p: list X) 
+                                              (i: nat) (x: X) (m: node),
+  (get_parent_assignments P V = Some p /\ index V m = Some i /\ get_assigned_value P m = Some x)
+  -> nth_error p i = Some x.
+Proof.
+  intros X P V p i x m [Hp [Hi Hm]].
+  generalize dependent p. generalize dependent i. induction V as [| h t IH].
+  - intros i Hi p Hp. simpl in Hi. discriminate Hi.
+  - intros i Hi p Hp. simpl in Hi. destruct (h =? m) as [|] eqn:Hhm.
+    + inversion Hi. simpl in Hp. apply eqb_eq in Hhm. rewrite Hhm in Hp. rewrite Hm in Hp.
+      destruct (get_parent_assignments P t) as [l|].
+      * inversion Hp. simpl. reflexivity.
+      * discriminate Hp.
+    + destruct (index t m) as [i'|].
+      * inversion Hi. simpl in Hp. destruct (get_assigned_value P h) as [vh|].
+        -- destruct (get_parent_assignments P t) as [l|].
+           ++ inversion Hp. simpl. specialize IH with (i := i') (p := l).
+              apply IH. reflexivity. reflexivity.
+           ++ discriminate Hp.
+        -- discriminate Hp.
+      * discriminate Hi.
 Qed.
 
 Definition add_assignment {X: Type} (A: assignments X) (u: node) (x: X) : assignments X :=
@@ -2307,6 +2359,57 @@ Definition find_value {X: Type} (G: graph) (g: graphfun) (u: node) (U A: assignm
   | None => None
   end.
 
+Fixpoint find_values {X: Type} (G: graph) (g: graphfun) (P: nodes) (U A: assignments X): option (assignments X) :=
+  match P with
+  | [] => Some []
+  | h :: t => match (find_value G g h U A) with
+              | Some x => match (find_values G g t U A) with
+                          | Some r => Some ((h, x) :: r)
+                          | None => None
+                          end
+              | None => None
+              end
+  end.
+
+Lemma find_values_assignment: forall X (G: graph) (g: graphfun) (P: nodes) (U A values: assignments X),
+  find_values G g P U A = Some values -> is_assignment_for values P = true.
+Proof.
+  intros X G g P U A.
+  induction P as [| h t IH].
+  - intros values H. simpl. reflexivity.
+  - intros values H. simpl. simpl in H. destruct (find_value G g h U A) as [x|].
+    + destruct (find_values G g t U A) as [r|].
+      * inversion H. simpl. rewrite eqb_refl. simpl. specialize IH with (values := r).
+        apply is_assignment_for_cat. apply IH. reflexivity.
+      * discriminate H.
+    + discriminate H.
+Qed.
+
+Lemma find_values_get_assigned: forall X (G: graph) (g: graphfun) (P: nodes) (U A values: assignments X)
+                                       (x: X) (m: node),
+  find_values G g P U A = Some values /\ In m P /\ find_value G g m U A = Some x
+  -> get_assigned_value values m = Some x.
+Proof.
+  intros X G g P U A values x m.
+  intros [Hv [Hm Hx]].
+  generalize dependent values. induction P as [| h t IH].
+  - intros values Hv. simpl in Hm. exfalso. apply Hm.
+  - intros values Hv. simpl in Hm. destruct Hm as [Hhm | Hmem].
+    + simpl in Hv. rewrite Hhm in Hv. rewrite Hx in Hv.
+      destruct (find_values G g t U A) as [r|].
+      * inversion Hv. simpl. rewrite eqb_refl. reflexivity.
+      * discriminate Hv.
+    + simpl in Hv. destruct (find_value G g h U A) as [x'|] eqn:Hh.
+      * destruct (find_values G g t U A) as [r|].
+        -- inversion Hv. simpl. destruct (h =? m) as [|] eqn:Hhm.
+           ++ apply eqb_eq in Hhm. rewrite Hhm in Hh. rewrite <- Hh. apply Hx.
+           ++ apply IH with (values := r).
+              ** apply Hmem.
+              ** reflexivity.
+        -- discriminate Hv.
+      * discriminate Hv.
+Qed.
+
 Theorem find_value_existence: forall X (G: graph) (g: graphfun) (U A: assignments X) (u: node),
   G_well_formed G = true /\ contains_cycle G = false ->
   is_assignment_for U (nodes_in_graph G) = true /\ node_in_graph u G = true ->
@@ -2326,6 +2429,94 @@ Proof.
   - apply Hval.
 Qed.
 
+Corollary find_values_existence: forall X (G: graph) (g: graphfun) (U A: assignments X) (u: node),
+  G_well_formed G = true /\ contains_cycle G = false ->
+  is_assignment_for U (nodes_in_graph G) = true /\ node_in_graph u G = true ->
+  exists (P: assignments X), find_values G g (find_parents u G) U A = Some P.
+Proof.
+  intros X G g U A u. intros [Hwf Hcyc]. intros [HU hu].
+  remember (find_parents u G).
+  assert (H: forall h: node, In h n -> In h (find_parents u G)).
+  { intros h Hmem. rewrite <- Heqn. apply Hmem. }
+  clear Heqn.
+  induction n as [| h t IH].
+  - exists []. reflexivity.
+  - simpl. assert (Hv: exists v, find_value G g h U A = Some v).
+    { apply find_value_existence.
+      - split. apply Hwf. apply Hcyc.
+      - split. apply HU.
+        assert (He: edge_in_graph (h, u) G = true).
+        { apply edge_from_parent_to_child. specialize H with (h := h).
+          apply H. simpl. left. reflexivity. }
+        assert (Hh: node_in_graph h G = true /\ node_in_graph u G = true).
+        { apply edge_corresponds_to_nodes_in_well_formed. split.
+          apply Hwf. apply He. }
+        destruct Hh as [Hh _]. apply Hh. }
+    destruct Hv as [v Hv]. rewrite Hv.
+    assert (H': forall h: node, In h t -> In h (find_parents u G)).
+    { intros h' Hmem. apply H. simpl. right. apply Hmem. }
+    apply IH in H'. destruct H' as [P' H']. rewrite H'. exists ((h, v) :: P'). reflexivity.
+Qed.
+
+Theorem find_values_preserves_index: forall X (G: graph) (g: graphfun) (U A values: assignments X)
+                                            (P: nodes) (u: node) (i: nat),
+  G_well_formed G = true /\ contains_cycle G = false
+  -> is_assignment_for U (nodes_in_graph G) = true /\ node_in_graph u G = true
+  -> (forall (v: node), In v P -> node_in_graph v G = true)
+  -> find_values G g P U A = Some values /\ index P u = Some i
+  -> exists x: X, find_value G g u U A = Some x /\ nth_error values i = Some (u, x).
+Proof.
+  intros X G g U A values P u i [Hwf Hcyc] [HU Hu] HP [Hfv Hi].
+  assert (Hx: exists x: X, find_value G g u U A = Some x).
+  { apply find_value_existence. split.
+    - apply Hwf.
+    - apply Hcyc.
+    - split. apply HU. apply Hu. }
+  destruct Hx as [x Hx]. exists x. split.
+  - apply Hx.
+  - generalize dependent values. generalize dependent i. induction P as [| h t IH].
+    + intros i Hi values H. simpl in Hi. discriminate Hi.
+    + intros i Hi values H. assert (Hx': exists x': X, find_value G g h U A = Some x').
+      { apply find_value_existence. split.
+        - apply Hwf.
+        - apply Hcyc.
+        - split. apply HU. specialize HP with (v := h). apply HP. simpl. left. reflexivity. }
+      destruct Hx' as [x' Hx'].
+      simpl in H. rewrite Hx' in H. simpl in Hi.
+      destruct (h =? u) as [|] eqn:Hhu.
+      * inversion Hi. destruct (find_values G g t U A) as [r|].
+        -- inversion H. simpl. apply eqb_eq in Hhu. rewrite Hhu.
+           assert (Hxx': x = x').
+           { rewrite Hhu in Hx'. rewrite Hx in Hx'. inversion Hx'. reflexivity. }
+           rewrite Hxx'. reflexivity.
+        -- discriminate H.
+      * destruct (index t u) as [i'|].
+        -- inversion Hi. destruct (find_values G g t U A) as [r|].
+           ++ inversion H. specialize IH with (i := i') (values := r).
+              simpl. apply IH.
+              ** intros v Hmem. apply HP. simpl. right. apply Hmem.
+              ** reflexivity.
+              ** reflexivity.
+           ++ discriminate H.
+        -- discriminate Hi.
+Qed.
+
+Theorem find_value_gives_value_of_node: forall X (G: graph) (g: graphfun) (U A: assignments X) (u: node),
+  G_well_formed G = true /\ contains_cycle G = false ->
+  is_assignment_for U (nodes_in_graph G) = true /\ node_in_graph u G = true ->
+  exists (P: assignments X), find_values G g (find_parents u G) U A = Some P
+                              /\ find_value G g u U A = get_value_of_node u G g U A P.
+Proof.
+  intros X G g U A u. intros [Hwf Hcyc]. intros [HU Hu].
+  assert (H: exists (P: assignments X), find_values G g (find_parents u G) U A = Some P).
+  { apply find_values_existence. split.
+    - apply Hwf.
+    - apply Hcyc.
+    - split. apply HU. apply Hu. }
+  destruct H as [P H]. exists P. split.
+  - apply H.
+  - admit.
+Admitted.
 
 
 (* Mediators, confounders, colliders *)
@@ -3116,56 +3307,272 @@ Proof.
                  apply IH in col. apply col.
 Qed.
 
-Definition find_values_independent {X: Type} (G: graph) (u v: node) (Z: nodes) (A: assignments X)
-                                            (a b: X) (U: assignments X): Prop :=
-  forall (g: graphfun),
-  find_value G g u U (add_assignment A v a) = find_value G g u U (add_assignment A v b) /\
-  find_value G g v U (add_assignment A u a) = find_value G g v U (add_assignment A u b).
-
-Definition find_values_independent_2 {X: Type} (G: graph) (u v: node) (Z: nodes) (A: assignments X)
-                                            (a b: X) (U: assignments X): Prop :=
-  forall (g: graphfun) (x: X),
+Definition find_values_independent_2 {X: Type} (G: graph) (u v: node) (Z: nodes)
+                                     (A: assignments X) (U: assignments X): Prop :=
+  forall (g: graphfun) (a b x: X),
   (find_value G g v U A = Some a -> find_value G g u U A = Some x)
   -> (find_value G g v U A = Some b -> find_value G g u U A = Some x).
 
-Lemma mediator_independence: forall X (G: graph) (u v m: node) (Z: nodes) (A: assignments X),
-  G_well_formed G = true /\ contains_cycle G = false ->
-  (find_all_paths_from_start_to_end u v G = [(u, v, [m])] /\ is_mediator_bool u v m G = true /\ In m Z) -> 
-  d_separated_bool u v G Z = true <->
-  (is_assignment_for A Z = true ->
-   forall (a b: X) (U: assignments X), is_assignment_for U (nodes_in_graph G) = true
-    -> find_values_independent_2 G u v Z A a b U).
+Definition f1 {X: Type} (x: X * (list X)): X :=
+  match (snd x) with
+  | [] => fst x
+  | h :: t => h
+  end.
+
+Definition g1 {X: Type} (u: node): nodefun X := f1.
+
+Definition f2 (X: Type) (i: nat) (x: X * (list X)): X :=
+  nth_default (fst x) (snd x) i.
+Definition g3 (X: Type) (u v: node) (i j: nat) := fun x: node => if (x =? u) then f2 X i else f2 X j.
+Definition h1 (X: Type) (u v: node) (i j: nat): graphfun := g3 X u v i j.
+
+Definition get_assignment_for {X: Type} (V: nodes) (a: X): assignments X :=
+  map (fun u: node => (u, a)) V.
+
+Lemma node_maps_to_assigned: forall X (V: nodes) (u: node) (a: X),
+  In u V -> is_assigned (get_assignment_for V a) u = true.
 Proof.
-  intros X G u v m Z A.
-  intros [Hwf Hcyc] [Hpath [Hmed Hmem]].
-  split.
-  { intros Hdsep HA a b U HU. unfold find_values_independent_2. intros g. intros x Ha Hb.
-(*   - assert (H: exists x1: X, find_value G g u U (add_assignment A v a) = Some x1).
-    { apply find_value_existence.
-      - split. apply Hwf. apply Hcyc.
-      - split. apply HU. admit. }
-    destruct H as [x1 Hva].
-    assert (H: exists x2: X, find_value G g u U (add_assignment A v b) = Some x2).
-    { apply find_value_existence.
-      - split. apply Hwf. apply Hcyc.
-      - split. apply HU. admit. }
-    destruct H as [x2 Hvb].
-    rewrite Hva. rewrite Hvb. apply f_equal.
-    unfold find_value in Hva.
-    destruct (get_values G g U (add_assignment A v a)) as [values |] eqn:Hval.
-    + unfold get_values in Hval. destruct (topological_sort G) as [ts |] eqn:Hts.
-      * simpl in Hval. admit.
-      * discriminate Hval.
-    + discriminate Hva.
-  -  *)
+  intros X V u a H.
+  induction V as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl in H. destruct H as [H | H].
+    + simpl. rewrite H. rewrite eqb_refl. simpl. reflexivity.
+    + simpl. apply IH in H. rewrite H. rewrite orb_comm. simpl. reflexivity.
+Qed.
+
+Lemma node_maps_to_unassigned: forall X (V: nodes) (u: node) (a: X),
+  ~(In u V) -> is_assigned (get_assignment_for V a) u = false.
+Proof.
+  intros X V u a H. unfold not in H.
+  induction V as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (u =? h) as [|] eqn:Huh.
+    + simpl in H. exfalso. apply H. left. apply eqb_eq in Huh. symmetry. apply Huh.
+    + simpl in H. simpl. apply IH. intros Hmem.
+      apply H. right. apply Hmem.
+Qed.
+
+Lemma nodes_map_to_assignment: forall X (V: nodes) (a: X),
+  is_assignment_for (get_assignment_for V a) V = true.
+Proof.
+  intros X V a.
+  induction V as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. rewrite eqb_refl. simpl.
+    unfold is_assignment_for. unfold is_assignment_for in IH.
+    apply forallb_true_iff_mem. intros x Hmem.
+    assert (H: is_assigned (get_assignment_for t a) x = true).
+    { apply forallb_true with (x := x) in IH.
+      - apply IH.
+      - apply Hmem. }
+    simpl. rewrite H. rewrite orb_comm. simpl. reflexivity.
+Qed.
+
+Theorem mediator_independence: forall X (G: graph) (u v m: node),
+  (exists (x: X), True) /\ G_well_formed G = true /\ contains_cycle G = false
+    /\ (find_all_paths_from_start_to_end u v G = [(u, v, [m])] /\ is_mediator_bool u v m G = true) ->
+  forall (Z: nodes), (* TODO need that Z is a subset? *) d_separated_bool u v G Z = true <->
+  forall (A: assignments X) (U: assignments X),
+    is_assignment_for A Z = true /\ is_assignment_for U (nodes_in_graph G) = true ->
+    find_values_independent_2 G v u Z A U.
+Proof.
+  intros X G u v m. intros [[xX _] [Hwf [Hcyc [Hpath Hmed]]]].
+  intros Z. split.
+  { intros Hdsep. intros A U. intros [HA HU].
+    assert (HmZ: In m Z). { admit. }
+    assert (HmA: is_assigned A m = true). { admit. }
+    assert (HP: find_parents v G = [m]). { admit. }
+    unfold find_values_independent_2. intros g a b x Ha Hb.
+    assert (Hval: find_value G g v U A = get_assigned_value A m). { admit. }
+    (* TODO ideally, could show that since fv(u)=a -> fv(v)=x and fv(v) does not have
+       anything to do with fv(u), the hypothesis doesn't matter, so the result is always
+       true. But how to explain this in coq? *)
+    admit. }
+  { intros H.
+    destruct (member v Z) as [|] eqn:HvZ.
+    { (* TODO if v is in Z, are u and v automatically d-separated? This would require a change
+         in the definition of d-separation, which currently only depends on mediators, confounders,
+         and colliders. *) admit. }
+    {
+    (* WTS: m is in Z. Show by contradiction: if m is not in Z, then m not assigned in A.
+       Define g(v) := g(m), and g(m) := g(u). Then fv(u)=a -> fv(v)=a, and fv(u)=b -> fv(v)=b.
+       Specialize with a not equal to b (how?), then discriminate H. *)
+    assert (Hmem: In m Z).
+    { destruct (member m Z) as [|] eqn:Hmem.
+      - apply member_In_equiv. apply Hmem.
+      - remember (get_assignment_for Z xX) as A. remember (get_assignment_for (nodes_in_graph G) xX) as U.
+        specialize H with (A := A) (U := U).
+        unfold find_values_independent_2 in H.
+        assert (Hnode: node_in_graph u G = true /\ node_in_graph m G = true /\ node_in_graph v G = true).
+        { unfold is_mediator_bool in Hmed. destruct G as [V E]. simpl in Hmed.
+          apply split_and_true in Hmed. destruct Hmed as [Hum Hmv].
+          apply split_and_true in Hum. destruct Hum as [Hum _]. apply split_and_true in Hum.
+          simpl. destruct Hum as [Hu Hm]. repeat split.
+          - apply Hu.
+          - apply Hm.
+          - apply split_and_true in Hmv. destruct Hmv as [Hmv _].
+            apply split_and_true in Hmv. destruct Hmv as [_ Hv]. apply Hv. }
+        assert (Hi: exists i: nat, index (find_parents v G) m = Some i).
+        { assert (Hm: In m (find_parents v G)).
+          { apply edge_from_parent_to_child. destruct G as [V E]. simpl.
+            unfold is_mediator_bool in Hmed. simpl in Hmed.
+            apply split_and_true in Hmed. destruct Hmed as [_ Hmed].
+            apply split_and_true in Hmed. destruct Hmed as [_ Hmed]. apply Hmed. }
+          apply index_exists in Hm. destruct Hm as [i Hi]. exists i. rewrite Hi. reflexivity. }
+        destruct Hi as [i Hi].
+        assert (Hj: exists j: nat, index (find_parents m G) u = Some j).
+        { assert (Hm: In u (find_parents m G)).
+          { apply edge_from_parent_to_child. destruct G as [V E]. simpl.
+            unfold is_mediator_bool in Hmed. simpl in Hmed.
+            apply split_and_true in Hmed. destruct Hmed as [Hmed _].
+            apply split_and_true in Hmed. destruct Hmed as [_ Hmed]. apply Hmed. }
+          apply index_exists in Hm. destruct Hm as [j Hj]. exists j. rewrite Hj. reflexivity. }
+        destruct Hj as [j Hj].
+        remember (h1 X v m i j) as g1.
+        specialize H with (g := g1).
+        assert (Hf: exists (value: X), find_value G g1 u U A = Some value).
+        { apply find_value_existence. repeat split.
+          - apply Hwf.
+          - apply Hcyc.
+          - split.
+            + rewrite HeqU. apply nodes_map_to_assignment.
+            + destruct Hnode as [Hnode _]. apply Hnode. }
+        destruct Hf as [value Hf].
+        assert (Hvalv: exists (P: assignments X), find_values G g1 (find_parents v G) U A = Some P
+                              /\ find_value G g1 v U A = get_value_of_node v G g1 U A P).
+        { apply find_value_gives_value_of_node. split.
+          - apply Hwf.
+          - apply Hcyc.
+          - split.
+            + rewrite HeqU. apply nodes_map_to_assignment.
+            + destruct Hnode as [_ [_ Hnode]]. apply Hnode. }
+        destruct Hvalv as [P [HP Hv]].
+        assert (Hvalm: exists (P: assignments X), find_values G g1 (find_parents m G) U A = Some P
+                              /\ find_value G g1 m U A = get_value_of_node m G g1 U A P).
+        { apply find_value_gives_value_of_node. split.
+          - apply Hwf.
+          - apply Hcyc.
+          - split.
+            + rewrite HeqU. apply nodes_map_to_assignment.
+            + destruct Hnode as [_ [Hnode _]]. apply Hnode. }
+        destruct Hvalm as [Pm [HPm Hm]].
+        assert (Hv': find_value G g1 v U A = find_value G g1 m U A).
+        { unfold get_value_of_node in Hv. assert (Hnone: get_assigned_value A v = None).
+          { apply assigned_is_false. rewrite HeqA. apply node_maps_to_unassigned.
+            unfold not. intros contra. apply member_In_equiv in contra. rewrite contra in HvZ. discriminate HvZ. }
+          rewrite Hnone in Hv. assert (Hunobs: exists unobs, get_assigned_value U v = Some unobs).
+          { apply assigned_has_value with (L := nodes_in_graph G). split.
+            - destruct Hnode as [_ [_ Hnode]]. destruct G as [V E]. simpl. simpl in Hnode.
+              apply member_In_equiv. apply Hnode.
+            - rewrite HeqU. apply nodes_map_to_assignment. }
+          destruct Hunobs as [unobs Hunobs]. rewrite Hunobs in Hv.
+          apply find_values_assignment in HP as HP'.
+          assert (Hpar: exists p, Some p = get_parent_assignments P (find_parents v G)).
+          { apply parent_assignments_exist. apply HP'. } destruct Hpar as [p Hpar].
+          rewrite <- Hpar in Hv.
+          assert (Hx: exists x: X, find_value G g1 m U A = Some x /\ nth_error P i = Some (m, x)).
+          { apply find_values_preserves_index with (P := find_parents v G).
+            - split. apply Hwf. apply Hcyc.
+            - split. rewrite HeqU. apply nodes_map_to_assignment.
+              destruct Hnode as [_ [Hnode _]]. apply Hnode.
+            - intros v' Hfp. apply edge_from_parent_to_child in Hfp.
+              assert (Hvv: node_in_graph v' G = true /\ node_in_graph v G = true).
+              { apply edge_corresponds_to_nodes_in_well_formed. split. apply Hwf. apply Hfp. }
+              destruct Hvv as [Hvv _]. apply Hvv.
+            - split. apply HP. apply Hi. }
+          destruct Hx as [x [Hm' Hi']].
+          assert (Hg1: g1 v (unobs, p) = x).
+          { rewrite Heqg1. unfold h1. unfold g3. rewrite eqb_refl. unfold f2. simpl.
+            assert (Hn: nth_error p i = Some x).
+            { apply parent_assignments_preserves_index with (P := P) (V := find_parents v G) (m := m).
+              repeat split.
+              - symmetry. apply Hpar.
+              - apply Hi.
+              - apply find_values_get_assigned with (G := G) (g := g1) (P := find_parents v G) (U := U) (A := A). repeat split.
+                + apply HP.
+                + apply index_exists. exists i. symmetry. apply Hi.
+                + apply Hm'. }
+            unfold nth_default. rewrite Hn. reflexivity. }
+          rewrite Hv. rewrite Hg1. rewrite Hm'. reflexivity. }
+        assert (Hm': find_value G g1 m U A = find_value G g1 u U A).
+        { unfold get_value_of_node in Hm. assert (Hnone: get_assigned_value A m = None).
+          { apply assigned_is_false. rewrite HeqA. apply node_maps_to_unassigned.
+            unfold not. intros contra. apply member_In_equiv in contra. rewrite contra in Hmem. discriminate Hmem. }
+          rewrite Hnone in Hm. assert (Hunobs: exists unobs, get_assigned_value U m = Some unobs).
+          { apply assigned_has_value with (L := nodes_in_graph G). split.
+            - destruct Hnode as [_ [Hnode _]]. destruct G as [V E]. simpl. simpl in Hnode.
+              apply member_In_equiv. apply Hnode.
+            - rewrite HeqU. apply nodes_map_to_assignment. }
+          destruct Hunobs as [unobs Hunobs]. rewrite Hunobs in Hm.
+          apply find_values_assignment in HPm as HP'.
+          assert (Hpar: exists p, Some p = get_parent_assignments Pm (find_parents m G)).
+          { apply parent_assignments_exist. apply HP'. } destruct Hpar as [p Hpar].
+          rewrite <- Hpar in Hm.
+          assert (Hx: exists x: X, find_value G g1 u U A = Some x /\ nth_error Pm j = Some (u, x)).
+          { apply find_values_preserves_index with (P := find_parents m G).
+            - split. apply Hwf. apply Hcyc.
+            - split. rewrite HeqU. apply nodes_map_to_assignment.
+              destruct Hnode as [Hnode _]. apply Hnode.
+            - intros u' Hfp. apply edge_from_parent_to_child in Hfp.
+              assert (Hvv: node_in_graph u' G = true /\ node_in_graph m G = true).
+              { apply edge_corresponds_to_nodes_in_well_formed. split. apply Hwf. apply Hfp. }
+              destruct Hvv as [Hvv _]. apply Hvv.
+            - split. apply HPm. apply Hj. }
+          destruct Hx as [x [Hm' Hi']].
+          assert (Hmv: m =? v = false).
+          { destruct (m =? v) as [|] eqn:Hmv.
+            - unfold is_mediator_bool in Hmed. apply split_and_true in Hmed. destruct Hmed as [_ Hmed].
+              apply acyclic_no_self_loop with (u := v) in Hcyc. apply eqb_eq in Hmv. rewrite Hmv in Hmed.
+              rewrite Hmed in Hcyc. discriminate Hcyc.
+            - reflexivity. }
+          assert (Hg1: g1 m (unobs, p) = x).
+          { rewrite Heqg1. unfold h1. unfold g3. rewrite Hmv. unfold f2. simpl.
+            assert (Hn: nth_error p j = Some x).
+            { apply parent_assignments_preserves_index with (P := Pm) (V := find_parents m G) (m := u).
+              repeat split.
+              - symmetry. apply Hpar.
+              - apply Hj.
+              - apply find_values_get_assigned with (G := G) (g := g1) (P := find_parents m G) (U := U) (A := A). repeat split.
+                + apply HPm.
+                + apply index_exists. exists j. symmetry. apply Hj.
+                + apply Hm'. }
+            unfold nth_default. rewrite Hn. reflexivity. }
+          rewrite Hm. rewrite Hg1. rewrite Hm'. reflexivity. }
+        assert (Ha: forall (a: X), find_value G g1 u U A = Some a -> find_value G g1 v U A = Some a).
+        { intros a Hu. rewrite Hv'. rewrite Hm'. apply Hu. }
+        assert (Hb: exists (b: X), b <> value).
+        { admit. }
+        destruct Hb as [b Hb].
+        specialize Ha with (a := b) as Hb'. specialize H with (a := b) (b := value) (x := b).
+        apply H in Hb'.
+        + specialize Ha with (a := value). apply Ha in Hf. rewrite Hf in Hb'.
+          inversion Hb'. rewrite H1 in Hb. unfold not in Hb. exfalso. apply Hb. reflexivity.
+        + split.
+          * rewrite HeqA. apply nodes_map_to_assignment.
+          * rewrite HeqU. apply nodes_map_to_assignment.
+        + apply Hf. }
+    unfold d_separated_bool. rewrite Hpath. simpl.
+    unfold path_is_blocked_bool.
+    assert (Hmedb: is_blocked_by_mediator_2 (u, v, [m]) G Z = true).
+    { unfold is_blocked_by_mediator_2. unfold find_mediators_in_path. simpl. rewrite Hmed.
+      apply overlap_has_member_in_common. exists m. split.
+      - apply Hmem.
+      - simpl. left. reflexivity. }
+    rewrite Hmedb. simpl. reflexivity.
 Admitted.
 
-Theorem conditional_independence_semantics: forall X (G: graph) (u v: node) (Z: nodes) (A: assignments X),
-  d_separated_bool u v G Z = true <->
-  (is_assignment_for A Z = true ->
-   forall (a b: X) (U: assignments X), is_assignment_for U (nodes_in_graph G) = true
-    -> find_values_independent G u v Z A a b U).
+Theorem conditional_independence_semantics: forall X (G: graph) (u v: node),
+  (exists (x: X), True) /\ G_well_formed G = true /\ contains_cycle G = false ->
+  forall (Z: nodes), (* TODO need that Z is a subset? *) d_separated_bool u v G Z = true <->
+  forall (A: assignments X) (U: assignments X),
+    is_assignment_for A Z = true /\ is_assignment_for U (nodes_in_graph G) = true ->
+    find_values_independent_2 G v u Z A U.
 Proof.
+  intros X G u v. intros [Hx [Hwf Hcyc]] Z. split.
+  - intros Hsep A U [HA HU]. unfold find_values_independent_2. intros g a b x Ha Hb.
+    admit.
+  - intros H. unfold d_separated_bool.
+    admit.
 Admitted.
 
 (* interventions *)
