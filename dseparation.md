@@ -110,3 +110,104 @@ f(v) = x
 
 - Harder, probably induction (or maybe prove not independent $\Rightarrow$ $d$-separated?)
 - Now $u, p$ don't have to be independent -- there could be a path from $u \leftrightarrow \cdots \leftrightarrow p \leftrightarrow \cdots v$. We know that it's blocked, but we don't know where ($p$ could totally depend on $u$)
+
+# Update (1/17/2025)
+
+- Reformulated definition of conditional independence
+- Worked through both directions on paper, partially proved both directions in Coq
+
+## Conditional independence
+
+### Informal procedure to determine if $u$ and $v$ are independent conditioned on $Z$:
+
+1. Take setting of nodes that conditions on $Z$ such that the value of $u$ is $a$
+2. Change the value of $u$ to $b$ and propagate the change throughout the graph
+3. Ensure that the value of $v$ did not change
+
+### Definitions and notation
+
+- $U$: the assignments of unobserved error terms to nodes of $G$, where $U(u)$ denotes the unobserved error term for $u$
+- $A_U$: the values of nodes in $G$ using unobserved terms $U$, where $A_U(u) = f_u(pa_u, U(u))$
+- Conditioning on $Z$: given assignments $\{z_1: x_1, z_2: x_2, ... \}$ for nodes $z_i \in Z$, $A_U(z_i)$ always evaluates to $x_i$
+- Unblocked ancestors of $u$: the nodes with an unblocked directed path to $u$
+<p align="center">
+<img src="graphs/unblocked_ancestors.png" alt="unblocked_ancestors" style="width:300px;"/>
+</p>
+
+### Formalized procedure
+
+Let $U_a$ be any set of unobserved values such that
+
+1. $A_{U_a}(u) = a$
+2. For all $z_i \in Z$, $A_{U_a}(z_i) = x_i$
+
+For $f_u(pa_u, U_a(u))$ to change to $b$, the value of an unblocked ancestor of $u$ must change (as a result of its unobserved term).
+
+Let $U_b$ be any set of unobserved values such that
+
+1. $A_{U_b}(u) = b$
+2. $U_a$ and $U_b$ differ only for unblocked ancestors of $u$
+
+It is possible that $A_{U_b}$ no longer properly conditions on $Z$, i.e. for some $z_i$, $f(z_i)$ no longer evaluates to $x_i$
+
+<p align="center">
+<img src="graphs/changing_u_changes_cond.png" alt="changing_u_changes_cond" style="width:300px;"/>
+</p>
+
+Let $U_b'$ be any set of unobserved values such that
+
+1. $A_{U_b'}(u) = b$
+2. For all $z_i\in Z$, $A_{U_b'}(z_i) = x_i$
+3. $U_b'$ and $U_b$ differ only for unblocked ancestors of $z_i$ for which $A_{U_b}(z_i) \neq x_i$
+
+**Conditional independence is satisfied** if for all $U_a, U_b, U_b'$ satisfying the requirements described above, $$A_{U_a}(v) = A_{U_b'}(v).$$
+
+### Coq definition of conditional independence
+
+```coq
+Definition conditionally_independent (X: Type) `{EqType X} (G: graph) (u v: node) (Z: nodes): Prop :=
+  forall (AZ: assignments X), is_assignment_for AZ Z = true
+  (* properly conditioned, consistent assignments where f(u)=a *)
+  -> forall (g: graphfun_r) (a: X) (Ua Aa: assignments X),
+      get_values_r G g Ua 0 = Some Aa /\ unobs_valid_given_u G Ua Aa u a /\ unobs_conditions_on_Z G g Ua AZ Z
+  (* assignments after setting f(u)=b and propagating *)
+  -> forall (b: X) (Ub Ab: assignments X),
+      (assignments_change_only_for_subset Ua Ub (find_unblocked_ancestors G u Z))
+      /\ get_values_r G g Ub 0 = Some Ab /\ (unobs_valid_given_u G Ub Ab u b)
+  (* assignments after resetting changed conditioned variables and propagating *)
+  -> forall (Ub' Ab': assignments X),
+      (assignments_change_only_for_subset Ub Ub' (find_unblocked_ancestors_in_Z G Z Aa Ab))
+      /\ get_values_r G g Ub' 0 = Some Ab' /\ (unobs_valid_given_u G Ub' Ab' u b) /\ (unobs_conditions_on_Z G g Ub' AZ Z)
+  (* value of v must stay constant *)
+  -> get_assigned_value Aa v = get_assigned_value Ab' v.
+```
+
+## Conditionally independent $\Rightarrow$ $d$-separated
+
+**Instead show that if a path is $d$-connected given $Z$, then the graph is _not_ conditionally independent on $Z$.**
+
+Main idea (induction): provide function describing graph that properly conditions on $Z$ but forces the value of $v$ to equal the value of $u$.
+
+<p align="center">
+<img src="graphs/force_u_equal_v.png" alt="force_u_equal_v" style="width:600px;"/>
+</p>
+
+## $d$-separated $\Rightarrow$ conditionally independent
+
+Rely on key **lemma**: for a node $u$, if $A_{U_1}(u) \neq A_{U_2}(u)$, then there must be a node $w$ such that
+
+1. $w$ is an unblocked ancestor of $u$
+2. $A_{U_1}(w) \neq A_{U_2}(w)$
+3. $U_1(w) \neq U_2(w)$
+
+### First part: $A_{U_a}(v) = A_{U_b}(v)$
+
+Otherwise, some unblocked ancestor $w$ of $v$ must have changed its unobserved term from $U_a$ to $U_b$ (by the lemma). By the constraints on $U_b$, $w$ must also be an unobserved ancestor of $u$. This implies a $d$-connected path between $u$ and $v$ (top picture).
+
+### Second part: $A_{U_b}(v) = A_{U_b'}(v)$
+
+Otherwise, some unblocked ancestor $x$ of $v$ changed its unobserved term from $U_b$ to $U_b'$ (by the lemma). By the constraints on $U_b'$, $x$ must be an unobserved ancestor of $z_i \in Z$, such that $U_a(z_i) \neq U_b(z_i)$. Then, by the lemma, there must be some unblocked ancestor $w$ of $z_i$ that changed its unobserved term from $U_a$ to $U_b$. By the constraints on $U_b$, $w$ must also be an unobserved ancestor of $u$. This implies a $d$-connected path between $u$ and $v$ (bottom picture).
+
+<p align="center">
+<img src="graphs/indep_proves_dsep.png" alt="indep_proves_dsep" style="width:400px;"/>
+</p>
