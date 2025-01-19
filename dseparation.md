@@ -208,6 +208,8 @@ Otherwise, some unblocked ancestor $w$ of $v$ must have changed its unobserved t
 
 Otherwise, some unblocked ancestor $x$ of $v$ changed its unobserved term from $U_b$ to $U_b'$ (by the lemma). By the constraints on $U_b'$, $x$ must be an unobserved ancestor of $z_i \in Z$, such that $U_a(z_i) \neq U_b(z_i)$. Then, by the lemma, there must be some unblocked ancestor $w$ of $z_i$ that changed its unobserved term from $U_a$ to $U_b$. By the constraints on $U_b$, $w$ must also be an unobserved ancestor of $u$. This implies a $d$-connected path between $u$ and $v$ (bottom picture).
 
+**Note**: it is possible that there are no _disjoint_ paths from $w$ to $z_i$ and $x$ to $z_i$. Say they intersect at a node $y$, and follow one of the paths down to $z_i$. Then, $y$ is a collider, and $z_i$ is a descendant of a collider which is conditioned on, so the path is still $d$-connected!
+
 <p align="center">
 <img src="graphs/indep_proves_dsep.png" alt="indep_proves_dsep" style="width:400px;"/>
 </p>
