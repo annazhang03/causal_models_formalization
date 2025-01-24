@@ -186,10 +186,23 @@ Definition conditionally_independent (X: Type) `{EqType X} (G: graph) (u v: node
 
 **Instead show that if a path is $d$-connected given $Z$, then the graph is _not_ conditionally independent on $Z$.**
 
-Main idea (induction): provide function describing graph that properly conditions on $Z$ but forces the value of $v$ to equal the value of $u$.
+Main idea: provide function describing graph that properly conditions on $Z$ but forces the value of $v$ to equal the value of $u$.
 
 <p align="center">
 <img src="graphs/force_u_equal_v.png" alt="force_u_equal_v" style="width:600px;"/>
+</p>
+
+Induction on $d$-connected path (by number of nodes): if the path minus the first node can be assigned nodefunctions such that all non-collider nodes must have the same value, then adding on the first node preserves this property.
+
+### Challenges
+
+- For induction step, want to use the same nodefunctions as in induction hypothesis for nodes in the rest of the path. For first node, add on a nodefunction depending on the arrow being into/out of that node. Have to show that the values of other nodes don't change after assigning this nodefunction
+<p align="center">
+<img src="graphs/induction.png" alt="induction" style="width:600px;"/>
+</p>
+- For a collider with a descendant conditioned on, the descendant path could overlap the original path. Then, cannot guarantee equality of all node values (need to take new path)
+<p align="center">
+<img src="graphs/collider_descendant_overlap.png" alt="colliderdescendant" style="width:600px;"/>
 </p>
 
 ## $d$-separated $\Rightarrow$ conditionally independent
@@ -202,14 +215,36 @@ Rely on key **lemma**: for a node $u$, if $A_{U_1}(u) \neq A_{U_2}(u)$, then the
 
 ### First part: $A_{U_a}(v) = A_{U_b}(v)$
 
-Otherwise, some unblocked ancestor $w$ of $v$ must have changed its unobserved term from $U_a$ to $U_b$ (by the lemma). By the constraints on $U_b$, $w$ must also be an unobserved ancestor of $u$. This implies a $d$-connected path between $u$ and $v$ (top picture).
+Otherwise, some unblocked ancestor $w$ of $v$ must have changed its unobserved term from $U_a$ to $U_b$ (by the lemma). By the constraints on $U_b$, $w$ must also be an unobserved ancestor of $u$. This implies a $d$-connected path between $u$ and $v$.
+
+<p align="center">
+<img src="graphs/indep_proves_dsep1.png" alt="indep_proves_dsep" style="width:400px;"/>
+</p>
+
+#### Challenges
+
+- The path has to be acyclic, which is not necessarily true if $w$ is just an arbitrary shared unblocked ancestor.
+  - Theorem: if there exists shared unblocked ancestor of $u$ and $v$, then there exists a shared unobserved ancestor of $u$ and $v$ with disjoint directed paths to each.
 
 ### Second part: $A_{U_b}(v) = A_{U_b'}(v)$
 
 Otherwise, some unblocked ancestor $x$ of $v$ changed its unobserved term from $U_b$ to $U_b'$ (by the lemma). By the constraints on $U_b'$, $x$ must be an unobserved ancestor of $z_i \in Z$, such that $U_a(z_i) \neq U_b(z_i)$. Then, by the lemma, there must be some unblocked ancestor $w$ of $z_i$ that changed its unobserved term from $U_a$ to $U_b$. By the constraints on $U_b$, $w$ must also be an unobserved ancestor of $u$. This implies a $d$-connected path between $u$ and $v$ (bottom picture).
 
-**Note**: it is possible that there are no _disjoint_ paths from $w$ to $z_i$ and $x$ to $z_i$. Say they intersect at a node $y$, and follow one of the paths down to $z_i$. Then, $y$ is a collider, and $z_i$ is a descendant of a collider which is conditioned on, so the path is still $d$-connected!
-
 <p align="center">
-<img src="graphs/indep_proves_dsep.png" alt="indep_proves_dsep" style="width:400px;"/>
+<img src="graphs/indep_proves_dsep2.png" alt="indep_proves_dsep" style="width:400px;"/>
 </p>
+
+#### Challenges
+
+- It is possible that there are no _disjoint_ paths from $w$ to $z_i$ and $x$ to $z_i$. Say they intersect at a node $y$, and follow one of the paths down to $z_i$. Then, $y$ is a collider, and $z_i$ is a _descendant_ of a collider which is conditioned on, so the path is still $d$-connected!
+<p align="center">
+<img src="graphs/collider_descendant.png" alt="colliderdescendant" style="width:200px;"/>
+</p>
+- Also have to guarantee the rest of the path is disjoint. More complicated (intersect multiple places? Path with no colliders?)
+
+  - Theorem: if there exist a shared unblocked ancestor $w$ of $u$ and $z$ and a shared unblocked ancestor $x$ of $z$ and $v$, then there exist $w', x'$ such that
+    - $w'$ is a shared unblocked ancestor of $u, z$
+    - $x'$ is a shared unblocked ancestor of $z, v$
+    - There are directed paths from $w'$ to $z$ and from $x'$ to $z$ such that they remain the same as each other after intersecting (or never intersect)
+    - There is a directed path from $w'$ to $u$ that is disjoint from the paths to $z$
+    - There is a directed path from $x'$ to $v$ that is disjoint from the paths to $z$
