@@ -195,6 +195,16 @@ Proof.
     + rewrite IH. reflexivity.
 Qed.
 
+Lemma count_reverse: forall (l: list nat) (x: nat),
+  count x l = count x (rev l).
+Proof.
+  intros l x. induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (h =? x) as [|] eqn:Hhx.
+    + rewrite count_app. simpl. rewrite Hhx. rewrite <- IH. lia.
+    + rewrite count_app. simpl. rewrite Hhx. rewrite <- IH. lia.
+Qed.
+
 Lemma count_filter: forall (l: list nat) (x: nat) (test : nat -> bool),
   test x = true -> count x l = count x (filter test l).
 Proof.
@@ -349,6 +359,27 @@ Proof.
     + apply IH in H. destruct H as [H | H].
       * left. right. apply H.
       * right. apply H.
+Qed.
+
+Lemma membership_rev: forall (l: list nat) (a: nat),
+  In a (rev l) <-> In a l.
+Proof. Admitted.
+
+Lemma reverse_list_append: forall (l1 l2: list nat),
+  rev (l1 ++ l2) = rev l2 ++ rev l1.
+Proof.
+  intros l1 l2.
+  induction l1 as [| h t IH].
+  - simpl. symmetry. apply append_identity.
+  - simpl. rewrite IH. rewrite <- app_assoc. reflexivity.
+Qed.
+
+Lemma reverse_list_twice: forall (l: list nat),
+  l = rev (rev l).
+Proof.
+  intros l. induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. rewrite reverse_list_append. rewrite <- IH. simpl. reflexivity.
 Qed.
 
 Fixpoint max_list (l: list nat) : nat :=
@@ -784,6 +815,140 @@ Proof.
         -- right. apply prefix_member with (l1 := t1). split.
            apply Hmem. apply Hpre.
     + right. apply IH. apply Hind.
+Qed.
+
+Lemma prefix_identity: forall (l1 l2: list nat),
+  prefix l1 (l1 ++ l2) = true.
+Proof.
+  intros l1 l2. induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. rewrite eqb_refl. rewrite IH. reflexivity.
+Qed.
+
+Lemma prefix_implies_sublist: forall (l1 l2: list nat),
+  prefix l1 l2 = true -> sublist l1 l2 = true.
+Proof.
+  intros l1 l2 H.
+  destruct l1 as [| h t].
+  - destruct l2 as [| h' t'].
+    + simpl. reflexivity.
+    + simpl. reflexivity.
+  - destruct l2 as [| h' t'].
+    + simpl in H. discriminate H.
+    + simpl in H. apply split_and_true in H. destruct H as [Hh Hpre].
+      simpl. rewrite Hh. rewrite Hpre. reflexivity.
+Qed.
+
+Lemma prefix_breaks_down_list: forall (l1 l: list nat),
+  prefix l1 l = true <-> exists (l2: list nat), l1 ++ l2 = l.
+Proof.
+  intros l1 l. split.
+  { generalize dependent l1. induction l as [| h t IH].
+  - intros l1 H. simpl in H. destruct l1 as [| h' t'].
+    + simpl. exists []. reflexivity.
+    + simpl in H. discriminate H.
+  - intros l1 H. destruct l1 as [| h' t'].
+    + exists (h :: t). simpl. reflexivity.
+    + simpl in H. apply split_and_true in H. destruct H as [Hh Hpre].
+      specialize IH with (l1 := t'). apply IH in Hpre. destruct Hpre as [l2 Hl2].
+      exists l2. simpl. rewrite Hl2. apply eqb_eq in Hh. rewrite Hh. reflexivity. }
+  { intros [l2 H]. rewrite <- H. apply prefix_identity. }
+Qed.
+
+Theorem sublist_breaks_down_list: forall (l1 l: list nat),
+  sublist l1 l = true <-> exists (l2 l3: list nat), l2 ++ l1 ++ l3 = l.
+Proof.
+  intros l1 l. split.
+  { intros H. induction l as [| h t IH].
+  - simpl in H. destruct l1 as [| h' t'].
+    + simpl. exists []. exists []. reflexivity.
+    + simpl in H. discriminate H.
+  - simpl in H. apply split_orb_true in H. destruct H as [Hpre | Hsub].
+    + exists []. simpl. apply prefix_breaks_down_list. apply Hpre.
+    + apply IH in Hsub. destruct Hsub as [l2 [l3 H]].
+      exists (h :: l2). exists l3. simpl. rewrite H. reflexivity. }
+  { intros [l2 [l3 H]]. generalize dependent l3. generalize dependent l1. generalize dependent l2. induction l as [| h t IH].
+  - intros l2 l1 l3 H. destruct l1 as [| h1 t1].
+    + reflexivity.
+    + simpl in H. destruct l2 as [| h2 t2]. simpl in H. discriminate H. discriminate H.
+  - intros l2 l1 l3 H. destruct l1 as [| h1 t1].
+    + reflexivity.
+    + destruct l2 as [| h2 t2].
+      * simpl in H.
+        assert (Hpre: prefix (h1 :: t1) (h :: t) = true). { apply prefix_breaks_down_list. exists l3. apply H. }
+        simpl. simpl in Hpre. rewrite Hpre. reflexivity.
+      * specialize IH with (l2 := t2) (l1 := (h1 :: t1)) (l3 := l3).
+        assert (Hsub: sublist (h1 :: t1) t = true). { apply IH. simpl in H. inversion H. reflexivity. }
+        simpl. rewrite Hsub. rewrite orb_comm. reflexivity. }
+Qed.
+
+Lemma rearrange_list_concat_app: forall (l1 l2: list nat) (m v: nat),
+  l1 ++ m :: l2 ++ [v] = (l1 ++ m :: l2) ++ [v].
+Proof.
+  intros l1 l2 m v. induction l1 as [| h1 t1].
+  * simpl. reflexivity.
+  * simpl. f_equal. apply IHt1.
+Qed.
+
+Lemma membership_splits_list: forall (l: list nat) (a: nat),
+  In a l -> exists (l1 l2: list nat), l1 ++ [a] ++ l2 = l.
+Proof. Admitted.
+
+Lemma middle_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c: nat),
+  sublist [a; b; c] (l ++ [b]) = true -> In b l.
+Proof.
+  intros l a b c H.
+  induction l as [| h t IH].
+  - simpl in H. rewrite orb_comm in H. simpl in H. rewrite andb_comm in H. simpl in H. discriminate H.
+  - simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + destruct t as [| h' t'].
+      * simpl in H. rewrite eqb_refl in H. simpl in H. rewrite andb_comm in H. discriminate H.
+      * simpl in H. apply split_and_true in H. destruct H as [_ H]. apply split_and_true in H. destruct H as [H _].
+        simpl. right. left. apply eqb_eq in H. rewrite H. reflexivity.
+    + simpl. right. apply IH. apply H.
+Qed.
+
+Lemma middle_elt_of_sublist_not_first_elt: forall (l: list nat) (a b c: nat),
+  sublist [a; b; c] (b :: l) = true -> In b l.
+Proof.
+  intros l a b c H.
+  simpl in H.
+  destruct l as [| h t].
+  - simpl in H. rewrite orb_comm in H. simpl in H. rewrite andb_comm in H. simpl in H. discriminate H.
+  - apply split_orb_true in H. destruct H as [H | H].
+    + apply split_and_true in H. destruct H as [_ H]. apply split_and_true in H. destruct H as [H _].
+      simpl. left. apply eqb_eq in H. rewrite H. reflexivity.
+    + apply sublist_member with (l1 := [a; b; c]). split.
+      * simpl. right. left. reflexivity.
+      * apply H.
+Qed.
+
+Lemma last_elts_of_equal_lists: forall (l1 l2: list nat) (a b: nat),
+  l1 ++ [a] = l2 ++ [b] -> a = b.
+Proof.
+  intros l1 l2 a b H. generalize dependent l2. induction l1 as [| h1 t1 IH].
+  - intros l2 H. simpl in H. destruct l2 as [| h2 t2].
+    + simpl in H. inversion H. reflexivity.
+    + simpl in H. destruct t2 as [| h2' t2']. simpl in H. discriminate H. simpl in H. discriminate H.
+  - intros l2 H. simpl in H. destruct l2 as [| h2 t2].
+    + simpl in H. destruct t1 as [| h1' t1']. simpl in H. discriminate H. simpl in H. discriminate H.
+    + inversion H. specialize IH with (l2 := t2). apply IH. apply H2.
+Qed.
+
+Lemma last_elts_of_equal_lists_2: forall (l1 l2 l3: list nat) (a: nat),
+  l1 ++ [a] = l2 ++ l3 -> l3 = [] \/ exists (l4: list nat), l3 = l4 ++ [a].
+Proof.
+  intros l1 l2 l3 a H. generalize dependent l2. induction l1 as [| h1 t1 IH].
+  - intros l2 H. simpl in H. destruct l2 as [| h2 t2].
+    + simpl in H. right. exists []. simpl. rewrite H. reflexivity.
+    + simpl in H. inversion H. left. destruct t2 as [| h2' t2'].
+      * simpl in H2. rewrite H2. reflexivity.
+      * discriminate H2.
+  - intros l2 H. simpl in H. destruct l2 as [| h2 t2].
+    + simpl in H. destruct l3 as [| h3 t3].
+      * discriminate H.
+      * inversion H. right. exists (h3 :: t1). reflexivity.
+    + inversion H. specialize IH with (l2 := t2). apply IH. apply H2.
 Qed.
 
 (* logic functions *)
