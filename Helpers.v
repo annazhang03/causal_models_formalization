@@ -891,8 +891,32 @@ Proof.
 Qed.
 
 Lemma membership_splits_list: forall (l: list nat) (a: nat),
-  In a l -> exists (l1 l2: list nat), l1 ++ [a] ++ l2 = l.
+  In a l <-> exists (l1 l2: list nat), l1 ++ [a] ++ l2 = l.
 Proof. Admitted.
+
+Lemma sublist_length_less: forall (l1 l2 l3: list nat) (len': nat),
+  length l3 < S len' /\ l1 ++ l2 = l3 /\ ~(l1 = []) -> length l2 < len'.
+Proof.
+  intros l1 l2 l3 len'. intros [Hlen [Hl Hl1]].
+  generalize dependent l1. generalize dependent l3. generalize dependent len'. induction l2 as [| h t IH].
+  - intros len' l3 Hlen l1 Hl Hl1. simpl. destruct l1 as [| h1 t1].
+    + exfalso. apply Hl1. reflexivity.
+    + rewrite <- Hl in Hlen. simpl in Hlen. lia.
+  - intros len' l3 Hlen l1 Hl Hl1. simpl.
+    destruct len' as [| len''].
+    + destruct l1 as [| h1 t1].
+      * exfalso. apply Hl1. reflexivity.
+      * rewrite <- Hl in Hlen. simpl in Hlen. lia.
+    + destruct l1 as [| h1 t1].
+      * exfalso. apply Hl1. reflexivity.
+      * assert (length t < len'').
+        { apply IH with (l1 := t1 ++ [h]) (l3 := t1 ++ h :: t).
+          - rewrite <- Hl in Hlen. simpl in Hlen. lia.
+          - rewrite <- app_assoc. simpl. reflexivity.
+          - destruct t1 as [| h1' t1']. simpl. intros F. discriminate F. intros F. discriminate F. }
+        lia.
+Qed.
+
 
 Lemma middle_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c: nat),
   sublist [a; b; c] (l ++ [b]) = true -> In b l.
