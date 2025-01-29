@@ -917,6 +917,25 @@ Proof.
         lia.
 Qed.
 
+Theorem lists_have_first_elt_in_common: forall (l1 l2: list nat),
+  overlap l1 l2 = true
+  -> exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2'' /\ overlap l1' l2' = false.
+Proof.
+  intros l1 l2 H.
+  induction l1 as [| h t IH].
+  - simpl in H. discriminate H.
+  - simpl in H. destruct (member h l2) as [|] eqn:Hmem.
+    + exists []. exists t. apply member_In_equiv in Hmem. apply membership_splits_list in Hmem. destruct Hmem as [l2' [l2'' Hl2]].
+      exists l2'. exists l2''. exists h. repeat split. symmetry. apply Hl2.
+    + apply IH in H. destruct H as [l1' [l1'' [l2' [l2'' [x [Ht [Hl2 Hover]]]]]]].
+      exists (h :: l1'). exists l1''. exists l2'. exists l2''. exists x. repeat split.
+      * simpl. f_equal. apply Ht.
+      * apply Hl2.
+      * simpl. destruct (member h l2') as [|] eqn:Hmem'.
+        -- apply member_In_equiv in Hmem'. apply membership_append with (l2 := [x] ++ l2'') in Hmem'. rewrite <- Hl2 in Hmem'.
+           apply member_In_equiv in Hmem'. rewrite Hmem' in Hmem. discriminate Hmem.
+        -- apply Hover.
+Qed.
 
 Lemma middle_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c: nat),
   sublist [a; b; c] (l ++ [b]) = true -> In b l.
