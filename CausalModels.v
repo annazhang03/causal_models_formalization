@@ -4491,6 +4491,13 @@ Proof.
           - apply Hedge. }
 Qed.
 
+Lemma directed_path_can_be_acyclic: forall (G: graph) (u v: node) (l: nodes),
+  is_directed_path_in_graph (u, v, l) G = true
+  -> exists (l': nodes), is_directed_path_in_graph (u, v, l') G = true /\ acyclic_path_2 (u, v, l')
+      /\ subset l' l = true.
+Proof.
+Admitted.
+
 Theorem unblocked_ancestors_have_unblocked_directed_path: forall (G: graph) (v a: node) (Z: nodes),
   In a (find_unblocked_ancestors G v Z)
   <-> (a = v) \/ (exists (l: nodes), is_directed_path_in_graph (a, v, l) G = true /\ acyclic_path_2 (a, v, l) /\ forall (w: node), (w = a \/ In w l) -> ~(In w Z)).
@@ -4591,10 +4598,9 @@ Theorem acyclic_paths_intersect_if_common_endpoint: forall (anc1 anc2 z: node) (
   -> is_directed_path_in_graph (anc1, z, l1) G = true /\ acyclic_path_2 (anc1, z, l1) /\ (forall w : node, w = anc1 \/ In w l1 -> ~ In w Z)
   -> is_directed_path_in_graph (anc2, z, l2) G = true /\ acyclic_path_2 (anc2, z, l2) /\ (forall w : node, w = anc2 \/ In w l2 -> ~ In w Z)
   -> overlap l1 l2 = false \/
-     exists (l1' l2': nodes), is_directed_path_in_graph (anc1, z, l1') G = true /\ acyclic_path_2 (anc1, z, l1')
-      /\ is_directed_path_in_graph (anc2, z, l2') G = true /\ acyclic_path_2 (anc2, z, l2')
-      /\ (forall w : node, (w = anc1 \/ In w l1') \/ (w = anc2 \/ In w l2') -> ~ In w Z) 
-      /\ exists (l1'' l2'': nodes) (l3: nodes) (x: node), l1' = l1'' ++ [x] ++ l3 /\ l2' = l2'' ++ [x] ++ l3 /\ overlap l1'' l2'' = false.
+     exists (l2': nodes), is_directed_path_in_graph (anc2, z, l2') G = true /\ acyclic_path_2 (anc2, z, l2')
+      /\ (forall w : node, (w = anc2 \/ In w l2') -> ~ In w Z)
+      /\ exists (l1'' l2'': nodes) (l3 l3': nodes) (x: node), l1 = l1'' ++ [x] ++ l3 /\ l2' = l2'' ++ [x] ++ l3 /\ l2 = l2'' ++ [x] ++ l3' /\ overlap l1'' l2'' = false.
 Proof.
   intros anc1 anc2 z l1 l2 Z G. intros HG [Hdir1 [Hcyc1 HZ1]] [Hdir2 [Hcyc2 HZ2]].
   destruct (overlap l1 l2) as [|] eqn:Hover.
@@ -4602,57 +4608,53 @@ Proof.
     assert (H: exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2'' /\ overlap l1' l2' = false).
     { apply lists_have_first_elt_in_common. apply Hover. }
     destruct H as [l1' [l1'' [l2' [l2'' [x [Hl1 [Hl2 Hover']]]]]]].
-    exists l1. exists (l2' ++ [x] ++ l1''). split.
-    + apply Hdir1.
-    + split.
-      * apply Hcyc1.
-      * split.
-        -- apply concat_directed_paths. split.
-           ++ apply subpath_still_directed_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hdir2.
-           ++ apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1.
-        -- split.
-           ++ apply concat_paths_acyclic.
-              ** split.
-                 --- unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [Hcyc2 _]. apply Hcyc2.
-                 --- split.
-                     +++ apply subpath_still_acyclic_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hcyc2.
-                     +++ apply subpath_still_acyclic with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hcyc1.
-              ** split.
-                 --- intros H. (* cycle anc2 -> ..l2'.. -> x -> ..l1''.. *) 
-                     apply membership_splits_list in H. destruct H as [c1 [c2 Hc]].
-                     assert (Hcyc: is_directed_path_in_graph (anc2, anc2, l2' ++ [x] ++ c1) G = true).
-                     { apply concat_directed_paths. split.
-                       - apply subpath_still_directed_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hdir2.
-                       - apply subpath_still_directed_2 with (v := z) (l2 := c2) (l3 := l1''). split. apply Hc.
-                         apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
-                     apply contains_cycle_false_correct with (p := (anc2, anc2, l2' ++ [x] ++ c1)) in HG.
-                     +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
-                     +++ apply directed_path_is_path. apply Hcyc.
-                 --- intros H. unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [_ [_ [Hcyc2 _]]]. apply Hcyc2. apply membership_append with (l2 := [x] ++ l2'') in H.
-                     rewrite Hl2. apply H.
-              ** destruct (overlap l2' l1'') as [|] eqn:F.
-                 apply overlap_has_member_in_common in F. destruct F as [x' [Hx2' Hx1']]. apply membership_splits_list in Hx2'. destruct Hx2' as [s1 [s2 Hs]].
-                 apply membership_splits_list in Hx1'. destruct Hx1' as [t1 [t2 Ht]].
-                 assert (Hcyc: is_directed_path_in_graph (x', x', s2 ++ [x] ++ t1) G = true).
+    exists (l2' ++ [x] ++ l1''). split.
+    -- apply concat_directed_paths. split.
+       ++ apply subpath_still_directed_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hdir2.
+       ++ apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1.
+    -- split.
+       ++ apply concat_paths_acyclic.
+          ** split.
+             --- unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [Hcyc2 _]. apply Hcyc2.
+             --- split.
+                 +++ apply subpath_still_acyclic_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hcyc2.
+                 +++ apply subpath_still_acyclic with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hcyc1.
+          ** split.
+             --- intros H. (* cycle anc2 -> ..l2'.. -> x -> ..l1''.. *) 
+                 apply membership_splits_list in H. destruct H as [c1 [c2 Hc]].
+                 assert (Hcyc: is_directed_path_in_graph (anc2, anc2, l2' ++ [x] ++ c1) G = true).
                  { apply concat_directed_paths. split.
-                   - apply subpath_still_directed with (w := anc2) (l1 := s1) (l3 := l2'). split. apply Hs.
-                     apply subpath_still_directed_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hdir2.
-                   - apply subpath_still_directed_2 with (v := z) (l2 := t2) (l3 := l1''). split. apply Ht.
+                   - apply subpath_still_directed_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hdir2.
+                   - apply subpath_still_directed_2 with (v := z) (l2 := c2) (l3 := l1''). split. apply Hc.
                      apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
-                 apply contains_cycle_false_correct with (p := (x', x', s2 ++ [x] ++ t1)) in HG.
-                 +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                 apply contains_cycle_false_correct with (p := (anc2, anc2, l2' ++ [x] ++ c1)) in HG.
+                 +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
                  +++ apply directed_path_is_path. apply Hcyc.
-                 +++ reflexivity.
-           ++ split.
-              ** intros w Hw. destruct Hw as [Hw | Hw].
-                 --- apply HZ1. apply Hw.
-                 --- destruct Hw as [Hw | Hw]. apply HZ2. left. apply Hw.
-                     apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
-                     +++ apply HZ2. right. apply membership_append with (l2 := [x] ++ l2'') in Hw. rewrite Hl2. apply Hw.
-                     +++ apply HZ1. right. apply membership_append_r with (l1 := l1') in Hw. rewrite Hl1. apply Hw.
-              ** exists l1'. exists l2'. exists l1''. exists x. repeat split.
-                 --- apply Hl1.
-                 --- apply Hover'.
+             --- intros H. unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [_ [_ [Hcyc2 _]]]. apply Hcyc2. apply membership_append with (l2 := [x] ++ l2'') in H.
+                 rewrite Hl2. apply H.
+          ** destruct (overlap l2' l1'') as [|] eqn:F.
+             apply overlap_has_member_in_common in F. destruct F as [x' [Hx2' Hx1']]. apply membership_splits_list in Hx2'. destruct Hx2' as [s1 [s2 Hs]].
+             apply membership_splits_list in Hx1'. destruct Hx1' as [t1 [t2 Ht]].
+             assert (Hcyc: is_directed_path_in_graph (x', x', s2 ++ [x] ++ t1) G = true).
+             { apply concat_directed_paths. split.
+               - apply subpath_still_directed with (w := anc2) (l1 := s1) (l3 := l2'). split. apply Hs.
+                 apply subpath_still_directed_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hdir2.
+               - apply subpath_still_directed_2 with (v := z) (l2 := t2) (l3 := l1''). split. apply Ht.
+                 apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
+             apply contains_cycle_false_correct with (p := (x', x', s2 ++ [x] ++ t1)) in HG.
+             +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+             +++ apply directed_path_is_path. apply Hcyc.
+             +++ reflexivity.
+       ++ split.
+          ** intros w Hw. destruct Hw as [Hw | Hw].
+             --- apply HZ2. left. apply Hw.
+             --- apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
+                 +++ apply HZ2. right. apply membership_append with (l2 := [x] ++ l2'') in Hw. rewrite Hl2. apply Hw.
+                 +++ apply HZ1. right. apply membership_append_r with (l1 := l1') in Hw. rewrite Hl1. apply Hw.
+          ** exists l1'. exists l2'. exists l1''. exists l2''. exists x. repeat split.
+             --- apply Hl1.
+             --- apply Hl2.
+             --- apply Hover'.
   - left. reflexivity.
 Qed.
 
@@ -4691,6 +4693,64 @@ Proof.
         -- right. apply membership_splits_list in Hw. destruct Hw as [l3 [l4 Hw]]. apply membership_splits_list. exists l3. exists (l4 ++ [u] ++ l2).
            rewrite app_assoc. rewrite app_assoc. rewrite app_assoc in Hw. rewrite Hw. apply Hl.
 Qed.
+
+Lemma unblocked_ancestors_transitive: forall (u ancu' ancu'': node) (G: graph) (Z: nodes),
+  In ancu' (find_unblocked_ancestors G u Z)
+  -> In ancu'' (find_unblocked_ancestors G ancu' Z)
+  -> In ancu'' (find_unblocked_ancestors G u Z).
+Proof.
+  intros u ancu' ancu'' G Z Hu Hancu'. apply unblocked_ancestors_have_unblocked_directed_path in Hancu'.
+  destruct Hancu' as [Hancu' | Hancu'].
+  - rewrite Hancu'. apply Hu.
+  - apply unblocked_ancestors_have_unblocked_directed_path in Hu. destruct Hu as [Hu | Hu].
+    + rewrite <- Hu. apply unblocked_ancestors_have_unblocked_directed_path. right. apply Hancu'.
+    + apply unblocked_ancestors_have_unblocked_directed_path. right. 
+      destruct Hu as [l1 Hu]. destruct Hancu' as [l2 Hancu'].
+      assert (Hdir: is_directed_path_in_graph (ancu'', u, l2 ++ [ancu'] ++ l1) G = true).
+      { apply concat_directed_paths. split. apply Hancu'. apply Hu. }
+      apply directed_path_can_be_acyclic in Hdir. destruct Hdir as [l Hl]. rewrite <- and_assoc in Hl. destruct Hl as [Hl Hsub].
+      exists l. rewrite <- and_assoc. split. apply Hl.
+      intros w [Hw | Hw].
+      * destruct Hancu' as [_ [_ Hancu']]. apply Hancu'. left. apply Hw.
+      * assert (Hmem: In w (l2 ++ [ancu'] ++ l1)).
+        { admit. } admit.
+Admitted.
+
+
+Lemma no_common_unblocked_ancestors_transitive: forall (u v ancu': node) (G: graph) (Z: nodes),
+  overlap (find_unblocked_ancestors G u Z) (find_unblocked_ancestors G v Z) = false
+  /\ In ancu' (find_unblocked_ancestors G u Z)
+  -> overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z) = false.
+Proof.
+  intros u v ancu' G Z [Hover Hanc].
+  apply unblocked_ancestors_have_unblocked_directed_path in Hanc. destruct Hanc as [Hanc | Hanc].
+  { rewrite Hanc. apply Hover. }
+  { destruct Hanc as [lu Hlu].
+    destruct (overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z)) as [|] eqn:F.
+    - apply overlap_has_member_in_common in F. destruct F as [x [Hxancu' Hxv]].
+      apply no_overlap_non_member with (x := x) in Hover. admit. admit.
+      (* + exfalso. apply Hover. apply unblocked_ancestors_have_unblocked_directed_path in Hxancu'. destruct Hxancu' as [Hxancu' | [lx [Hdirx [Hcycx HlxZ]]]].
+        -- rewrite Hxancu'. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu. split. apply Hdirlu. split.
+           rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic.
+           apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [ancu'] ++ luz).
+           ++ split. reflexivity. apply Hcycuz.
+           ++ intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
+        -- apply unblocked_ancestors_have_unblocked_directed_path. right.
+           assert (Hdir: is_directed_path_in_graph (x, u, lx ++ [ancu'] ++ lu) G = true).
+           { apply concat_directed_paths. split. apply Hdirx. apply Hdirlu. }
+           apply directed_path_can_be_acyclic in Hdir. destruct Hdir as [lx' [Hdir' [Hcyc' Hlx']]].
+           exists lx'. split. apply Hdir'. split. apply Hcyc'.
+           intros w Hw. destruct Hw as [Hw | Hw].
+           ++ apply HlxZ. left. apply Hw.
+           ++ assert (Hmem: In w (lx ++ [ancu'] ++ lu)). { apply subset_larger_set_membership with (l1 := lx'). split. apply Hlx'. apply Hw. }
+              apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
+              ** apply HlxZ. right. apply Hmem.
+              ** apply HluZ. simpl in Hmem. destruct Hmem as [Hmem | Hmem]. left. symmetry. apply Hmem. right. left. apply Hmem.
+      + apply Hxv. *)
+    - reflexivity.
+Admitted.
+
+
 
 Definition G_anc: graph := ([1; 2; 3; 4; 5; 6], [(2, 1); (2, 3); (4, 1); (6, 4); (5, 6); (5, 3)]).
 
@@ -5640,6 +5700,20 @@ Lemma nodefun_value_only_affected_by_unblocked_ancestors {X: Type}: forall (G: g
 Proof.
 Admitted.
 
+(* TODO move to helpers *)
+Lemma overlap_rev: forall (l1 l2: list nat),
+  overlap l1 l2 = false -> overlap l1 (rev l2) = false.
+Proof.
+  intros l1 l2 H.
+  destruct (overlap l1 (rev l2)) as [|] eqn:F.
+  - apply overlap_has_member_in_common in F. destruct F as [x [Hx1 Hx2]].
+    apply no_overlap_non_member with (x := x) in H.
+    + exfalso. apply H. apply Hx1.
+    + apply membership_rev. apply Hx2.
+  - reflexivity.
+Qed.
+
+
 Theorem conditional_independence_d_separation {X : Type} `{EqType X}: forall (G: graph) (u v: node),
   u <> v /\ generic_graph_and_type_properties_hold X G
   -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
@@ -5712,12 +5786,16 @@ Proof.
                 simpl in Hdirv. apply split_and_true in Hdirv. destruct Hdirv as [Hdirv _]. apply Hdirv.
       + specialize HluZ with (w := anc). apply HluZ. left. reflexivity. }
 
-    assert (Hdconn: forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
-                    -> d_separated_bool u v G Z = true -> False).
-    { intros anc u v Huv [Hancv Hancu] Hsep.
+    assert (Hdconn_con: forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
+                    -> (exists (l: nodes), d_connected_2 (v, u, l) G Z /\ is_directed_path_in_graph (v, u, l) G = true /\ acyclic_path_2 (v, u, l) /\ (forall w : node, w = v \/ In w l -> ~ In w Z))
+                       \/ (exists (l: nodes), d_connected_2 (u, v, l) G Z /\ is_directed_path_in_graph (u, v, l) G = true /\ acyclic_path_2 (u, v, l) /\ (forall w : node, w = u \/ In w l -> ~ In w Z))
+                       \/ (exists (lu lv: nodes) (anc: node), d_connected_2 (u, v, (rev lu) ++ anc :: lv) G Z /\ is_path_in_graph (u, v, (rev lu) ++ anc :: lv) G = true
+                            /\ is_directed_path_in_graph (anc, u, lu) G = true /\ is_directed_path_in_graph (anc, v, lv) G = true
+                            /\ acyclic_path_2 (u, v, (rev lu) ++ anc :: lv) /\ (forall w : node, w = anc \/ In w lu \/ In w lv -> ~ In w Z))).
+    { intros anc u v Huv [Hancv Hancu].
       destruct (member v (find_unblocked_ancestors G u Z)) as [|] eqn:Heqancv.
       - apply member_In_equiv in Heqancv. destruct (member u (find_unblocked_ancestors G v Z)) as [|] eqn:Heqancu.
-        + (* cycle, contradiction *) apply member_In_equiv in Heqancu. apply unblocked_ancestors_have_unblocked_directed_path in Heqancv.
+        + (* cycle, contradiction *) exfalso. apply member_In_equiv in Heqancu. apply unblocked_ancestors_have_unblocked_directed_path in Heqancv.
           apply unblocked_ancestors_have_unblocked_directed_path in Heqancu.
           destruct Heqancu as [Heqancu | Heqancu]. apply Huv. apply Heqancu.
           destruct Heqancv as [Heqancv | Heqancv]. apply Huv. rewrite Heqancv. reflexivity.
@@ -5727,26 +5805,20 @@ Proof.
           destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (concat u v u lu lv)) in HG.
           * unfold concat in HG. unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
           * apply directed_path_is_path. apply Hcycle.
-        + (* v -> ...l... -> u is d-connected path *) clear Hancu. clear Hancv.
-          apply unblocked_ancestors_have_unblocked_directed_path in Heqancv. destruct Heqancv as [Hancu | Hancu]. apply Huv. rewrite Hancu. reflexivity.
-          destruct Hancu as [l [Hdir [Hcycu HlZ]]].
-          assert (Hdir': d_connected_2 (v, u, l) G Z). { apply Hdconn1. split. apply Hdir. apply HlZ. }
-          apply d_connected_path_not_d_separated with (l := rev l) in Hsep.
-          * apply Hsep.
-          * apply reverse_d_connected_paths. apply Hdir'.
-          * split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdir. apply reverse_path_still_acyclic. apply Hcycu.
+        + (* v -> ...l... -> u is d-connected path *) left. clear Hancu. clear Hancv.
+          apply unblocked_ancestors_have_unblocked_directed_path in Heqancv. destruct Heqancv as [Hancu | Hancu]. exfalso. apply Huv. rewrite Hancu. reflexivity.
+          destruct Hancu as [l [Hdir [Hcycu HlZ]]]. exists l.
+          assert (Hconn: d_connected_2 (v, u, l) G Z). { apply Hdconn1. split. apply Hdir. apply HlZ. }
+          split. apply Hconn. split. apply Hdir. split. apply Hcycu. apply HlZ.
       - pose proof Hancv as Hancv'. apply unblocked_ancestors_have_unblocked_directed_path in Hancv. destruct Hancv as [Hancv | Hancv].
         (* v is not an unblocked ancestor of u *) rewrite Hancv in Hancu. apply member_In_equiv in Hancu. rewrite Hancu in Heqancv. discriminate Heqancv.
         destruct (member u (find_unblocked_ancestors G v Z)) as [|] eqn:Heqancu.
-        + (* u -> ...lv... -> v is a d-connected path *) clear Hancu. clear Hancv. apply member_In_equiv in Heqancu.
-          apply unblocked_ancestors_have_unblocked_directed_path in Heqancu. destruct Heqancu as [Hancv | Hancv]. apply Huv. apply Hancv.
-          destruct Hancv as [l [Hdir [Hcycv HlZ]]].
-          assert (Hdir': d_connected_2 (u, v, l) G Z). { apply Hdconn1. split. apply Hdir. apply HlZ. }
-          apply d_connected_path_not_d_separated with (l := l) in Hsep.
-          * apply Hsep.
-          * apply Hdir'.
-          * split. apply directed_path_is_path. apply Hdir. apply Hcycv.
-        + (* u <- ...lu... <- anc -> ...lv... -> v  is a d-connected path *)
+        + (* u -> ...lv... -> v is a d-connected path *) right. left. clear Hancu. clear Hancv. apply member_In_equiv in Heqancu.
+          apply unblocked_ancestors_have_unblocked_directed_path in Heqancu. destruct Heqancu as [Hancv | Hancv]. exfalso. apply Huv. apply Hancv.
+          destruct Hancv as [l [Hdir [Hcycv HlZ]]]. exists l.
+          assert (Hconn: d_connected_2 (u, v, l) G Z). { apply Hdconn1. split. apply Hdir. apply HlZ. }
+          split. apply Hconn. split. apply Hdir. split. apply Hcycv. apply HlZ.
+        + (* u <- ...lu... <- anc -> ...lv... -> v  is a d-connected path *) right. right.
           apply unblocked_ancestors_have_unblocked_directed_path in Hancu. destruct Hancu as [Hancu | Hancu]. rewrite Hancu in Hancv'. apply member_In_equiv in Hancv'. rewrite Hancv' in Heqancu. discriminate Heqancu.
           assert (Hanc': exists (anc': node) (lu lv: nodes), is_directed_path_in_graph (anc', u, lu) G = true /\ is_directed_path_in_graph (anc', v, lv) G = true
                          /\ (forall w : node, w = anc' \/ In w lu \/ In w lv -> ~ In w Z) /\ acyclic_path_2 (u, v, (rev lu) ++ (anc' :: lv))).
@@ -5756,7 +5828,7 @@ Proof.
             - lia.
             - apply Hv'.
             - apply Hu'. }
-          destruct Hanc' as [anc' [lu [lv [Hdiru [Hdirv [HlulvZ Hcycuv]]]]]].
+          destruct Hanc' as [anc' [lu [lv [Hdiru [Hdirv [HlulvZ Hcycuv]]]]]]. exists lu. exists lv. exists anc'.
           assert (Hpath: is_path_in_graph (u, v, (rev lu) ++ (anc' :: lv)) G = true).
           { apply concat_paths_still_a_path. split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdiru.
             apply directed_path_is_path. apply Hdirv. }
@@ -5767,58 +5839,235 @@ Proof.
             - apply Hdirv.
             - intros w Hw. apply HlulvZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. right. apply Hw.
             - split. apply Hpath. apply Hcycuv. }
-          apply d_connected_path_not_d_separated with (u := u) (v := v) (l := (rev lu) ++ (anc' :: lv)) (G := G) (Z := Z).
-          -- apply Hconn.
-          -- split. apply Hpath. apply Hcycuv.
-          -- apply Hsep. }
+          split. apply Hconn. split. apply Hpath. split. apply Hdiru. split. apply Hdirv. split. apply Hcycuv. apply HlulvZ. }
 
-    remember u' as u. remember v' as v.
-    assert (HvUa: exists (va: X), find_value G g v Ua [] = Some va).
+    assert (Hdconn_con': forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
+                    -> d_separated_bool u v G Z = true -> False).
+    { intros anc u v Huv [Hancv Hancu] Hsep.
+      specialize Hdconn_con with (anc := anc) (u := u) (v := v). apply Hdconn_con in Huv.
+      destruct Huv as [Hvlu | [Hulv | Hcon]].
+      - destruct Hvlu as [l [Hconn [Hdir [Hcyc HlZ]]]].
+        apply d_connected_path_not_d_separated with (l := rev l) in Hsep.
+        * apply Hsep.
+        * apply reverse_d_connected_paths. apply Hconn.
+        * split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdir. apply reverse_path_still_acyclic. apply Hcyc.
+      - destruct Hulv as [l [Hconn [Hdir [Hcyc HlZ]]]].
+        apply d_connected_path_not_d_separated with (l := l) in Hsep.
+        * apply Hsep.
+        * apply Hconn.
+        * split. apply directed_path_is_path. apply Hdir. apply Hcyc.
+      - destruct Hcon as [lu [lv [anc' [Hconn [Hpath [_ [_ [Hcyc HlZ]]]]]]]].
+        apply d_connected_path_not_d_separated with (u := u) (v := v) (l := (rev lu) ++ (anc' :: lv)) (G := G) (Z := Z).
+        -- apply Hconn.
+        -- split. apply Hpath. apply Hcyc.
+        -- apply Hsep.
+      - split. apply Hancv. apply Hancu. }
+
+    assert (Hconn_col: forall (u z v: node) (lu lv: nodes),
+              In z Z /\ u <> v /\ overlap (find_unblocked_ancestors G u Z) (find_unblocked_ancestors G v Z) = false
+              -> is_directed_path_in_graph (u, z, lu) G = true /\ acyclic_path_2 (u, z, lu) /\ (forall w : node, w = u \/ In w lu -> ~ In w Z)
+              -> is_directed_path_in_graph (v, z, lv) G = true /\ acyclic_path_2 (v, z, lv) /\ (forall w : node, w = v \/ In w lv -> ~ In w Z)
+              -> (is_path_in_graph (concat u z v lu (rev lv)) G = true /\ acyclic_path_2 (concat u z v lu (rev lv)) /\ d_connected_2 (concat u z v lu (rev lv)) G Z)
+                 \/ (exists (lu1 lu2 lv' lv1 lv2: nodes) (x: node), is_directed_path_in_graph (v, z, lv') G = true /\ acyclic_path_2 (v, z, lv') /\ (forall w : node, (w = v \/ In w lv') -> ~ In w Z)
+                      /\ lu = lu1 ++ [x] ++ lu2 /\ lv = lv1 ++ [x] ++ lv2 /\ lv' = lv1 ++ [x] ++ lu2 /\ overlap lu1 lv1 = false
+                      /\ d_connected_2 (u, v, lu1 ++ [x] ++ (rev lv1)) G Z /\ is_path_in_graph (u, v, lu1 ++ [x] ++ (rev lv1)) G = true /\ acyclic_path_2 (u, v, lu1 ++ [x] ++ (rev lv1)))).
+    { intros u z v lu lv. intros [HzZ [Huv Hover]] [Hdiru [Hcycu HluZ]] [Hdirv [Hcycv HlvZ]].
+      assert (Hacyc: overlap lu lv = false \/
+                     exists (l2': nodes), is_directed_path_in_graph (v, z, l2') G = true /\ acyclic_path_2 (v, z, l2')
+                      /\ (forall w : node, (w = v \/ In w l2') -> ~ In w Z)
+                      /\ exists (l1'' l2'': nodes) (l3 l3': nodes) (x: node), lu = l1'' ++ [x] ++ l3 /\ l2' = l2'' ++ [x] ++ l3 /\ lv = l2'' ++ [x] ++ l3' /\ overlap l1'' l2'' = false).
+      { apply acyclic_paths_intersect_if_common_endpoint with (anc1 := u).
+        - destruct HG as [_ [_ HG]]. apply HG.
+        - split. apply Hdiru. split. apply Hcycu. apply HluZ.
+        - split. apply Hdirv. split. apply Hcycv. apply HlvZ. }
+      destruct Hacyc as [Hacyc | Hacyc].
+      *** (* lu and lv have no overlap, so the path is acyclic *) left.
+          assert (Hpath: is_path_in_graph (concat u z v lu (rev lv)) G = true).
+          { apply concat_paths_still_a_path. split.
+            + apply directed_path_is_path in Hdiru. apply Hdiru.
+            + apply reverse_path_in_graph. apply directed_path_is_path in Hdirv. apply Hdirv. }
+          assert (Hcat: acyclic_path_2 (concat u z v lu (rev lv))).
+          { apply concat_paths_acyclic.
+            - split. apply Huv. split. apply Hcycu. apply reverse_path_still_acyclic. apply Hcycv.
+            - split.
+              + intros F. apply membership_rev in F. rewrite <- reverse_list_twice in F.
+                apply no_overlap_non_member with (x := v) in Hover.
+                * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lv). split.
+                  -- apply Hdirv.
+                  -- split. apply Hcycv. apply HlvZ.
+                  -- apply F.
+                * unfold find_unblocked_ancestors. left. reflexivity.
+              + intros F. apply no_overlap_non_member_rev with (x := u) in Hover.
+                * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lu). split.
+                  -- apply Hdiru.
+                  -- split. apply Hcycu. apply HluZ.
+                  -- apply F.
+                * unfold find_unblocked_ancestors. left. reflexivity.
+            - apply overlap_rev. apply Hacyc. }
+          split. apply Hpath. split. apply Hcat.
+          apply concat_d_connected_paths.
+          - destruct HG as [_ [_ HG]]. apply HG.
+          - apply Hpath.
+          - split.
+            + apply Hdconn1. split.
+              * apply Hdiru.
+              * apply HluZ.
+            + split.
+              * apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirv. apply HlvZ.
+              * apply Hcat.
+          - right. right. split.
+            + apply colliders_vs_edges_in_path.
+              apply directed_path_has_directed_edge_end in Hdiru as Hdiru'. destruct Hdiru' as [Hdiru' | Hdiru'].
+              * apply directed_path_has_directed_edge_end in Hdirv as Hdirv'. destruct Hdirv' as [Hdirv' | Hdirv'].
+                exists u. exists v. split.
+                -- rewrite Hdirv'. rewrite Hdiru'. apply sublist_breaks_down_list. exists []. exists []. simpl. reflexivity.
+                -- split. rewrite Hdiru' in Hdiru. simpl in Hdiru. rewrite andb_comm in Hdiru. simpl in Hdiru. apply Hdiru.
+                   rewrite Hdirv' in Hdirv. simpl in Hdirv. rewrite andb_comm in Hdirv. simpl in Hdirv. apply Hdirv.
+                -- destruct Hdirv' as [l' [x Hdirv']]. exists u. exists x. split.
+                   ++ apply sublist_breaks_down_list. exists []. exists (rev l' ++ [v]).
+                      simpl. rewrite Hdiru'. destruct Hdirv' as [Hdirv' Hxz]. rewrite Hdirv'. rewrite reverse_list_append.
+                      simpl. reflexivity.
+                   ++ split. rewrite Hdiru' in Hdiru. simpl in Hdiru. rewrite andb_comm in Hdiru. simpl in Hdiru. apply Hdiru.
+                      destruct Hdirv' as [_ Hdirv']. apply Hdirv'.
+              * destruct Hdiru' as [lu' [x1 [Hlu' Hx1z]]].
+                apply directed_path_has_directed_edge_end in Hdirv as Hdirv'. destruct Hdirv' as [Hdirv' | Hdirv'].
+                { exists x1. exists v. split.
+                  -- rewrite Hdirv'. apply sublist_breaks_down_list. rewrite Hlu'. exists (u :: lu'). exists []. simpl. unfold node.
+                     f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
+                  -- split. apply Hx1z. rewrite Hdirv' in Hdirv. simpl in Hdirv. rewrite andb_comm in Hdirv. simpl in Hdirv. apply Hdirv. }
+                { destruct Hdirv' as [lv' [x2 [Hlv' Hx2z]]]. exists x1. exists x2. split.
+                  -- apply sublist_breaks_down_list. exists (u :: lu'). exists (rev lv' ++ [v]).
+                     simpl. rewrite Hlv'. rewrite reverse_list_append.
+                     simpl. rewrite Hlu'. simpl. unfold node. f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
+                  -- split. apply Hx1z. apply Hx2z. }
+            + unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z.
+              split.
+              * unfold find_descendants. left. reflexivity.
+              * apply HzZ.
+      *** right. (* need to address case of the two paths meeting prior to z, in which case z is the descendant of a collider *)
+          clear Hdirv. clear Hcycv. clear HlvZ.
+          destruct Hacyc as [lv' [Hdirv [Hcycv [HlvZ [lu'' [lv'' [l [l' [x [Hlu' [Hlv' [Hlv'' Hacyc]]]]]]]]]]]]. remember lu as lu'.
+          assert (Hpath: is_path_in_graph (concat u x v lu'' (rev lv'')) G = true).
+          { apply concat_paths_still_a_path. split.
+            + apply directed_path_is_path. apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lu'). split. rewrite Hlu'. reflexivity. apply Hdiru.
+            + apply reverse_path_in_graph. apply directed_path_is_path. apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lv'). split.
+              symmetry. apply Hlv'. apply Hdirv. }
+          assert (Hcat: acyclic_path_2 (concat u x v lu'' (rev lv''))).
+          { apply concat_paths_acyclic.
+            - split. apply Huv. split. apply subpath_still_acyclic_2 with (v := z) (l2 := l) (l3 := lu'). split. symmetry. apply Hlu'. apply Hcycu.
+              apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := z) (l2 := l) (l3 := lv'). split. symmetry. apply Hlv'. apply Hcycv.
+            - split.
+              + intros F. apply membership_rev in F. rewrite <- reverse_list_twice in F.
+                apply no_overlap_non_member with (x := v) in Hover.
+                * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lv'). split.
+                  -- apply Hdirv.
+                  -- split. apply Hcycv. apply HlvZ.
+                  -- apply membership_splits_list in F. destruct F as [lu1 [lu2 F]]. apply membership_splits_list. exists lu1. exists (lu2 ++ [x] ++ l).
+                     rewrite Hlv'. rewrite <- F. rewrite <- app_assoc. reflexivity.
+                * unfold find_unblocked_ancestors. left. reflexivity.
+              + intros F. apply no_overlap_non_member_rev with (x := u) in Hover.
+                * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lu'). split.
+                  -- apply Hdiru.
+                  -- split. apply Hcycu. apply HluZ.
+                  -- apply membership_splits_list in F. destruct F as [lv1 [lv2 F]]. apply membership_splits_list. exists lv1. exists (lv2 ++ [x] ++ l).
+                     rewrite Hlu'. rewrite <- F. rewrite <- app_assoc. reflexivity.
+                * unfold find_unblocked_ancestors. left. reflexivity.
+            - apply overlap_rev. apply Hacyc. }
+          assert (Hdiru': is_directed_path_in_graph (u, x, lu'') G = true). { apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lu'). split. rewrite Hlu'. reflexivity. apply Hdiru. }
+          assert (Hdirv': is_directed_path_in_graph (v, x, lv'') G = true). { apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lv'). split. rewrite Hlv'. reflexivity. apply Hdirv. }
+          exists lu''. exists l. exists lv'. exists lv''. exists l'. exists x. split. apply Hdirv. split. apply Hcycv. split. apply HlvZ.
+          split. apply Hlu'. split. apply Hlv''. split. apply Hlv'. split. apply Hacyc. split.
+          apply concat_d_connected_paths.
+          - destruct HG as [_ [_ HG]]. apply HG.
+          - apply Hpath.
+          - split.
+            + apply Hdconn1. split.
+              * apply Hdiru'.
+              * intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. apply membership_append with (l2 := [x] ++ l) in Hw. rewrite Hlu'. apply Hw.
+            + split.
+              * apply reverse_d_connected_paths. apply Hdconn1. split.
+                -- apply Hdirv'.
+                -- intros w Hw. apply HlvZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. apply membership_append with (l2 := [x] ++ l) in Hw. rewrite Hlv'. apply Hw.
+              * apply Hcat.
+          - right. right. split.
+            + apply colliders_vs_edges_in_path.
+              apply directed_path_has_directed_edge_end in Hdiru' as Hdiru''. destruct Hdiru'' as [Hdiru'' | Hdiru''].
+              * apply directed_path_has_directed_edge_end in Hdirv' as Hdirv''. destruct Hdirv'' as [Hdirv'' | Hdirv''].
+                exists u. exists v. rewrite Hdirv'' in *. rewrite Hdiru'' in *. split.
+                -- apply sublist_breaks_down_list. exists []. exists []. simpl. reflexivity.
+                -- split. simpl in Hdiru'. rewrite andb_comm in Hdiru'. simpl in Hdiru'. apply Hdiru'.
+                   simpl in Hdirv'. rewrite andb_comm in Hdirv'. simpl in Hdirv'. apply Hdirv'.
+                -- destruct Hdirv'' as [l'' [x' Hdirv'']]. exists u. exists x'. split.
+                   ++ apply sublist_breaks_down_list. exists []. exists (rev l'' ++ [v]).
+                      simpl. rewrite Hdiru''. destruct Hdirv'' as [Hdirv'' Hxz]. rewrite Hdirv''. rewrite reverse_list_append.
+                      simpl. reflexivity.
+                   ++ split. rewrite Hdiru'' in Hdiru'. simpl in Hdiru'. rewrite andb_comm in Hdiru'. simpl in Hdiru'. apply Hdiru'.
+                      destruct Hdirv'' as [_ Hdirv'']. apply Hdirv''.
+              * destruct Hdiru'' as [l'' [x'' [Hl' Hxx']]].
+                apply directed_path_has_directed_edge_end in Hdirv' as Hdirv''. destruct Hdirv'' as [Hdirv'' | Hdirv''].
+                { exists x''. exists v. rewrite Hdirv'' in *. split.
+                  -- apply sublist_breaks_down_list. rewrite Hl'. exists (u :: l''). exists []. simpl. unfold node.
+                     f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
+                  -- split. apply Hxx'. simpl in Hdirv'. rewrite andb_comm in Hdirv'. simpl in Hdirv'. apply Hdirv'. }
+                { destruct Hdirv'' as [l''' [x''' [Hl'' Hxx'']]]. exists x''. exists x'''. split.
+                  -- apply sublist_breaks_down_list. exists (u :: l''). exists (rev l''' ++ [v]).
+                     simpl. rewrite Hl''. rewrite reverse_list_append.
+                     simpl. rewrite Hl'. simpl. unfold node. f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
+                  -- split. apply Hxx'. apply Hxx''. }
+            + unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z.
+              split.
+              * apply find_descendants_correct. exists (x, z, l). split.
+                -- apply subpath_still_directed with (w := u) (l1 := lu'') (l3 := lu'). split. symmetry. apply Hlu'. apply Hdiru.
+                -- apply path_start_end_refl.
+              * apply HzZ.
+          - split. apply Hpath. apply Hcat. }
+
+    assert (HvUa: exists (va: X), find_value G g v' Ua [] = Some va).
     { apply find_value_existence.
       - destruct HG as [_ HG]. apply HG.
       - split. destruct HUa as [HUa _]. apply HUa. admit. }
-    assert (HvUb: exists (vb: X), find_value G g v Ub [] = Some vb).
+    assert (HvUb: exists (vb: X), find_value G g v' Ub [] = Some vb).
     { apply find_value_existence.
       - destruct HG as [_ HG]. apply HG.
       - split. destruct HUb as [HUb _]. apply HUb. admit. }
     destruct HvUa as [va HvUa]. destruct HvUb as [vb HvUb].
 
-    destruct (overlap (find_unblocked_ancestors G u Z) (find_unblocked_ancestors G v Z)) as [|] eqn:Hover.
-    { (* contradiction: d-connected path u <- ... <- anc -> ... -> v *)
+    destruct (overlap (find_unblocked_ancestors G u' Z) (find_unblocked_ancestors G v' Z)) as [|] eqn:Hover.
+    { (* contradiction: d-connected path u' <- ... <- anc -> ... -> v' *)
       apply overlap_has_member_in_common in Hover. destruct Hover as [anc [Hancu Hancv]].
-      specialize Hdconn with (anc := anc) (u := u) (v := v). exfalso. apply Hdconn. repeat split.
+      specialize Hdconn_con' with (anc := anc) (u := u') (v := v'). exfalso. apply Hdconn_con'. repeat split.
       + apply Huveq.
       + split. apply Hancv. apply Hancu.
       + apply Hdsep. }
-    { (* f(v, Ua) = f(v, Ub) since no unblocked ancestor of v could have changed *)
-      assert (Hv: find_value G g v Ua [] = find_value G g v Ub []).
+    { (* f(v, Ua) = f(v, Ub) since no unblocked ancestor of v' could have changed *)
+      assert (Hv: find_value G g v' Ua [] = find_value G g v' Ub []).
       { destruct (eqb va vb) as [|] eqn:Hvavb.
         - apply eqb_eq' in Hvavb. rewrite Hvavb in HvUa. rewrite HvUa. rewrite HvUb. reflexivity.
-        - (* contradiction: this would mean u and v share an unblocked ancestor, contradicting Hover *)
-          assert (Hfvavb: find_value G g v Ua [] <> find_value G g v Ub []).
+        - (* contradiction: this would mean u' and v' share an unblocked ancestor, contradicting Hover *)
+          assert (Hfvavb: find_value G g v' Ua [] <> find_value G g v' Ub []).
           { rewrite HvUa. rewrite HvUb. intros F. inversion F. rewrite H1 in Hvavb. rewrite eqb_refl' in Hvavb. discriminate Hvavb. }
           apply nodefun_value_only_affected_by_unblocked_ancestors with (Z := Z) in Hfvavb. destruct Hfvavb as [anc [Hancv [HancU Hancf]]].
           unfold assignments_change_only_for_subset in HUab. specialize HUab with (x := anc).
-          assert (Hancu: In anc (find_unblocked_ancestors G u Z)).
-          { destruct (member anc (find_unblocked_ancestors G u Z)) as [|] eqn:Hancu'.
+          assert (Hancu: In anc (find_unblocked_ancestors G u' Z)).
+          { destruct (member anc (find_unblocked_ancestors G u' Z)) as [|] eqn:Hancu'.
             - apply member_In_equiv. apply Hancu'.
-            - destruct HUab as [_ HUab]. assert (Hancu: ~ In anc (find_unblocked_ancestors G u Z)).
+            - destruct HUab as [_ HUab]. assert (Hancu: ~ In anc (find_unblocked_ancestors G u' Z)).
               { intros F. apply member_In_equiv in F. rewrite Hancu' in F. discriminate F. }
               clear Hancu'. apply HUab in Hancu. rewrite Hancu in HancU. exfalso. apply HancU. reflexivity. }
           apply no_overlap_non_member_rev with (x := anc) in Hover.
           + exfalso. apply Hover. apply Hancv.
           + apply Hancu. }
       (* Hv shows that f(v, Ua) = f(v, Ub). Now show f(v, Ub) = f(v, Ub') *)
-      assert (HvUb': exists (vb': X), find_value G g v Ub' [] = Some vb').
+      assert (HvUb': exists (vb': X), find_value G g v' Ub' [] = Some vb').
       { apply find_value_existence.
         - destruct HG as [_ HG]. apply HG.
         - split. destruct HUb' as [HUb' _]. apply HUb'. admit. }
       destruct HvUb' as [vb' HvUb'].
-      assert (Hv': find_value G g v Ub [] = find_value G g v Ub' []).
+      assert (Hv': find_value G g v' Ub [] = find_value G g v' Ub' []).
       { destruct (eqb vb vb') as [|] eqn:Hvbvb'.
         - apply eqb_eq' in Hvbvb'. rewrite Hvbvb' in HvUb. rewrite HvUb. rewrite HvUb'. reflexivity.
         - (* contradiction: this would mean that there is a node z in Z that shares unblocked ancestors with u and v, which forms a d-connected path *)
-          assert (Hfvbvb': find_value G g v Ub [] <> find_value G g v Ub' []).
+          assert (Hfvbvb': find_value G g v' Ub [] <> find_value G g v' Ub' []).
           { rewrite HvUb. rewrite HvUb'. intros F. inversion F. rewrite H1 in Hvbvb'. rewrite eqb_refl' in Hvbvb'. discriminate Hvbvb'. }
           apply nodefun_value_only_affected_by_unblocked_ancestors with (Z := Z) in Hfvbvb'. destruct Hfvbvb' as [ancv [Hancv [HancvU Hancvf]]].
           unfold assignments_change_only_for_subset in HUbb'. specialize HUbb' with (x := ancv).
@@ -5844,341 +6093,682 @@ Proof.
             unfold unobs_conditions_on_Z in HZUa. specialize HZUa with (w := z). apply HZUa in HzZ. rewrite HzZ. intros F. rewrite F in HUbz. apply HUbz. reflexivity. }
           apply nodefun_value_only_affected_by_unblocked_ancestors with (Z := Z) in Hfzazb. destruct Hfzazb as [ancu [Hancuz [HancuU Hancuf]]].
           unfold assignments_change_only_for_subset in HUab. specialize HUab with (x := ancu).
-          assert (Hancu: In ancu (find_unblocked_ancestors G u Z)).
-          { destruct (member ancu (find_unblocked_ancestors G u Z)) as [|] eqn:Hancu'.
+          assert (Hancu: In ancu (find_unblocked_ancestors G u' Z)).
+          { destruct (member ancu (find_unblocked_ancestors G u' Z)) as [|] eqn:Hancu'.
             - apply member_In_equiv. apply Hancu'.
-            - destruct HUab as [_ HUab]. assert (Hancu: ~ In ancu (find_unblocked_ancestors G u Z)).
+            - destruct HUab as [_ HUab]. assert (Hancu: ~ In ancu (find_unblocked_ancestors G u' Z)).
               { intros F. apply member_In_equiv in F. rewrite Hancu' in F. discriminate F. }
               clear Hancu'. apply HUab in Hancu. rewrite Hancu in HancuU. exfalso. apply HancuU. reflexivity. }
           (* u <- ... <- ancu -> ... -> z <- ... <- ancv -> ... -> v is a d-connected path *)
-          apply unblocked_ancestors_have_unblocked_directed_path in Hancv. destruct Hancv as [Hancv | Hancv].
-          + (* u <- ... <- ancu -> ... -> z <- ... <- v *)
-            pose proof Hancvz as Hancvz'. apply unblocked_ancestors_have_unblocked_directed_path in Hancvz. destruct Hancvz as [Hancvz | Hancvz].
-            * (* z = v: then ancu is a common ancestor of u and v, so can use prev case Hdconn *)
-              specialize Hdconn with (anc := ancu) (u := u) (v := v). exfalso. apply Hdconn.
-              -- apply Huveq.
-              -- split. rewrite <- Hancvz in Hancuz. rewrite Hancv in Hancuz. apply Hancuz. apply Hancu.
-              -- apply Hdsep.
-            * (* u <- ... <- ancu -> ... -> z <- ..lv.. <- v *)
-              destruct Hancvz as [lv [Hdirv [Hcycv HlvZ]]]. rewrite Hancv in *.
-              pose proof Hancu as Hancu'. apply unblocked_ancestors_have_unblocked_directed_path in Hancu. destruct Hancu as [Hancu | Hancu].
-              -- (* u -> ... -> z <- ..lv.. <- v *)
-                 apply unblocked_ancestors_have_unblocked_directed_path in Hancuz. destruct Hancuz as [Hancuz | Hancuz].
-                 ++ (* u <- ..lv.. <- v: v is common ancestor of u and v, Hdconn *)
-                    specialize Hdconn with (anc := v) (u := u) (v := v). exfalso. apply Hdconn.
-                    ** apply Huveq.
-                    ** split. { unfold find_unblocked_ancestors. left. reflexivity. } { rewrite <- Hancuz in Hancvz'. rewrite Hancu in Hancvz'. apply Hancvz'. }
-                    ** apply Hdsep.
-                 ++ (* u -> ..lu.. -> z <- ..lv.. <- v *)
-                    destruct Hancuz as [lu [Hdiru [Hcycu HluZ]]]. rewrite Hancu in *.
-                    assert (Hacyc: overlap lu lv = false \/
-                                   exists (l1' l2': nodes), is_directed_path_in_graph (u, z, l1') G = true /\ acyclic_path_2 (u, z, l1')
-                                    /\ is_directed_path_in_graph (v, z, l2') G = true /\ acyclic_path_2 (v, z, l2')
-                                    /\ (forall w : node, (w = u \/ In w l1') \/ (w = v \/ In w l2') -> ~ In w Z) 
-                                    /\ exists (l1'' l2'': nodes) (l3: nodes) (x: node), l1' = l1'' ++ [x] ++ l3 /\ l2' = l2'' ++ [x] ++ l3 /\ overlap l1'' l2'' = false).
-                    { apply acyclic_paths_intersect_if_common_endpoint.
-                      - destruct HG as [_ [_ HG]]. apply HG.
-                      - split. apply Hdiru. split. apply Hcycu. apply HluZ.
-                      - split. apply Hdirv. split. apply Hcycv. apply HlvZ. }
-                    destruct Hacyc as [Hacyc | Hacyc].
-                    *** (* lu and lv have no overlap, so the path is acyclic *)
-                        assert (Hpath: is_path_in_graph (concat u z v lu (rev lv)) G = true).
-                        { apply concat_paths_still_a_path. split.
-                          + apply directed_path_is_path in Hdiru. apply Hdiru.
-                          + apply reverse_path_in_graph. apply directed_path_is_path in Hdirv. apply Hdirv. }
-                        assert (Hcat: acyclic_path_2 (concat u z v lu (rev lv))).
-                        { apply concat_paths_acyclic.
-                          - split. apply Huveq. split. apply Hcycu. apply reverse_path_still_acyclic. apply Hcycv.
-                          - split.
-                            + intros F. apply membership_rev in F. rewrite <- reverse_list_twice in F.
-                              apply no_overlap_non_member with (x := v) in Hover.
-                              * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lv). split.
-                                -- apply Hdirv.
-                                -- split. apply Hcycv. apply HlvZ.
-                                -- apply F.
-                              * unfold find_unblocked_ancestors. left. reflexivity.
-                            + intros F. apply no_overlap_non_member_rev with (x := u) in Hover.
-                              * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lu). split.
-                                -- apply Hdiru.
-                                -- split. apply Hcycu. apply HluZ.
-                                -- apply F.
-                              * unfold find_unblocked_ancestors. left. reflexivity.
-                          - destruct (overlap lu (rev lv)) as [|] eqn:Hover'. apply overlap_has_member_in_common in Hover'. destruct Hover' as [x [Hxu Hxv]].
-                            apply no_overlap_non_member with (x := x) in Hacyc.
-                            + exfalso. apply Hacyc. apply Hxu.
-                            + apply membership_rev. apply Hxv.
-                            + reflexivity. }
-                        assert (Hconn: d_connected_2 (concat u z v lu (rev lv)) G Z).
-                        { apply concat_d_connected_paths.
-                          - destruct HG as [_ [_ HG]]. apply HG.
-                          - apply Hpath.
-                          - split.
-                            + apply Hdconn1. split.
-                              * apply Hdiru.
-                              * apply HluZ.
-                            + split.
-                              * apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirv. apply HlvZ.
-                              * apply Hcat.
-                          - right. right. split.
-                            + apply colliders_vs_edges_in_path.
-                              apply directed_path_has_directed_edge_end in Hdiru as Hdiru'. destruct Hdiru' as [Hdiru' | Hdiru'].
-                              * apply directed_path_has_directed_edge_end in Hdirv as Hdirv'. destruct Hdirv' as [Hdirv' | Hdirv'].
-                                exists u. exists v. split.
-                                -- rewrite Hdirv'. rewrite Hdiru'. apply sublist_breaks_down_list. exists []. exists []. simpl. reflexivity.
-                                -- split. rewrite Hdiru' in Hdiru. simpl in Hdiru. rewrite andb_comm in Hdiru. simpl in Hdiru. apply Hdiru.
-                                   rewrite Hdirv' in Hdirv. simpl in Hdirv. rewrite andb_comm in Hdirv. simpl in Hdirv. apply Hdirv.
-                                -- destruct Hdirv' as [l' [x Hdirv']]. exists u. exists x. split.
-                                   ++ apply sublist_breaks_down_list. exists []. exists (rev l' ++ [v]).
-                                      simpl. rewrite Hdiru'. destruct Hdirv' as [Hdirv' Hxz]. rewrite Hdirv'. rewrite reverse_list_append.
-                                      simpl. reflexivity.
-                                   ++ split. rewrite Hdiru' in Hdiru. simpl in Hdiru. rewrite andb_comm in Hdiru. simpl in Hdiru. apply Hdiru.
-                                      destruct Hdirv' as [_ Hdirv']. apply Hdirv'.
-                              * destruct Hdiru' as [lu' [x1 [Hlu' Hx1z]]].
-                                apply directed_path_has_directed_edge_end in Hdirv as Hdirv'. destruct Hdirv' as [Hdirv' | Hdirv'].
-                                { exists x1. exists v. split.
-                                  -- rewrite Hdirv'. apply sublist_breaks_down_list. rewrite Hlu'. exists (u :: lu'). exists []. simpl. unfold node.
-                                     f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
-                                  -- split. apply Hx1z. rewrite Hdirv' in Hdirv. simpl in Hdirv. rewrite andb_comm in Hdirv. simpl in Hdirv. apply Hdirv. }
-                                { destruct Hdirv' as [lv' [x2 [Hlv' Hx2z]]]. exists x1. exists x2. split.
-                                  -- apply sublist_breaks_down_list. exists (u :: lu'). exists (rev lv' ++ [v]).
-                                     simpl. rewrite Hlv'. rewrite reverse_list_append.
-                                     simpl. rewrite Hlu'. simpl. unfold node. f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
-                                  -- split. apply Hx1z. apply Hx2z. }
-                            + unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z.
-                              split.
-                              * unfold find_descendants. left. reflexivity.
-                              * apply HzZ. }
-                          exfalso. apply d_connected_path_not_d_separated with (u := u) (v := v) (l := (lu ++ z :: rev lv)) (G := G) (Z := Z).
-                          ** apply Hconn.
-                          ** split. apply Hpath. apply Hcat.
-                          ** apply Hdsep.
-                    *** (* need to address case of the two paths meeting prior to z, in which case z is the descendant of a collider *)
-                        clear Hdiru. clear Hcycu. clear Hancu. clear Hancu'. clear Hdirv. clear Hcycv. clear HlvZ. clear HluZ. clear Hancv.
-                        destruct Hacyc as [lu' [lv' [Hdiru [Hcycu [Hdirv [Hcycv [HlZ [lu'' [lv'' [l [x [Hlu' [Hlv' Hacyc]]]]]]]]]]]]].
-                        assert (Hpath: is_path_in_graph (concat u x v lu'' (rev lv'')) G = true).
-                        { apply concat_paths_still_a_path. split.
-                          + apply directed_path_is_path. apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lu'). split. rewrite Hlu'. reflexivity. apply Hdiru.
-                          + apply reverse_path_in_graph. apply directed_path_is_path. apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lv'). split.
-                            symmetry. apply Hlv'. apply Hdirv. }
-                        assert (Hcat: acyclic_path_2 (concat u x v lu'' (rev lv''))).
-                        { apply concat_paths_acyclic.
-                          - split. apply Huveq. split. apply subpath_still_acyclic_2 with (v := z) (l2 := l) (l3 := lu'). split. symmetry. apply Hlu'. apply Hcycu.
-                            apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := z) (l2 := l) (l3 := lv'). split. symmetry. apply Hlv'. apply Hcycv.
-                          - split.
-                            + intros F. apply membership_rev in F. rewrite <- reverse_list_twice in F.
-                              apply no_overlap_non_member with (x := v) in Hover.
-                              * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lv'). split.
-                                -- apply Hdirv.
-                                -- split. apply Hcycv. intros w Hw. apply HlZ. right. apply Hw.
-                                -- apply membership_splits_list in F. destruct F as [lu1 [lu2 F]]. apply membership_splits_list. exists lu1. exists (lu2 ++ [x] ++ l).
-                                   rewrite Hlv'. rewrite <- F. rewrite <- app_assoc. reflexivity.
-                              * unfold find_unblocked_ancestors. left. reflexivity.
-                            + intros F. apply no_overlap_non_member_rev with (x := u) in Hover.
-                              * apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lu'). split.
-                                -- apply Hdiru.
-                                -- split. apply Hcycu. intros w Hw. apply HlZ. left. apply Hw.
-                                -- apply membership_splits_list in F. destruct F as [lv1 [lv2 F]]. apply membership_splits_list. exists lv1. exists (lv2 ++ [x] ++ l).
-                                   rewrite Hlu'. rewrite <- F. rewrite <- app_assoc. reflexivity.
-                              * unfold find_unblocked_ancestors. left. reflexivity.
-                          - destruct (overlap lu'' (rev lv'')) as [|] eqn:Hover'. apply overlap_has_member_in_common in Hover'. destruct Hover' as [x' [Hxu Hxv]].
-                            apply no_overlap_non_member with (x := x') in Hacyc.
-                            + exfalso. apply Hacyc. apply Hxu.
-                            + apply membership_rev. apply Hxv.
-                            + reflexivity. }
-                        assert (Hdiru': is_directed_path_in_graph (u, x, lu'') G = true). { apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lu'). split. rewrite Hlu'. reflexivity. apply Hdiru. }
-                        assert (Hdirv': is_directed_path_in_graph (v, x, lv'') G = true). { apply subpath_still_directed_2 with (v := z) (l2 := l) (l3 := lv'). split. rewrite Hlv'. reflexivity. apply Hdirv. }
-                        assert (Hconn: d_connected_2 (concat u x v lu'' (rev lv'')) G Z).
-                        { apply concat_d_connected_paths.
-                          - destruct HG as [_ [_ HG]]. apply HG.
-                          - apply Hpath.
-                          - split.
-                            + apply Hdconn1. split.
-                              * apply Hdiru'.
-                              * intros w Hw. apply HlZ. left. destruct Hw as [Hw | Hw]. left. apply Hw. right. apply membership_append with (l2 := [x] ++ l) in Hw. rewrite Hlu'. apply Hw.
-                            + split.
-                              * apply reverse_d_connected_paths. apply Hdconn1. split.
-                                -- apply Hdirv'.
-                                -- intros w Hw. apply HlZ. right. destruct Hw as [Hw | Hw]. left. apply Hw. right. apply membership_append with (l2 := [x] ++ l) in Hw. rewrite Hlv'. apply Hw.
-                              * apply Hcat.
-                          - right. right. split.
-                            + apply colliders_vs_edges_in_path.
-                              apply directed_path_has_directed_edge_end in Hdiru' as Hdiru''. destruct Hdiru'' as [Hdiru'' | Hdiru''].
-                              * apply directed_path_has_directed_edge_end in Hdirv' as Hdirv''. destruct Hdirv'' as [Hdirv'' | Hdirv''].
-                                exists u. exists v. rewrite Hdirv'' in *. rewrite Hdiru'' in *. split.
-                                -- apply sublist_breaks_down_list. exists []. exists []. simpl. reflexivity.
-                                -- split. simpl in Hdiru'. rewrite andb_comm in Hdiru'. simpl in Hdiru'. apply Hdiru'.
-                                   simpl in Hdirv'. rewrite andb_comm in Hdirv'. simpl in Hdirv'. apply Hdirv'.
-                                -- destruct Hdirv'' as [l' [x' Hdirv'']]. exists u. exists x'. split.
-                                   ++ apply sublist_breaks_down_list. exists []. exists (rev l' ++ [v]).
-                                      simpl. rewrite Hdiru''. destruct Hdirv'' as [Hdirv'' Hxz]. rewrite Hdirv''. rewrite reverse_list_append.
-                                      simpl. reflexivity.
-                                   ++ split. rewrite Hdiru'' in Hdiru'. simpl in Hdiru'. rewrite andb_comm in Hdiru'. simpl in Hdiru'. apply Hdiru'.
-                                      destruct Hdirv'' as [_ Hdirv'']. apply Hdirv''.
-                              * destruct Hdiru'' as [l' [x'' [Hl' Hxx']]].
-                                apply directed_path_has_directed_edge_end in Hdirv' as Hdirv''. destruct Hdirv'' as [Hdirv'' | Hdirv''].
-                                { exists x''. exists v. rewrite Hdirv'' in *. split.
-                                  -- apply sublist_breaks_down_list. rewrite Hl'. exists (u :: l'). exists []. simpl. unfold node.
-                                     f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
-                                  -- split. apply Hxx'. simpl in Hdirv'. rewrite andb_comm in Hdirv'. simpl in Hdirv'. apply Hdirv'. }
-                                { destruct Hdirv'' as [l'' [x''' [Hl'' Hxx'']]]. exists x''. exists x'''. split.
-                                  -- apply sublist_breaks_down_list. exists (u :: l'). exists (rev l'' ++ [v]).
-                                     simpl. rewrite Hl''. rewrite reverse_list_append.
-                                     simpl. rewrite Hl'. simpl. unfold node. f_equal. repeat rewrite <- app_assoc; simpl. reflexivity.
-                                  -- split. apply Hxx'. apply Hxx''. }
-                            + unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z.
-                              split.
-                              * apply find_descendants_correct. exists (x, z, l). split.
-                                -- apply subpath_still_directed with (w := u) (l1 := lu'') (l3 := lu'). split. symmetry. apply Hlu'. apply Hdiru.
-                                -- apply path_start_end_refl.
-                              * apply HzZ. }
-                          exfalso. unfold concat in Hconn. apply d_connected_path_not_d_separated with (u := u) (v := v) (l := lu'' ++ x :: rev lv'') (G := G) (Z := Z).
-                          ** apply Hconn.
-                          ** split. apply Hpath. apply Hcat.
-                          ** apply Hdsep. (* TODO can we combine above two *** cases *)
-              -- destruct Hancu as [lu'' [Hdiru' [Hcycu HluZ']]].
-                 apply unblocked_ancestors_have_unblocked_directed_path in Hancuz. destruct Hancuz as [Hancuz | Hancuz].
-                 ++ (* ancu = z: contradiction, z is in Z, but ancu is not *)
-                    specialize HluZ' with (w := z). exfalso. apply HluZ'. left. symmetry. apply Hancuz. apply HzZ.
-                 ++ (* u <- ..rev(lu).. <- ancu -> ..lu2.. -> z <- ..rev(lv).. <- v *)
-                    assert (Hancu: exists (anc': node) (lu lu': nodes), is_directed_path_in_graph (anc', u, lu) G = true /\ is_directed_path_in_graph (anc', z, lu') G = true
-                           /\ (forall w : node, w = anc' \/ In w lu \/ In w lu' -> ~ In w Z) /\ acyclic_path_2 (u, z, (rev lu) ++ (anc' :: lu'))).
-                    { destruct Hancuz as [lu' Hz']. apply acyclic_path_if_common_ancestor with (anc := ancu) (lu := lu'') (lv := lu') (len := S (length lu'')).
-                      - admit.
-                      - lia.
-                      - apply Hz'.
-                      - split. apply Hdiru'. split. apply Hcycu. apply HluZ'. }
-                    destruct Hancu as [ancu' [lu [lu' [Hdiru [Hdiruz [HluZ Hcycuz]]]]]]. clear Hdiru'. clear HluZ'. clear Hcycu. clear Hancuz.
-                    assert (Hpath: is_path_in_graph (concat u ancu' z (rev lu) lu') G = true).
-                    { apply concat_paths_still_a_path. split.
-                      + apply reverse_path_in_graph. apply directed_path_is_path in Hdiru. apply Hdiru.
-                      + apply directed_path_is_path in Hdiruz. apply Hdiruz. }
-                    assert (Hconn1: d_connected_2 (u, z, rev lu ++ ancu' :: lu') G Z).
-                    { apply Hdconn2.
-                      - repeat split.
-                        + apply Hdiru.
-                        + intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
-                        + apply Hdiruz.
-                        + intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. right. apply Hw.
-                      - split. apply Hpath. apply Hcycuz. }
-                    assert (Hconn2: d_connected_2 (z, v, rev lv) G Z).
-                    { apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirv. apply HlvZ. }
-                    assert (Hpath': is_path_in_graph (concat u z v (rev lu ++ ancu' :: lu') (rev lv)) G = true).
-                    { apply concat_paths_still_a_path. split.
-                      + apply Hpath.
-                      + apply reverse_path_in_graph. apply directed_path_is_path in Hdirv. apply Hdirv. }
-                    assert (Hconn3: d_connected_2 (concat u z v (rev lu ++ ancu' :: lu') (rev lv)) G Z).
-                    { apply concat_d_connected_paths.
-                      - destruct HG as [_ [_ HG]]. apply HG.
-                      - apply Hpath'.
-                      - split. apply Hconn1. split. apply Hconn2.
-                        admit.
-                      - right. right. split.
-                        + apply colliders_vs_edges_in_path.
-                          apply directed_path_has_directed_edge_end in Hdiruz as Hdiruz'. destruct Hdiruz' as [Hdiruz' | Hdiruz'].
-                          * apply directed_path_has_directed_edge_end in Hdirv as Hdirv'. destruct Hdirv' as [Hdirv' | Hdirv'].
-                            exists ancu'. exists v. split.
-                            -- rewrite Hdirv'. rewrite Hdiruz'. apply sublist_breaks_down_list. exists (u :: (rev lu)). exists []. simpl.
-                               rewrite <- app_assoc. simpl. rewrite <- app_assoc. simpl. reflexivity.
-                            -- split. rewrite Hdiruz' in Hdiruz. simpl in Hdiruz. rewrite andb_comm in Hdiruz. simpl in Hdiruz. apply Hdiruz.
-                               rewrite Hdirv' in Hdirv. simpl in Hdirv. rewrite andb_comm in Hdirv. simpl in Hdirv. apply Hdirv.
-                            -- destruct Hdirv' as [l' [x Hdirv']]. exists ancu'. exists x. split.
-                               ++ apply sublist_breaks_down_list. exists (u :: (rev lu)). exists (rev l' ++ [v]).
-                                  simpl. rewrite Hdiruz'. destruct Hdirv' as [Hdirv' Hxz]. rewrite Hdirv'. rewrite reverse_list_append.
-                                  simpl. rewrite <- app_assoc. rewrite <- append_vs_concat. simpl. reflexivity.
-                               ++ split. rewrite Hdiruz' in Hdiruz. simpl in Hdiruz. rewrite andb_comm in Hdiruz. simpl in Hdiruz. apply Hdiruz.
-                                  destruct Hdirv' as [_ Hdirv']. apply Hdirv'.
-                          * destruct Hdiruz' as [lu2' [x1 [Hlu2 Hxz]]].
-                            apply directed_path_has_directed_edge_end in Hdirv as Hdirv'. destruct Hdirv' as [Hdirv' | Hdirv'].
-                            exists x1. exists v. split.
-                            -- rewrite Hdirv'. apply sublist_breaks_down_list. rewrite Hlu2. exists (u :: (rev lu) ++ ancu' :: lu2'). exists []. simpl. unfold node.
-                               f_equal. repeat rewrite <- app_assoc; simpl. rewrite <- app_assoc. reflexivity.
-                            -- split. apply Hxz. rewrite Hdirv' in Hdirv. simpl in Hdirv. rewrite andb_comm in Hdirv. simpl in Hdirv. apply Hdirv.
-                            -- destruct Hdirv' as [lv' [x2 Hdirv']]. exists x1. exists x2. split.
-                               ++ apply sublist_breaks_down_list. exists (u :: (rev lu) ++ ancu' :: lu2'). exists (rev lv' ++ [v]).
-                                  simpl. destruct Hdirv' as [Hlv' Hx2z]. rewrite Hlv'. rewrite reverse_list_append.
-                                  simpl. rewrite Hlu2. simpl. unfold node. f_equal. repeat rewrite <- app_assoc; simpl. rewrite <- app_assoc. reflexivity.
-                               ++ split. apply Hxz. destruct Hdirv' as [_ Hdirv']. apply Hdirv'.
-                        + unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z. split.
-                          * unfold find_descendants. left. reflexivity.
-                          * apply HzZ. }
-                    unfold concat in Hconn3. apply d_connected_path_not_d_separated with (l := (rev lu ++ ancu' :: lu') ++ z :: rev lv) in Hdsep.
-                    ** exfalso. apply Hdsep.
-                    ** apply Hconn3.
-                    ** split. apply Hpath'. admit.
-          + (* u <- ... <- ancu -> ... -> z <- ... <- ancv -> ... -> v *)
-            destruct Hancv as [lv [Hdirv [Hcycv HlvZ]]].
-            pose proof Hancvz as Hancvz'. apply unblocked_ancestors_have_unblocked_directed_path in Hancvz. destruct Hancvz as [Hancvz | Hancvz].
-            * (* ancv = z: contradiction, z is in Z, but ancv is not *)
-              specialize HlvZ with (w := z). exfalso. apply HlvZ. left. symmetry. apply Hancvz. apply HzZ.
-            * destruct Hancvz as [lv' [Hdirv' HlvZ']]. (* u <- ... <- ancu -> ... -> z <- ..rev(lv').. <- ancv -> lv -> v *)
-              apply unblocked_ancestors_have_unblocked_directed_path in Hancu. destruct Hancu as [Hancu | Hancu].
-              -- (* u -> ... -> z <- ..rev(lv').. <- ancv -> lv -> v *) admit.
-              -- destruct Hancu as [lu [Hancu [Hcycu HluZ]]].
-                 apply unblocked_ancestors_have_unblocked_directed_path in Hancuz. destruct Hancuz as [Hancuz | Hancuz].
-                 ++ (* ancu = z: contradiction, z is in Z, but ancu is not *)
-                    specialize HluZ with (w := z). exfalso. apply HluZ. left. symmetry. apply Hancuz. apply HzZ.
-                 ++ destruct Hancuz as [lu' [Hancuz HluZ']].
-                    (* u <- ..rev(lu).. <- ancu -> ..lu'.. -> z <- ..rev(lv').. <- ancv -> ..lv.. -> v *)
-                    assert (Hpath: is_path_in_graph (u, z, (rev lu) ++ ancu :: lu') G = true).
-                    { apply concat_paths_still_a_path. split.
-                      + apply reverse_path_in_graph. apply directed_path_is_path in Hancu. apply Hancu.
-                      + apply directed_path_is_path in Hancuz. apply Hancuz. }
-                    assert (Hconn1: d_connected_2 (u, z, (rev lu) ++ ancu :: lu') G Z).
-                    { apply Hdconn2. repeat split.
-                      apply Hancu. apply HluZ. apply Hancuz. apply HluZ'. split. apply Hpath.
-                      apply concat_paths_acyclic.
+          pose proof Hdconn_con as Hconvz. specialize Hconvz with (anc := ancv) (u := z) (v := v').
+          pose proof Hdsep as Hdsep'. clear Hdsep. pose proof Hover as Hover'. clear Hover. pose proof Huveq as Hequv'. clear Huveq.
+
+          assert (Hconn_con_col': forall (u v ancu': node) (lv lu luz: nodes), z <> v /\ u <> z /\ u <> v
+                    -> d_connected_2 (v, z, lv) G Z /\ is_directed_path_in_graph (v, z, lv) G = true /\ acyclic_path_2 (v, z, lv) /\ (forall w : node, w = v \/ In w lv -> ~ In w Z)
+                    -> d_connected_2 (u, z, rev lu ++ ancu' :: luz) G Z /\ is_path_in_graph (u, z, rev lu ++ ancu' :: luz) G = true /\ acyclic_path_2 (u, z, rev lu ++ ancu' :: luz)
+                       /\ is_directed_path_in_graph (ancu', u, lu) G = true /\ is_directed_path_in_graph (ancu', z, luz) G = true /\ (forall w : node, w = ancu' \/ In w lu \/ In w luz -> ~ In w Z)
+                    -> overlap (find_unblocked_ancestors G u Z) (find_unblocked_ancestors G v Z) = false
+                    -> exists (x: node) (luz1 lv1: nodes), (d_connected_2 (concat u x v (rev lu ++ ancu' :: luz1) (rev lv1)) G Z /\ is_path_in_graph (concat u x v (rev lu ++ ancu' :: luz1) (rev lv1)) G = true
+                        /\ acyclic_path_2 (concat u x v (rev lu ++ ancu' :: luz1) (rev lv1)))
+                        /\ ((luz1 = luz /\ lv1 = lv /\ z = x) \/ (exists (luz2 lv2: nodes), luz = luz1 ++ [x] ++ luz2 /\ lv = lv1 ++ [x] ++ lv2))).
+          { intros u v ancu' lv lu luz. intros [Hzv [Huz Huveq]]. intros [Hconnvz [Hdirvz [Hcycvz HlvZ]]]. intros [Hconnuz [Hpathuz [Hcycuz [Hdirlu [Hdirluz HluZ]]]]].
+            intros Hover.
+            (* helper lemmas to use later on *)
+            assert (Hvancu': ancu' <> v). (* else, v is an unblocked ancestor of u *)
+            { intros F. apply no_overlap_non_member with (x := v) in Hover.
+              - apply Hover. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu.
+                rewrite F in *. split. apply Hdirlu. split. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic.
+                apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [v] ++ luz).
+                + split. reflexivity. apply Hcycuz.
+                + intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
+              - unfold find_unblocked_ancestors. left. reflexivity. }
+
+            specialize Hconn_col with (u := ancu') (z := z) (v := v) (lu := luz) (lv := lv).
+
+
+
+            assert (Heqvancu': In z Z /\ ancu' <> v /\ overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z) = false).
+            { split. apply HzZ. split. apply Hvancu'.
+              (* else, the member in common is a common unblocked ancestor of u and v *)
+              destruct (overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z)) as [|] eqn:F.
+              - apply overlap_has_member_in_common in F. destruct F as [x [Hxancu' Hxv]].
+                apply no_overlap_non_member with (x := x) in Hover.
+                + exfalso. apply Hover. apply unblocked_ancestors_have_unblocked_directed_path in Hxancu'. destruct Hxancu' as [Hxancu' | [lx [Hdirx [Hcycx HlxZ]]]].
+                  -- rewrite Hxancu'. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu. split. apply Hdirlu. split.
+                     rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic.
+                     apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [ancu'] ++ luz).
+                     ++ split. reflexivity. apply Hcycuz.
+                     ++ intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
+                  -- apply unblocked_ancestors_have_unblocked_directed_path. right.
+                     assert (Hdir: is_directed_path_in_graph (x, u, lx ++ [ancu'] ++ lu) G = true).
+                     { apply concat_directed_paths. split. apply Hdirx. apply Hdirlu. }
+                     apply directed_path_can_be_acyclic in Hdir. destruct Hdir as [lx' [Hdir' [Hcyc' Hlx']]].
+                     exists lx'. split. apply Hdir'. split. apply Hcyc'.
+                     intros w Hw. destruct Hw as [Hw | Hw].
+                     ++ apply HlxZ. left. apply Hw.
+                     ++ assert (Hmem: In w (lx ++ [ancu'] ++ lu)). { apply subset_larger_set_membership with (l1 := lx'). split. apply Hlx'. apply Hw. }
+                        apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
+                        ** apply HlxZ. right. apply Hmem.
+                        ** apply HluZ. simpl in Hmem. destruct Hmem as [Hmem | Hmem]. left. symmetry. apply Hmem. right. left. apply Hmem.
+                + apply Hxv.
+              - reflexivity. }
+            apply Hconn_col in Heqvancu'.
+            -- (* helper lemmas *)
+               assert (Hcyclu: acyclic_path_2 (u, ancu', rev lu)).
+               { apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [ancu'] ++ luz). split. reflexivity. apply Hcycuz. }
+               assert (Hvlu: ~(In v lu)).
+               { intros Hvlu. (* contradiction: then v is an unblocked ancestor of u *)
+                 apply no_overlap_non_member with (x := v) in Hover.
+                 ++ apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path with (anc := ancu') (l := lu).
+                    ** split. apply Hdirlu. split. apply reverse_path_still_acyclic in Hcyclu. rewrite <- reverse_list_twice in Hcyclu. apply Hcyclu. intros w Hw. apply HluZ.
+                       rewrite <- or_assoc. left. apply Hw.
+                    ** apply Hvlu.
+                 ++ unfold find_unblocked_ancestors. left. reflexivity. }
+               assert (Hulv: ~(In u lv)).
+               { (* contradiction: then v is an unblocked ancestor of u *)
+                 intros Hu.
+                 apply no_overlap_non_member with (x := v) in Hover.
+                 ++ apply Hover. apply unblocked_ancestor_if_in_unblocked_directed_path_2 with (v := z) (l := lv).
+                    ** easy.
+                    ** apply Hu.
+                 ++ unfold find_unblocked_ancestors. left. reflexivity. }
+               assert (Hlulv: overlap lu lv = false).
+               { destruct (overlap lu lv) as [|] eqn: F. apply overlap_has_member_in_common in F. destruct F as [x [Hxlu Hx]].
+                 { (* contradiction: v is an unblocked ancestor of u, through x *)
+                   apply no_overlap_non_member with (x := v) in Hover.
+                   exfalso. apply Hover. apply membership_splits_list in Hx. destruct Hx as [lv1 [lv2 Hx]]. apply membership_splits_list in Hxlu. destruct Hxlu as [lu1 [lu2 Hxlu]]. apply unblocked_ancestors_have_unblocked_directed_path. right. exists (lv1 ++ [x] ++ lu2).
+                    split. apply concat_directed_paths. split. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hx. apply Hdirvz.
+                    apply subpath_still_directed with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. apply Hdirlu. split.
+                    - apply concat_paths_acyclic. split. intros Hequv. apply Huveq. symmetry. apply Hequv. split.
+                      apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hx. apply Hcycvz.
+                      apply subpath_still_acyclic with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply Hcyclu.
+                      split.
+                      + intros Hvlu2. apply Hvlu. apply membership_append_r with (l1 := lu1 ++ [x]) in Hvlu2. rewrite <- Hxlu. rewrite app_assoc. apply Hvlu2.
+                      + intros Hulv1. apply Hulv. apply membership_append with (l2 := [x] ++ lv2) in Hulv1. rewrite <- Hx. apply Hulv1.
+                      + (* if there were overlap, then there would be a cycle with x *) 
+                        destruct (overlap lv1 lu2) as [|] eqn:F.
+                        * apply overlap_has_member_in_common in F. destruct F as [x' [Hxlv1' Hxlu2']]. apply membership_splits_list in Hxlv1'. destruct Hxlv1' as [lv1' [lv1'' Hlv1]].
+                          apply membership_splits_list in Hxlu2'. destruct Hxlu2' as [lu2' [lu2'' Hlu2]].
+                          assert (Hcycle: is_directed_path_in_graph (concat x' x x' lv1'' lu2') G = true).
+                          { apply concat_directed_paths. split. apply subpath_still_directed with (w := v) (l1 := lv1') (l3 := lv1). split. apply Hlv1.
+                            apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hx. apply Hdirvz.
+                            apply subpath_still_directed_2 with (v := u) (l2 := lu2'') (l3 := lu2). split. apply Hlu2.
+                            apply subpath_still_directed with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. apply Hdirlu. }
+                          destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (concat x' x x' lv1'' lu2')) in HG. unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                          apply directed_path_is_path. apply Hcycle.
+                        * reflexivity.
+                    - intros w Hw. destruct Hw as [Hw | Hw]. apply HlvZ. left. apply Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
+                      + apply HlvZ. right. apply membership_append with (l2 := [x] ++ lv2) in Hw. rewrite <- Hx. apply Hw.
+                      + apply HluZ. right. left. apply membership_append_r with (l1 := lu1) in Hw. rewrite <- Hxlu. apply Hw.
+                    - unfold find_unblocked_ancestors. left. reflexivity. }
+                  { reflexivity. } }
+              assert (Hluluz: overlap lu luz = false).
+              { destruct (overlap lu luz) as [|] eqn:F.
+                - (* contradicts Hcycuz, which passes through both lu and luz *)
+                  apply overlap_has_member_in_common in F. destruct F as [x [Hxlu Hx]].
+                  apply acyclic_path_correct in Hcycuz. simpl in Hcycuz. repeat apply split_and_true in Hcycuz; destruct Hcycuz as [_ Hcycuz]. apply split_and_true in Hcycuz; destruct Hcycuz as [_ Hcycuz].
+                  apply acyclic_path_intermediate_nodes with (p := rev lu ++ ancu' :: luz) (x := x) in Hcycuz. destruct Hcycuz as [Hc | Hc].
+                  ** rewrite count_app in Hc. apply member_count_at_least_1 in Hxlu. apply member_count_at_least_1 in Hx. rewrite count_reverse in Hc. rewrite <- reverse_list_twice in Hc. lia.
+                  ** rewrite count_app in Hc. apply member_count_at_least_1 in Hxlu. apply member_count_at_least_1 in Hx. rewrite count_reverse in Hc. rewrite <- reverse_list_twice in Hc. simpl in Hc. destruct (ancu' =? x) as [|] eqn:F. lia. lia.
+                - reflexivity. }
+              assert (Hancu_con: forall (z: node) (luz: nodes) (lv: nodes), is_directed_path_in_graph (ancu', z, luz) G = true
+                              -> In ancu' (find_confounders_in_path (concat u ancu' v (rev lu) (luz ++ z :: rev lv)) G) /\ ~ In ancu' Z).
+              { intros x luz1 lv1 Hdirluz1. split.
+                + apply confounders_vs_edges_in_path. destruct lu as [| hlu tlu].
+                  * destruct luz1 as [| hluz tluz].
+                    -- exists u. exists x. split.
+                       ++ simpl. repeat rewrite eqb_refl. reflexivity.
+                       ++ simpl in Hdirlu. rewrite andb_comm in Hdirlu. simpl in Hdirlu. split. apply Hdirlu.
+                          simpl in Hdirluz1. rewrite andb_comm in Hdirluz1. simpl in Hdirluz1. apply Hdirluz1.
+                    -- exists u. exists hluz. split.
+                       ++ apply sublist_breaks_down_list. exists []. exists (tluz ++ x :: rev lv1 ++ [v]). simpl. rewrite <- app_assoc. simpl. reflexivity.
+                       ++ simpl in Hdirlu. rewrite andb_comm in Hdirlu. simpl in Hdirlu. split. apply Hdirlu.
+                          simpl in Hdirluz1. apply split_and_true in Hdirluz1. destruct Hdirluz1 as [Hdirluz1 _]. apply Hdirluz1.
+                  * destruct luz1 as [| hluz tluz].
+                    -- exists hlu. exists x. split.
+                       ++ apply sublist_breaks_down_list. exists (u :: rev tlu). exists (rev lv1 ++ [v]). simpl. repeat rewrite <- app_assoc; simpl. reflexivity.
+                       ++ simpl in Hdirlu. apply split_and_true in Hdirlu. destruct Hdirlu as [Hdirlu _]. split. apply Hdirlu.
+                          simpl in Hdirluz1. rewrite andb_comm in Hdirluz1. simpl in Hdirluz1. apply Hdirluz1.
+                    -- exists hlu. exists hluz. split.
+                       ++ apply sublist_breaks_down_list. exists (u :: rev tlu). exists (tluz ++ x :: rev lv1 ++ [v]). simpl. repeat rewrite <- app_assoc; simpl. rewrite <- app_assoc. simpl. reflexivity.
+                       ++ simpl in Hdirlu. apply split_and_true in Hdirlu. destruct Hdirlu as [Hdirlu _]. split. apply Hdirlu.
+                          simpl in Hdirluz1. apply split_and_true in Hdirluz1. destruct Hdirluz1 as [Hdirluz1 _]. apply Hdirluz1.
+                + apply HluZ. left. reflexivity. }
+
+              destruct Heqvancu' as [Hcol | Hcol].
+              ++ (* no overlap between luz and lv, z is the collider *) destruct Hcol as [Hpathz [Hcycz Hconnz]].
+                  exists z. exists luz. exists lv.
+                  assert (Hconn: d_connected_2 (concat u ancu' v (rev lu) (luz ++ z :: (rev lv))) G Z /\ is_path_in_graph (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv) G = true
+                                  /\ acyclic_path_2 (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv)).
+                  { assert (Hpath: is_path_in_graph (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv) G = true).
+                    { apply concat_paths_still_a_path. split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdirlu.
+                      apply concat_paths_still_a_path. split. apply directed_path_is_path. apply Hdirluz. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdirvz. }
+                    assert (Hcyc: acyclic_path_2 (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv)).
+                    { apply concat_paths_acyclic.
+                      * split. apply Huveq. split.
+                        -- apply Hcyclu.
+                        -- apply Hcycz.
+                      * split.
+                        -- intros Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+                           ++ (* contradicts Hcycuz, which starts at u and passes through luz *)
+                              unfold acyclic_path_2 in Hcycuz. destruct Hcycuz as [_ [Hcycuz _]]. apply Hcycuz. apply membership_append_r. right. apply Hu.
+                           ++ (* contradiction: z is in Z, while u is not *)
+                              apply Huz. symmetry. apply Hu.
+                           ++ (* contradiction: then v is an unblocked ancestor of u *)
+                              apply Hulv. apply membership_rev. apply Hu.
+                        -- intros Hvlu'. apply Hvlu. apply membership_rev. apply Hvlu'.
+                      * destruct (overlap (rev lu) (luz ++ z :: rev lv)) as [|] eqn:F.
+                        -- apply overlap_has_member_in_common in F. destruct F as [x [Hxlu Hx]].
+                           apply membership_append_or in Hx. destruct Hx as [Hx | [Hx | Hx]].
+                           ++ apply no_overlap_non_member with (x := x) in Hluluz.
+                              ** exfalso. apply Hluluz. apply membership_rev. apply Hxlu.
+                              ** apply Hx.
+                           ++ (* contradiction: HluZ implies z is not in Z *)
+                              exfalso. apply HluZ with (w := z). right. left. rewrite Hx. apply membership_rev. apply Hxlu. apply HzZ.
+                           ++ apply no_overlap_non_member with (x := x) in Hlulv.
+                              ** exfalso. apply Hlulv. apply membership_rev. apply Hxlu.
+                              ** apply membership_rev. apply Hx.
+                        -- reflexivity. }
+                    split. apply concat_d_connected_paths.
+                    - apply HG.
+                    - apply Hpath.
+                    - split.
+                      + apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirlu. intros w [Hw | Hw]. apply HluZ. left. apply Hw. apply HluZ. right. left. apply Hw.
+                      + split. apply Hconnz. apply Hcyc.
+                    - right. left. apply Hancu_con. apply Hdirluz.
+                    - split. apply Hpath. apply Hcyc. }
+                   split. unfold concat in Hconn. unfold concat. rewrite <- app_assoc. apply Hconn.
+                   left. easy.
+               ++ (* z is a descendant of the collider (overlapping point of lu and lv) *) 
+                  destruct Hcol as [luz1 [luz2 [lv' [lv1 [lv2 [x [Hdirvz' [Hcycvz' [HlvZ' [Hluz [Hlv [Hlv' [Hlu1lv1 [Hconnx [Hpathx Hcycx]]]]]]]]]]]]]]].
+                  exists x. exists luz1. exists lv1.
+                  assert (Hconn: d_connected_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G Z /\ is_path_in_graph (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G = true
+                                  /\ acyclic_path_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1)))).
+                  { assert (Hpath: is_path_in_graph (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G = true).
+                    { apply concat_paths_still_a_path. split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdirlu.
+                      apply concat_paths_still_a_path. split. apply directed_path_is_path.
+                      apply subpath_still_directed_2 with (v := z) (l2 := luz2) (l3 := luz). split. symmetry. apply Hluz. apply Hdirluz.
+                      apply reverse_path_in_graph. apply directed_path_is_path. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hdirvz. }
+                    assert (Hcyc: acyclic_path_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1)))).
+                    { apply concat_paths_acyclic.
+                      * split. apply Huveq. split.
+                        -- apply Hcyclu.
+                        -- apply concat_paths_acyclic. split. apply Hvancu'.
+                           ++ split. apply subpath_still_acyclic_2 with (v := z) (l2 := luz2) (l3 := luz). split. symmetry. apply Hluz.
+                              apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ [ancu'] ++ luz). split. reflexivity. apply Hcycuz.
+                              apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hcycvz.
+                           ++ split.
+                              ** (* contradiction: then v is an unblocked ancestor of u *)
+                                 intros Hancu'. apply membership_rev in Hancu'. rewrite <- reverse_list_twice in Hancu'.
+                                 apply membership_splits_list in Hancu'. destruct Hancu' as [lv1' [lv1'' Hlv1]].
+
+                                 assert (Hlv1': forall (x': node), In x' lv1' -> In x' lv).
+                                 { intros x' Hxlv1'. apply membership_append with (l2 := [ancu'] ++ lv1'') in Hxlv1'. apply membership_append with (l2 := [x] ++ lv2) in Hxlv1'.
+                                   rewrite Hlv. rewrite <- Hlv1. apply Hxlv1'. }
+
+                                 apply no_overlap_non_member with (x := v) in Hover. apply Hover.
+                                 --- apply unblocked_ancestors_have_unblocked_directed_path. right. exists (lv1' ++ ancu' :: lu).
+                                     split. apply concat_directed_paths. split. apply subpath_still_directed_2 with (v := x) (l2 := lv1'') (l3 := lv1).
+                                     split. apply Hlv1. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hdirvz.
+                                     apply Hdirlu. split. apply concat_paths_acyclic.
+                                     +++ split. intros Hvu. apply Huveq. symmetry. apply Hvu. split.
+                                         *** apply subpath_still_acyclic_2 with (v := x) (l2 := lv1'') (l3 := lv1). split. apply Hlv1.
+                                             apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hcycvz.
+                                         *** rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply Hcyclu.
+                                     +++ split.
+                                         *** apply Hvlu.
+                                         *** intros Hulv1. apply Hlv1' in Hulv1. apply Hulv. apply Hulv1.
+                                     +++ destruct (overlap lv1' lu) as [|] eqn:F. apply overlap_has_member_in_common in F. destruct F as [x' [Hxlv1' Hxlu]].
+                                         apply no_overlap_non_member with (x := x') in Hlulv.
+                                         *** exfalso. apply Hlulv. apply Hxlu.
+                                         *** apply Hlv1'. apply Hxlv1'.
+                                         *** reflexivity.
+                                     +++ intros w [Hw | Hw]. apply HlvZ'. left. apply Hw. apply membership_append_or in Hw. destruct Hw as [Hw | [Hw | Hw]].
+                                         *** apply HlvZ. right. apply Hlv1'. apply Hw.
+                                         *** apply HluZ. left. symmetry. apply Hw.
+                                         *** apply HluZ. right. left. apply Hw.
+                                 --- unfold find_unblocked_ancestors. left. reflexivity.
+                              ** intros Hvluz1. 
+                                 (* contradicts Hcycx, which passes through both v and luz1 *)
+                                 unfold acyclic_path_2 in Hcycx. destruct Hcycx as [_ [_ [Hcycx _]]]. apply Hcycx. apply membership_append. apply Hvluz1.
+                           ++ apply overlap_rev. apply Hlu1lv1.
+                      * split.
+                        -- intros Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+                           ++ (* contradicts Hcycuz, which starts at u and passes through luz *)
+                              unfold acyclic_path_2 in Hcycuz. destruct Hcycuz as [_ [Hcycuz _]]. apply Hcycuz. apply membership_append_r. right. apply membership_append with (l2 := [x] ++ luz2) in Hu. rewrite Hluz. apply Hu.
+                           ++ (* contradiction: contradicts Hcycuz, which starts at u and passes through luz *)
+                              unfold acyclic_path_2 in Hcycuz. destruct Hcycuz as [_ [Hcycuz _]]. apply Hcycuz. apply membership_append_r. right. rewrite Hluz. apply membership_append_r. apply membership_append. left. apply Hu.
+                           ++ apply Hulv. apply membership_rev in Hu. rewrite <- reverse_list_twice in Hu. apply membership_append with (l2 := [x] ++ lv2) in Hu. rewrite Hlv. apply Hu.
+                        -- intros Hvlu'. apply Hvlu. apply membership_rev. apply Hvlu'.
+                      * destruct (overlap (rev lu) (luz1 ++ x :: rev lv1)) as [|] eqn:F.
+                        -- apply overlap_has_member_in_common in F. destruct F as [x' [Hxlu Hx]].
+                           apply membership_append_or in Hx. destruct Hx as [Hx | [Hx | Hx]].
+                           ++ apply no_overlap_non_member with (x := x') in Hluluz.
+                              ** exfalso. apply Hluluz. apply membership_rev. apply Hxlu.
+                              ** apply membership_append with (l2 := [x] ++ luz2) in Hx. rewrite Hluz. apply Hx.
+                           ++ apply no_overlap_non_member with (x := x) in Hluluz.
+                              ** exfalso. apply Hluluz. apply membership_rev. rewrite Hx. apply Hxlu.
+                              ** rewrite Hluz. apply membership_append_r. apply membership_append. left. reflexivity.
+                           ++ apply no_overlap_non_member with (x := x') in Hlulv.
+                              ** exfalso. apply Hlulv. apply membership_rev. apply Hxlu.
+                              ** rewrite Hlv. apply membership_append. apply membership_rev. apply Hx.
+                        -- reflexivity. }
+                    split. apply concat_d_connected_paths.
+                    - apply HG.
+                    - apply Hpath.
+                    - split.
+                      + apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirlu. intros w [Hw | Hw]. apply HluZ. left. apply Hw. apply HluZ. right. left. apply Hw.
+                      + split. apply Hconnx. apply Hcyc.
+                    - right. left. apply Hancu_con. apply subpath_still_directed_2 with (v := z) (l2 := luz2) (l3 := luz).
+                      split. symmetry. apply Hluz. apply Hdirluz.
+                    - split. apply Hpath. apply Hcyc. }
+                   split. unfold concat in Hconn. unfold concat. rewrite <- app_assoc. apply Hconn.
+                   right. exists luz2. exists lv2. easy.
+            -- split. apply Hdirluz. split. apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ [ancu'] ++ luz).
+               ++ split. reflexivity. apply Hcycuz.
+               ++ intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. right. apply Hw.
+            -- split. apply Hdirvz. split. apply Hcycvz. apply HlvZ. }
+
+
+          (* in a path with structure u <- ..lu.. <- ancu' -> ..luz.. -> z <- ..lv.. <- v, where z is the only node in the path in Z,
+             u and v cannot be d-separated *)
+          assert (Hconn_con_col: forall (u v ancu': node) (lv lu luz: nodes), z <> v /\ u <> z /\ u <> v
+                    -> d_connected_2 (v, z, lv) G Z /\ is_directed_path_in_graph (v, z, lv) G = true /\ acyclic_path_2 (v, z, lv) /\ (forall w : node, w = v \/ In w lv -> ~ In w Z)
+                    -> d_connected_2 (u, z, rev lu ++ ancu' :: luz) G Z /\ is_path_in_graph (u, z, rev lu ++ ancu' :: luz) G = true /\ acyclic_path_2 (u, z, rev lu ++ ancu' :: luz)
+                       /\ is_directed_path_in_graph (ancu', u, lu) G = true /\ is_directed_path_in_graph (ancu', z, luz) G = true /\ (forall w : node, w = ancu' \/ In w lu \/ In w luz -> ~ In w Z)
+                    -> d_separated_bool u v G Z = true
+                    -> overlap (find_unblocked_ancestors G u Z) (find_unblocked_ancestors G v Z) = false
+                    -> False).
+          { intros u v ancu' lv lu luz. intros [Hzv [Huz Huveq]]. intros [Hconnvz [Hdirvz [Hcycvz HlvZ]]]. intros [Hconnuz [Hpathuz [Hcycuz [Hdirlu [Hdirluz HluZ]]]]].
+            intros Hdsep. intros Hover.
+            (* helper lemmas to use later on *)
+            assert (Hvancu': ancu' <> v). (* else, v is an unblocked ancestor of u *)
+            { intros F. apply no_overlap_non_member with (x := v) in Hover.
+              - apply Hover. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu.
+                rewrite F in *. split. apply Hdirlu. split. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic.
+                apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [v] ++ luz).
+                + split. reflexivity. apply Hcycuz.
+                + intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
+              - unfold find_unblocked_ancestors. left. reflexivity. }
+
+            specialize Hconn_col with (u := ancu') (z := z) (v := v) (lu := luz) (lv := lv). 
+            assert (Heqvancu': In z Z /\ ancu' <> v /\ overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z) = false).
+            { split. apply HzZ. split. apply Hvancu'.
+              (* else, the member in common is a common unblocked ancestor of u and v *)
+              destruct (overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z)) as [|] eqn:F.
+              - apply overlap_has_member_in_common in F. destruct F as [x [Hxancu' Hxv]].
+                apply no_overlap_non_member with (x := x) in Hover.
+                + exfalso. apply Hover. apply unblocked_ancestors_have_unblocked_directed_path in Hxancu'. destruct Hxancu' as [Hxancu' | [lx [Hdirx [Hcycx HlxZ]]]].
+                  -- rewrite Hxancu'. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu. split. apply Hdirlu. split.
+                     rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic.
+                     apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [ancu'] ++ luz).
+                     ++ split. reflexivity. apply Hcycuz.
+                     ++ intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
+                  -- apply unblocked_ancestors_have_unblocked_directed_path. right.
+                     assert (Hdir: is_directed_path_in_graph (x, u, lx ++ [ancu'] ++ lu) G = true).
+                     { apply concat_directed_paths. split. apply Hdirx. apply Hdirlu. }
+                     apply directed_path_can_be_acyclic in Hdir. destruct Hdir as [lx' [Hdir' [Hcyc' Hlx']]].
+                     exists lx'. split. apply Hdir'. split. apply Hcyc'.
+                     intros w Hw. destruct Hw as [Hw | Hw].
+                     ++ apply HlxZ. left. apply Hw.
+                     ++ assert (Hmem: In w (lx ++ [ancu'] ++ lu)). { apply subset_larger_set_membership with (l1 := lx'). split. apply Hlx'. apply Hw. }
+                        apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
+                        ** apply HlxZ. right. apply Hmem.
+                        ** apply HluZ. simpl in Hmem. destruct Hmem as [Hmem | Hmem]. left. symmetry. apply Hmem. right. left. apply Hmem.
+                + apply Hxv.
+              - reflexivity. }
+            apply Hconn_col in Heqvancu'.
+            -- (* helper lemmas *)
+               assert (Hcyclu: acyclic_path_2 (u, ancu', rev lu)).
+               { apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [ancu'] ++ luz). split. reflexivity. apply Hcycuz. }
+               assert (Hvlu: ~(In v lu)).
+               { intros Hvlu. (* contradiction: then v is an unblocked ancestor of u *)
+                 apply no_overlap_non_member with (x := v) in Hover.
+                 ++ apply membership_splits_list in Hvlu. destruct Hvlu as [lu1 [lu2 Hvlu]]. apply Hover. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu2.
+                    split. apply subpath_still_directed with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hvlu. apply Hdirlu.
+                    split. apply subpath_still_acyclic with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hvlu.
+                    rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := z) (l2 := luz) (l3 := rev lu ++ [ancu'] ++ luz).
+                    split. reflexivity. apply Hcycuz.
+                    intros w Hw. destruct Hw as [Hw | Hw]. apply HlvZ. left. apply Hw. apply HluZ. right. left. rewrite <- Hvlu. apply membership_append_r with (l1 := lu1 ++ [v]) in Hw. rewrite app_assoc. apply Hw.
+                 ++ unfold find_unblocked_ancestors. left. reflexivity. }
+               assert (Hulv: ~(In u lv)).
+               { (* contradiction: then v is an unblocked ancestor of u *)
+                 intros Hu. apply no_overlap_non_member with (x := v) in Hover.
+                 { apply membership_splits_list in Hu. destruct Hu as [lv1 [lv2 Hu]]. apply Hover. apply unblocked_ancestors_have_unblocked_directed_path. right. exists lv1.
+                   split. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hu. apply Hdirvz.
+                   split. apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hu. apply Hcycvz.
+                   intros w Hw. apply HlvZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. rewrite <- Hu. apply membership_append with (l2 := [u] ++ lv2) in Hw. apply Hw. }
+                 { unfold find_unblocked_ancestors. left. reflexivity. } }
+               assert (Hlulv: overlap lu lv = false).
+               { destruct (overlap lu lv) as [|] eqn: F. apply overlap_has_member_in_common in F. destruct F as [x [Hxlu Hx]].
+                 { (* contradiction: v is an unblocked ancestor of u, through x *)
+                   apply no_overlap_non_member with (x := v) in Hover.
+                   exfalso. apply Hover. apply membership_splits_list in Hx. destruct Hx as [lv1 [lv2 Hx]]. apply membership_splits_list in Hxlu. destruct Hxlu as [lu1 [lu2 Hxlu]]. apply unblocked_ancestors_have_unblocked_directed_path. right. exists (lv1 ++ [x] ++ lu2).
+                    split. apply concat_directed_paths. split. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hx. apply Hdirvz.
+                    apply subpath_still_directed with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. apply Hdirlu. split.
+                    - apply concat_paths_acyclic. split. intros Hequv. apply Huveq. symmetry. apply Hequv. split.
+                      apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hx. apply Hcycvz.
+                      apply subpath_still_acyclic with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply Hcyclu.
+                      split.
+                      + intros Hvlu2. apply Hvlu. apply membership_append_r with (l1 := lu1 ++ [x]) in Hvlu2. rewrite <- Hxlu. rewrite app_assoc. apply Hvlu2.
+                      + intros Hulv1. apply Hulv. apply membership_append with (l2 := [x] ++ lv2) in Hulv1. rewrite <- Hx. apply Hulv1.
+                      + (* if there were overlap, then there would be a cycle with x *) 
+                        destruct (overlap lv1 lu2) as [|] eqn:F.
+                        * apply overlap_has_member_in_common in F. destruct F as [x' [Hxlv1' Hxlu2']]. apply membership_splits_list in Hxlv1'. destruct Hxlv1' as [lv1' [lv1'' Hlv1]].
+                          apply membership_splits_list in Hxlu2'. destruct Hxlu2' as [lu2' [lu2'' Hlu2]].
+                          assert (Hcycle: is_directed_path_in_graph (concat x' x x' lv1'' lu2') G = true).
+                          { apply concat_directed_paths. split. apply subpath_still_directed with (w := v) (l1 := lv1') (l3 := lv1). split. apply Hlv1.
+                            apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. apply Hx. apply Hdirvz.
+                            apply subpath_still_directed_2 with (v := u) (l2 := lu2'') (l3 := lu2). split. apply Hlu2.
+                            apply subpath_still_directed with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. apply Hdirlu. }
+                          destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (concat x' x x' lv1'' lu2')) in HG. unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                          apply directed_path_is_path. apply Hcycle.
+                        * reflexivity.
+                    - intros w Hw. destruct Hw as [Hw | Hw]. apply HlvZ. left. apply Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
+                      + apply HlvZ. right. apply membership_append with (l2 := [x] ++ lv2) in Hw. rewrite <- Hx. apply Hw.
+                      + apply HluZ. right. left. apply membership_append_r with (l1 := lu1) in Hw. rewrite <- Hxlu. apply Hw.
+                    - unfold find_unblocked_ancestors. left. reflexivity. }
+                  { reflexivity. } }
+              assert (Hluluz: overlap lu luz = false).
+              { destruct (overlap lu luz) as [|] eqn:F.
+                - (* contradicts Hcycuz, which passes through both lu and luz *)
+                  apply overlap_has_member_in_common in F. destruct F as [x [Hxlu Hx]].
+                  apply acyclic_path_correct in Hcycuz. simpl in Hcycuz. repeat apply split_and_true in Hcycuz; destruct Hcycuz as [_ Hcycuz]. apply split_and_true in Hcycuz; destruct Hcycuz as [_ Hcycuz].
+                  apply acyclic_path_intermediate_nodes with (p := rev lu ++ ancu' :: luz) (x := x) in Hcycuz. destruct Hcycuz as [Hc | Hc].
+                  ** rewrite count_app in Hc. apply member_count_at_least_1 in Hxlu. apply member_count_at_least_1 in Hx. rewrite count_reverse in Hc. rewrite <- reverse_list_twice in Hc. lia.
+                  ** rewrite count_app in Hc. apply member_count_at_least_1 in Hxlu. apply member_count_at_least_1 in Hx. rewrite count_reverse in Hc. rewrite <- reverse_list_twice in Hc. simpl in Hc. destruct (ancu' =? x) as [|] eqn:F. lia. lia.
+                - reflexivity. }
+              assert (Hancu_con: forall (z: node) (luz: nodes) (lv: nodes), is_directed_path_in_graph (ancu', z, luz) G = true
+                              -> In ancu' (find_confounders_in_path (concat u ancu' v (rev lu) (luz ++ z :: rev lv)) G) /\ ~ In ancu' Z).
+              { intros x luz1 lv1 Hdirluz1. split.
+                + apply confounders_vs_edges_in_path. destruct lu as [| hlu tlu].
+                  * destruct luz1 as [| hluz tluz].
+                    -- exists u. exists x. split.
+                       ++ simpl. repeat rewrite eqb_refl. reflexivity.
+                       ++ simpl in Hdirlu. rewrite andb_comm in Hdirlu. simpl in Hdirlu. split. apply Hdirlu.
+                          simpl in Hdirluz1. rewrite andb_comm in Hdirluz1. simpl in Hdirluz1. apply Hdirluz1.
+                    -- exists u. exists hluz. split.
+                       ++ apply sublist_breaks_down_list. exists []. exists (tluz ++ x :: rev lv1 ++ [v]). simpl. rewrite <- app_assoc. simpl. reflexivity.
+                       ++ simpl in Hdirlu. rewrite andb_comm in Hdirlu. simpl in Hdirlu. split. apply Hdirlu.
+                          simpl in Hdirluz1. apply split_and_true in Hdirluz1. destruct Hdirluz1 as [Hdirluz1 _]. apply Hdirluz1.
+                  * destruct luz1 as [| hluz tluz].
+                    -- exists hlu. exists x. split.
+                       ++ apply sublist_breaks_down_list. exists (u :: rev tlu). exists (rev lv1 ++ [v]). simpl. repeat rewrite <- app_assoc; simpl. reflexivity.
+                       ++ simpl in Hdirlu. apply split_and_true in Hdirlu. destruct Hdirlu as [Hdirlu _]. split. apply Hdirlu.
+                          simpl in Hdirluz1. rewrite andb_comm in Hdirluz1. simpl in Hdirluz1. apply Hdirluz1.
+                    -- exists hlu. exists hluz. split.
+                       ++ apply sublist_breaks_down_list. exists (u :: rev tlu). exists (tluz ++ x :: rev lv1 ++ [v]). simpl. repeat rewrite <- app_assoc; simpl. rewrite <- app_assoc. simpl. reflexivity.
+                       ++ simpl in Hdirlu. apply split_and_true in Hdirlu. destruct Hdirlu as [Hdirlu _]. split. apply Hdirlu.
+                          simpl in Hdirluz1. apply split_and_true in Hdirluz1. destruct Hdirluz1 as [Hdirluz1 _]. apply Hdirluz1.
+                + apply HluZ. left. reflexivity. }
+
+                 destruct Heqvancu' as [Hcol | Hcol].
+                 ++ (* no overlap between luz and lv, z is the collider *) destruct Hcol as [Hpathz [Hcycz Hconnz]].
+                    assert (Hconn: d_connected_2 (concat u ancu' v (rev lu) (luz ++ z :: (rev lv))) G Z /\ is_path_in_graph (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv) G = true
+                                    /\ acyclic_path_2 (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv)).
+                    { assert (Hpath: is_path_in_graph (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv) G = true).
+                      { apply concat_paths_still_a_path. split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdirlu.
+                        apply concat_paths_still_a_path. split. apply directed_path_is_path. apply Hdirluz. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdirvz. }
+                      assert (Hcyc: acyclic_path_2 (u, v, rev lu ++ ancu' :: luz ++ z :: rev lv)).
+                      { apply concat_paths_acyclic.
+                        * split. apply Huveq. split.
+                          -- apply Hcyclu.
+                          -- apply Hcycz.
+                        * split.
+                          -- intros Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+                             ++ (* contradicts Hcycuz, which starts at u and passes through luz *)
+                                unfold acyclic_path_2 in Hcycuz. destruct Hcycuz as [_ [Hcycuz _]]. apply Hcycuz. apply membership_append_r. right. apply Hu.
+                             ++ (* contradiction: z is in Z, while u is not *)
+                                apply Huz. symmetry. apply Hu.
+                             ++ (* contradiction: then v is an unblocked ancestor of u *)
+                                apply Hulv. apply membership_rev. apply Hu.
+                          -- intros Hvlu'. apply Hvlu. apply membership_rev. apply Hvlu'.
+                        * destruct (overlap (rev lu) (luz ++ z :: rev lv)) as [|] eqn:F.
+                          -- apply overlap_has_member_in_common in F. destruct F as [x [Hxlu Hx]].
+                             apply membership_append_or in Hx. destruct Hx as [Hx | [Hx | Hx]].
+                             ++ apply no_overlap_non_member with (x := x) in Hluluz.
+                                ** exfalso. apply Hluluz. apply membership_rev. apply Hxlu.
+                                ** apply Hx.
+                             ++ (* contradiction: HluZ implies z is not in Z *)
+                                exfalso. apply HluZ with (w := z). right. left. rewrite Hx. apply membership_rev. apply Hxlu. apply HzZ.
+                             ++ apply no_overlap_non_member with (x := x) in Hlulv.
+                                ** exfalso. apply Hlulv. apply membership_rev. apply Hxlu.
+                                ** apply membership_rev. apply Hx.
+                          -- reflexivity. }
+                      split. apply concat_d_connected_paths.
+                      - apply HG.
+                      - apply Hpath.
                       - split.
-                        + intros Huz. destruct HZ as [_ [_ [Huz' _]]]. apply member_In_equiv in HzZ. rewrite <- Huz in HzZ. rewrite HzZ in Huz'. discriminate Huz'.
-                        + split. apply reverse_path_still_acyclic. apply Hcycu. destruct HluZ' as [Hcycz _]. apply Hcycz.
-                      - admit.
-                      - admit. } (* TODO make this more like the proof of Hdconn and reuse for below version *)
-                    assert (Hpath': is_path_in_graph (z, v, (rev lv') ++ ancv :: lv) G = true).
-                    { apply concat_paths_still_a_path. split.
-                      + apply reverse_path_in_graph. apply directed_path_is_path in Hdirv'. apply Hdirv'.
-                      + apply directed_path_is_path in Hdirv. apply Hdirv. }
-                    assert (Hconn2: d_connected_2 (z, v, (rev lv') ++ ancv :: lv) G Z).
-                    { apply Hdconn2. repeat split.
-                      apply Hdirv'. apply HlvZ'. apply Hdirv. apply HlvZ. split. apply Hpath'. admit. }
-                    assert (Hconn3: d_connected_2 (concat u z v ((rev lu) ++ ancu :: lu') ((rev lv') ++ ancv :: lv)) G Z).
-                    { apply concat_d_connected_paths.
-                      - destruct HG as [_ [_ HG]]. apply HG.
-                      - apply concat_paths_still_a_path. split.
-                        + apply Hpath.
-                        + apply Hpath'.
-                      - split. apply Hconn1. split. apply Hconn2. admit.
-                      - right. right. split.
-                        + apply colliders_vs_edges_in_path.
-                          apply directed_path_has_directed_edge_end in Hancuz as Hancuz'. destruct Hancuz' as [Hancuz' | Hancuz'].
-                          * apply directed_path_has_directed_edge_end in Hdirv' as Hdirv''. destruct Hdirv'' as [Hdirv'' | Hdirv''].
-                            exists ancu. exists ancv. split.
-                            -- rewrite Hdirv''. rewrite Hancuz'. apply sublist_breaks_down_list. exists (u :: (rev lu)). exists (lv ++ [v]). simpl.
-                               repeat rewrite <- app_assoc; simpl. reflexivity.
-                            -- split. rewrite Hancuz' in Hancuz. simpl in Hancuz. rewrite andb_comm in Hancuz. simpl in Hancuz. apply Hancuz.
-                               rewrite Hdirv'' in Hdirv'. simpl in Hdirv'. rewrite andb_comm in Hdirv'. simpl in Hdirv'. apply Hdirv'.
-                            -- destruct Hdirv'' as [lv'' [x1 Hdirv'']]. exists ancu. exists x1. split.
-                               ++ apply sublist_breaks_down_list. exists (u :: (rev lu)). exists (rev lv'' ++ ancv :: lv ++ [v]). rewrite Hancuz'.
-                                  destruct Hdirv'' as [Hdirv'' Hx1z]. rewrite Hdirv''. rewrite reverse_list_append.
-                                  repeat simpl; rewrite <- app_assoc. simpl. rewrite append_vs_concat. rewrite <- app_assoc. simpl. reflexivity.
-                               ++ split. rewrite Hancuz' in Hancuz. simpl in Hancuz. rewrite andb_comm in Hancuz. simpl in Hancuz. apply Hancuz.
-                                  destruct Hdirv'' as [_ Hdirv'']. apply Hdirv''.
-                          * destruct Hancuz' as [lu'' [x1 [Hlu'' Hx1z]]].
-                            apply directed_path_has_directed_edge_end in Hdirv' as Hdirv''. destruct Hdirv'' as [Hdirv'' | Hdirv''].
-                            exists x1. exists ancv. split.
-                            -- rewrite Hdirv''. apply sublist_breaks_down_list. rewrite Hlu''. exists (u :: (rev lu) ++ ancu :: lu''). exists (lv ++ [v]). simpl. unfold node.
-                               f_equal. repeat rewrite <- app_assoc; simpl. rewrite <- app_assoc. reflexivity.
-                            -- split. apply Hx1z. rewrite Hdirv'' in Hdirv'. simpl in Hdirv'. rewrite andb_comm in Hdirv'. simpl in Hdirv'. apply Hdirv'.
-                            -- destruct Hdirv'' as [lv'' [x2 Hdirv'']]. exists x1. exists x2. split.
-                               ++ apply sublist_breaks_down_list. exists (u :: (rev lu) ++ ancu :: lu''). exists (rev lv'' ++ ancv :: lv ++ [v]).
-                                  simpl. destruct Hdirv'' as [Hlv' Hx2z]. rewrite Hlv'. rewrite Hlu''. rewrite reverse_list_append.
-                                  simpl. unfold node. f_equal. repeat rewrite <- app_assoc; simpl. rewrite <- app_assoc. simpl. rewrite <- app_assoc. simpl. reflexivity.
-                               ++ split. apply Hx1z. destruct Hdirv'' as [_ Hdirv'']. apply Hdirv''.
-                        + unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z. split.
-                          * unfold find_descendants. left. reflexivity.
-                          * apply HzZ. }
-                    unfold concat in Hconn3. apply d_connected_path_not_d_separated with (l := (rev lu ++ ancu :: lu') ++ z :: rev lv' ++ ancv :: lv) in Hdsep.
-                    ** exfalso. apply Hdsep.
-                    ** apply Hconn3.
-                    ** split. apply concat_paths_still_a_path. split. apply Hpath. apply Hpath'. admit. }
+                        + apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirlu. intros w [Hw | Hw]. apply HluZ. left. apply Hw. apply HluZ. right. left. apply Hw.
+                        + split. apply Hconnz. apply Hcyc.
+                      - right. left. apply Hancu_con. apply Hdirluz.
+                      - split. apply Hpath. apply Hcyc. }
+                     unfold concat in Hconn. apply d_connected_path_not_d_separated with (l := rev lu ++ ancu' :: luz ++ z :: rev lv) in Hdsep.
+                     ** exfalso. apply Hdsep.
+                     ** apply Hconn.
+                     ** apply Hconn.
+                 ++ (* z is a descendant of the collider (overlapping point of lu and lv) *) 
+                    destruct Hcol as [luz1 [luz2 [lv' [lv1 [lv2 [x [Hdirvz' [Hcycvz' [HlvZ' [Hluz [Hlv [Hlv' [Hlu1lv1 [Hconnx [Hpathx Hcycx]]]]]]]]]]]]]]].
+                    assert (Hconn: d_connected_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G Z /\ is_path_in_graph (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G = true
+                                    /\ acyclic_path_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1)))).
+                    { assert (Hpath: is_path_in_graph (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G = true).
+                      { apply concat_paths_still_a_path. split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdirlu.
+                        apply concat_paths_still_a_path. split. apply directed_path_is_path.
+                        apply subpath_still_directed_2 with (v := z) (l2 := luz2) (l3 := luz). split. symmetry. apply Hluz. apply Hdirluz.
+                        apply reverse_path_in_graph. apply directed_path_is_path. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hdirvz. }
+                      assert (Hcyc: acyclic_path_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1)))).
+                      { apply concat_paths_acyclic.
+                        * split. apply Huveq. split.
+                          -- apply Hcyclu.
+                          -- apply concat_paths_acyclic. split. apply Hvancu'.
+                             ++ split. apply subpath_still_acyclic_2 with (v := z) (l2 := luz2) (l3 := luz). split. symmetry. apply Hluz.
+                                apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ [ancu'] ++ luz). split. reflexivity. apply Hcycuz.
+                                apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hcycvz.
+                             ++ split.
+                                ** (* contradiction: then v is an unblocked ancestor of u *)
+                                   intros Hancu'. apply membership_rev in Hancu'. rewrite <- reverse_list_twice in Hancu'.
+                                   apply membership_splits_list in Hancu'. destruct Hancu' as [lv1' [lv1'' Hlv1]].
+
+                                   assert (Hlv1': forall (x': node), In x' lv1' -> In x' lv).
+                                   { intros x' Hxlv1'. apply membership_append with (l2 := [ancu'] ++ lv1'') in Hxlv1'. apply membership_append with (l2 := [x] ++ lv2) in Hxlv1'.
+                                     rewrite Hlv. rewrite <- Hlv1. apply Hxlv1'. }
+
+                                   apply no_overlap_non_member with (x := v) in Hover. apply Hover.
+                                   --- apply unblocked_ancestors_have_unblocked_directed_path. right. exists (lv1' ++ ancu' :: lu).
+                                       split. apply concat_directed_paths. split. apply subpath_still_directed_2 with (v := x) (l2 := lv1'') (l3 := lv1).
+                                       split. apply Hlv1. apply subpath_still_directed_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hdirvz.
+                                       apply Hdirlu. split. apply concat_paths_acyclic.
+                                       +++ split. intros Hvu. apply Huveq. symmetry. apply Hvu. split.
+                                           *** apply subpath_still_acyclic_2 with (v := x) (l2 := lv1'') (l3 := lv1). split. apply Hlv1.
+                                               apply subpath_still_acyclic_2 with (v := z) (l2 := lv2) (l3 := lv). split. symmetry. apply Hlv. apply Hcycvz.
+                                           *** rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply Hcyclu.
+                                       +++ split.
+                                           *** apply Hvlu.
+                                           *** intros Hulv1. apply Hlv1' in Hulv1. apply Hulv. apply Hulv1.
+                                       +++ destruct (overlap lv1' lu) as [|] eqn:F. apply overlap_has_member_in_common in F. destruct F as [x' [Hxlv1' Hxlu]].
+                                           apply no_overlap_non_member with (x := x') in Hlulv.
+                                           *** exfalso. apply Hlulv. apply Hxlu.
+                                           *** apply Hlv1'. apply Hxlv1'.
+                                           *** reflexivity.
+                                       +++ intros w [Hw | Hw]. apply HlvZ'. left. apply Hw. apply membership_append_or in Hw. destruct Hw as [Hw | [Hw | Hw]].
+                                           *** apply HlvZ. right. apply Hlv1'. apply Hw.
+                                           *** apply HluZ. left. symmetry. apply Hw.
+                                           *** apply HluZ. right. left. apply Hw.
+                                   --- unfold find_unblocked_ancestors. left. reflexivity.
+                                ** intros Hvluz1. 
+                                   (* contradicts Hcycx, which passes through both v and luz1 *)
+                                   unfold acyclic_path_2 in Hcycx. destruct Hcycx as [_ [_ [Hcycx _]]]. apply Hcycx. apply membership_append. apply Hvluz1.
+                             ++ apply overlap_rev. apply Hlu1lv1.
+                        * split.
+                          -- intros Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+                             ++ (* contradicts Hcycuz, which starts at u and passes through luz *)
+                                unfold acyclic_path_2 in Hcycuz. destruct Hcycuz as [_ [Hcycuz _]]. apply Hcycuz. apply membership_append_r. right. apply membership_append with (l2 := [x] ++ luz2) in Hu. rewrite Hluz. apply Hu.
+                             ++ (* contradiction: contradicts Hcycuz, which starts at u and passes through luz *)
+                                unfold acyclic_path_2 in Hcycuz. destruct Hcycuz as [_ [Hcycuz _]]. apply Hcycuz. apply membership_append_r. right. rewrite Hluz. apply membership_append_r. apply membership_append. left. apply Hu.
+                             ++ apply Hulv. apply membership_rev in Hu. rewrite <- reverse_list_twice in Hu. apply membership_append with (l2 := [x] ++ lv2) in Hu. rewrite Hlv. apply Hu.
+                          -- intros Hvlu'. apply Hvlu. apply membership_rev. apply Hvlu'.
+                        * destruct (overlap (rev lu) (luz1 ++ x :: rev lv1)) as [|] eqn:F.
+                          -- apply overlap_has_member_in_common in F. destruct F as [x' [Hxlu Hx]].
+                             apply membership_append_or in Hx. destruct Hx as [Hx | [Hx | Hx]].
+                             ++ apply no_overlap_non_member with (x := x') in Hluluz.
+                                ** exfalso. apply Hluluz. apply membership_rev. apply Hxlu.
+                                ** apply membership_append with (l2 := [x] ++ luz2) in Hx. rewrite Hluz. apply Hx.
+                             ++ apply no_overlap_non_member with (x := x) in Hluluz.
+                                ** exfalso. apply Hluluz. apply membership_rev. rewrite Hx. apply Hxlu.
+                                ** rewrite Hluz. apply membership_append_r. apply membership_append. left. reflexivity.
+                             ++ apply no_overlap_non_member with (x := x') in Hlulv.
+                                ** exfalso. apply Hlulv. apply membership_rev. apply Hxlu.
+                                ** rewrite Hlv. apply membership_append. apply membership_rev. apply Hx.
+                          -- reflexivity. }
+                      split. apply concat_d_connected_paths.
+                      - apply HG.
+                      - apply Hpath.
+                      - split.
+                        + apply reverse_d_connected_paths. apply Hdconn1. split. apply Hdirlu. intros w [Hw | Hw]. apply HluZ. left. apply Hw. apply HluZ. right. left. apply Hw.
+                        + split. apply Hconnx. apply Hcyc.
+                      - right. left. apply Hancu_con. apply subpath_still_directed_2 with (v := z) (l2 := luz2) (l3 := luz).
+                        split. symmetry. apply Hluz. apply Hdirluz.
+                      - split. apply Hpath. apply Hcyc. }
+                     unfold concat in Hconn. apply d_connected_path_not_d_separated with (l := rev lu ++ ancu' :: luz1 ++ x :: rev lv1) in Hdsep.
+                     ** exfalso. apply Hdsep.
+                     ** apply Hconn.
+                     ** apply Hconn.
+              -- split. apply Hdirluz. split. apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ [ancu'] ++ luz).
+                 ++ split. reflexivity. apply Hcycuz.
+                 ++ intros w Hw. apply HluZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. right. apply Hw.
+              -- split. apply Hdirvz. split. apply Hcycvz. apply HlvZ. }
+
+          assert (Hzv: z <> v'). { intros Hzv. rewrite Hzv in HzZ. destruct HZ as [_ [_ [_ HZ]]]. apply member_In_equiv in HzZ. rewrite HzZ in HZ. discriminate HZ. }
+          assert (Hzu: u' <> z). { intros Hzu. rewrite <- Hzu in HzZ. destruct HZ as [_ [_ [HZ _]]]. apply member_In_equiv in HzZ. rewrite HzZ in HZ. discriminate HZ. }
+          pose proof Hdsep' as Hdsep. clear Hdsep'. pose proof Hover' as Hover. clear Hover'. pose proof Hequv' as Huveq. clear Hequv'.
+          remember u' as u. remember v' as v.
+
+          apply Hconvz in Hzv as Hzv'. clear Hconvz. destruct Hzv' as [Hvlz | [Hzlv | Hconvz]].
+          + destruct Hvlz as [lv [Hconnvz [Hdirvz [Hcycvz HlvZ]]]]. (* z <- ..lv.. <- v *)
+            pose proof Hdconn_con as Hconuz. specialize Hconuz with (anc := ancu) (u := u) (v := z).
+            apply Hconuz in Hzu as Hzu'. clear Hconuz. destruct Hzu' as [Hzlu | [Hulz | Hconuz]].
+            * destruct Hzlu as [lz [Hconnzu [Hdirzu [Hcyczu HlzZ]]]]. (* u <- ..lz.. <- z *)
+              (* contradiction, HlzZ says z is not in Z. *)
+              specialize HlzZ with (w := z). exfalso. apply HlzZ. left. reflexivity. apply HzZ.
+            * destruct Hulz as [lu [Hconnuz [Hdiruz [Hcycuz HluZ]]]].
+              (* u -> ..lu.. -> z <- ..lv.. <- v *)
+              assert (Hconn: exists (l: nodes), d_connected_2 (u, v, l) G Z /\ is_path_in_graph (u, v, l) G = true /\ acyclic_path_2 (u, v, l)).
+              { assert (Hcol: is_path_in_graph (concat u z v lu (rev lv)) G = true /\
+                              acyclic_path_2 (concat u z v lu (rev lv)) /\
+                              d_connected_2 (concat u z v lu (rev lv)) G Z \/
+                              (exists (lu1 lu2 lv' lv1 lv2 : nodes) (x : node),
+                                 is_directed_path_in_graph (v, z, lv') G = true /\
+                                 acyclic_path_2 (v, z, lv') /\
+                                 (forall w : node, w = v \/ In w lv' -> ~ In w Z) /\
+                                 lu = lu1 ++ [x] ++ lu2 /\
+                                 lv = lv1 ++ [x] ++ lv2 /\
+                                 lv' = lv1 ++ [x] ++ lu2 /\
+                                 overlap lu1 lv1 = false /\
+                                 d_connected_2 (u, v, lu1 ++ [x] ++ rev lv1) G Z /\
+                                 is_path_in_graph (u, v, lu1 ++ [x] ++ rev lv1) G = true /\
+                                 acyclic_path_2 (u, v, lu1 ++ [x] ++ rev lv1))).
+                { apply Hconn_col.
+                  - split. apply HzZ. split. apply Huveq. apply Hover.
+                  - split. apply Hdiruz. split. apply Hcycuz. apply HluZ.
+                  - split. apply Hdirvz. split. apply Hcycvz. apply HlvZ. }
+                destruct Hcol as [[Hpath [Hcyc Hconn]] | [lu'' [l [lv' [lv'' [l' [x [_ [_ [_ [_ [_ [_ [_ Hcol]]]]]]]]]]]]]].
+                - exists (lu ++ z :: (rev lv)). split. apply Hconn. split. apply Hpath. apply Hcyc.
+                - exists (lu'' ++ [x] ++ (rev lv'')). apply Hcol. }
+              exfalso. destruct Hconn as [l Hconn]. apply d_connected_path_not_d_separated with (u := u) (v := v) (l := l) (G := G) (Z := Z).
+              ** apply Hconn.
+              ** apply Hconn.
+              ** apply Hdsep.
+            * destruct Hconuz as [lu [luz [ancu' [Hconnuz [Hpathuz [Hdirlu [Hdirluz [Hcycuz HluZ]]]]]]]].
+              (* u <- ..lu.. <- ancu' -> ..luz.. -> z <- ..lv.. <- v *)
+              exfalso. specialize Hconn_con_col with (u := u) (v := v) (ancu' := ancu') (lv := lv) (lu := lu) (luz := luz).
+              apply Hconn_con_col. easy. easy. easy. easy. easy.
+            * split. apply Hancuz. apply Hancu.
+          + destruct Hzlv as [lz [Hconnzv [Hdirzv [Hcyczv HlzZ]]]].
+            (* contradiction, HlzZ says z is not in Z. *)
+            specialize HlzZ with (w := z). exfalso. apply HlzZ. left. reflexivity. apply HzZ.
+          + destruct Hconvz as [lvz [lv [ancv' [Hconnzv [Hpathzv [Hdirlvz [Hdirlv [Hcyczv HlvZ]]]]]]]].
+            (* z <- ..lvz.. <- ancv' -> ..lv.. -> v *)
+            pose proof Hdconn_con as Hconuz. specialize Hconuz with (anc := ancu) (u := u) (v := z).
+            apply Hconuz in Hzu as Hzu'. clear Hconuz. destruct Hzu' as [Hzlu | [Hulz | Hconuz]].
+            * destruct Hzlu as [lz [Hconnzu [Hdirzu [Hcyczu HlzZ]]]]. (* u <- ..lz.. <- z *)
+              (* contradiction, HlzZ says z is not in Z. *)
+              specialize HlzZ with (w := z). exfalso. apply HlzZ. left. reflexivity. apply HzZ.
+            * destruct Hulz as [lu [Hconnuz [Hdiruz [Hcycuz HluZ]]]].
+              (* u -> ..lu.. -> z <- ..lvz.. <- ancv' -> ..lv.. -> v *)
+              exfalso. specialize Hconn_con_col with (u := v) (v := u) (ancu' := ancv') (lv := lu) (lu := lv) (luz := lvz).
+              apply Hconn_con_col. easy. easy.
+              rewrite reverse_list_twice with (l := rev lv ++ ancv' :: lvz). rewrite reverse_list_append. rewrite <- reverse_list_twice.
+              split.
+              -- apply reverse_d_connected_paths. simpl. rewrite <- app_assoc. apply Hconnzv.
+              -- split.
+                 ++ simpl. apply reverse_path_in_graph. rewrite append_vs_concat. apply Hpathzv.
+                 ++ split. simpl. apply reverse_path_still_acyclic. rewrite append_vs_concat. apply Hcyczv.
+                    split. easy. split. easy. intros w Hw. apply HlvZ. destruct Hw as  [Hw | [Hw | Hw]].
+                    left. apply Hw. right. right. apply Hw. right. left. apply Hw.
+              -- (* lemma: d_separated u,v <-> d_separated v,u *) admit.
+              -- (* lemma: overlap l1 l2 = false <-> overlap l2 l1 = false *) admit.
+            * destruct Hconuz as [lu [luz [ancu' [Hconnuz [Hpathuz [Hdirlu [Hdirluz [Hcycuz HluZ]]]]]]]].
+              (* u <- ..lu.. <- ancu' -> ..luz.. -> z <- ..lvz.. <- ancv' -> ..lv.. -> v *)
+              specialize Hconn_con_col' with (u := u) (v := ancv') (ancu' := ancu') (lv := lvz) (lu := lu) (luz := luz).
+              assert (Hcol: exists (x : node) (luz1 lv1 : nodes),
+                   (d_connected_2
+                      (concat u x ancv' (rev lu ++ ancu' :: luz1) (rev lv1)) G Z /\
+                    is_path_in_graph
+                      (concat u x ancv' (rev lu ++ ancu' :: luz1) (rev lv1)) G =
+                    true /\
+                    acyclic_path_2
+                      (concat u x ancv' (rev lu ++ ancu' :: luz1) (rev lv1))) /\
+                   (luz1 = luz /\ lv1 = lvz /\ z = x \/
+                    (exists luz2 lv2 : nodes,
+                       luz = luz1 ++ [x] ++ luz2 /\ lvz = lv1 ++ [x] ++ lv2))).
+              { apply Hconn_con_col'.
+                - admit.
+                - split.
+                  + admit.
+                  + split. apply Hdirlvz. split.
+                    * rewrite reverse_list_twice with (l := lvz). apply reverse_path_still_acyclic.
+                      apply subpath_still_acyclic_2 with (v := v) (l2 := lv) (l3 := rev lvz ++ [ancv'] ++ lv).
+                      split.  reflexivity. apply Hcyczv.
+                    * intros w Hw. apply HlvZ. rewrite <- or_assoc. left. apply Hw.
+                - easy.
+                - admit. (* otherwise, u and v would have a common unblocked ancestor *) }
+              unfold concat in Hcol. destruct Hcol as [x [luz1 [lvz1 Hcol]]]. destruct Hcol as [[Hconnu [Hpathu Hcycu]] Hcol].
+              assert (Hconn: d_connected_2 (concat u ancv' v ((rev lu ++ ancu' :: luz1) ++ x :: rev lvz1) lv) G Z
+                                /\ is_path_in_graph (concat u ancv' v ((rev lu ++ ancu' :: luz1) ++ x :: rev lvz1) lv) G = true
+                                /\ acyclic_path_2 (concat u ancv' v ((rev lu ++ ancu' :: luz1) ++ x :: rev lvz1) lv)).
+              { assert (Hpath: is_path_in_graph (concat u ancv' v ((rev lu ++ ancu' :: luz1) ++ x :: rev lvz1) lv) G = true).
+                { apply concat_paths_still_a_path. split. apply Hpathu. apply directed_path_is_path. apply Hdirlv. }
+                assert (Hcyc: acyclic_path_2 (concat u ancv' v ((rev lu ++ ancu' :: luz1) ++ x :: rev lvz1) lv)).
+                { apply concat_paths_acyclic.
+                  - split. apply Huveq. split. apply Hcycu. apply subpath_still_acyclic with (w := z) (l1 := rev lvz) (l3 := rev lvz ++ [ancv'] ++ lv).
+                    split. reflexivity. apply Hcyczv.
+                  - split.
+                    + admit. (* Hulv *)
+                    + intros Hvmem. apply membership_append_or in Hvmem. destruct Hvmem as [Hvmem | Hmem].
+                      * apply membership_append_or in Hvmem. destruct Hvmem as [Hvmem | Hmem].
+                        -- admit. (* Hvlu *)
+                        -- destruct Hmem as [Hmem | Hmem]. admit. admit. (* v <> ancu', v not in luz (common ancestor) *)
+                      * unfold acyclic_path_2 in Hcyczv. destruct Hcol as [Hcol | Hcol].
+                        -- destruct Hmem as [Hmem | Hmem]. destruct Hcyczv as [Hcyczv _]. apply Hcyczv. destruct Hcol as [_ [_ Hcol]]. rewrite Hcol. apply Hmem.
+                           destruct Hcyczv as [_ [_ [Hcycvz _]]]. apply Hcycvz. apply membership_append. destruct Hcol as [_ [Hcol _]]. rewrite Hcol in Hmem. apply Hmem.
+                        -- destruct Hcyczv as [_ [_ [Hcycvz _]]]. apply Hcycvz. apply membership_append. destruct Hcol as [_ [lvz2 [_ Hluz]]]. rewrite Hluz.
+                           rewrite app_assoc. rewrite reverse_list_append. apply membership_append_r. rewrite reverse_list_append. simpl. simpl in Hmem. apply Hmem.
+                  - admit. }
+                split.
+                - apply concat_d_connected_paths.
+                  + apply HG.
+                  + apply Hpath.
+                  + split. apply Hconnu. split.
+                    * admit.
+                    * apply Hcyc.
+                  + admit. (* make general lemma? Hancu_con *)
+                - split. apply Hpath. apply Hcyc. }
+              unfold concat in Hconn. apply d_connected_path_not_d_separated with (l := ((rev lu ++ ancu' :: luz1) ++ x :: rev lvz1) ++ ancv' :: lv) in Hdsep.
+              -- exfalso. apply Hdsep.
+              -- apply Hconn.
+              -- apply Hconn.
+            * split. apply Hancuz. apply Hancu.
+          + split. apply Hancv. apply Hancvz. }
       unfold find_value in Hv. rewrite HAa in Hv. rewrite HAb in Hv. rewrite Hv. unfold find_value in Hv'. rewrite HAb in Hv'. rewrite HAb' in Hv'. rewrite Hv'.
       reflexivity. } }
   { intros Hcond. remember u' as u. remember v' as v. (* show that if NOT d-separated, then there is a contradiction. *)
