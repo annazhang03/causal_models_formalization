@@ -154,6 +154,7 @@ Proof.
         -- apply IH. apply H1.
 Qed.
 
+
 Fixpoint count (v : nat) (l : list nat) : nat
   := match l with 
       | nil => 0
@@ -380,6 +381,29 @@ Proof.
   intros l. induction l as [| h t IH].
   - simpl. reflexivity.
   - simpl. rewrite reverse_list_append. rewrite <- IH. simpl. reflexivity.
+Qed.
+
+
+Lemma overlap_rev: forall (l1 l2: list nat),
+  overlap l1 l2 = false -> overlap l1 (rev l2) = false.
+Proof.
+  intros l1 l2 H.
+  destruct (overlap l1 (rev l2)) as [|] eqn:F.
+  - apply overlap_has_member_in_common in F. destruct F as [x [Hx1 Hx2]].
+    apply no_overlap_non_member with (x := x) in H.
+    + exfalso. apply H. apply Hx1.
+    + apply membership_rev. apply Hx2.
+  - reflexivity.
+Qed.
+
+Lemma overlap_flip: forall (l1 l2: list nat),
+  overlap l1 l2 = false -> overlap l2 l1 = false.
+Proof.
+  intros l1 l2 H.
+  apply no_overlap_non_member. intros x Hxl1 Hxl2.
+  apply no_overlap_non_member with (x := x) in H.
+  - apply H. apply Hxl1.
+  - apply Hxl2.
 Qed.
 
 Fixpoint max_list (l: list nat) : nat :=
