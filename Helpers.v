@@ -362,10 +362,6 @@ Proof.
       * right. apply H.
 Qed.
 
-Lemma membership_rev: forall (l: list nat) (a: nat),
-  In a (rev l) <-> In a l.
-Proof. Admitted.
-
 Lemma reverse_list_append: forall (l1 l2: list nat),
   rev (l1 ++ l2) = rev l2 ++ rev l1.
 Proof.
@@ -383,6 +379,20 @@ Proof.
   - simpl. rewrite reverse_list_append. rewrite <- IH. simpl. reflexivity.
 Qed.
 
+Lemma membership_rev: forall (l: list nat) (a: nat),
+  In a (rev l) <-> In a l.
+Proof.
+  assert (H: forall (l: list nat) (a: nat), In a l -> In a (rev l)).
+  { intros l a H. induction l as [| h t IH].
+    - exfalso. apply H.
+    - simpl. simpl in H. destruct H as [H | H].
+      + apply membership_append_r. left. apply H.
+      + apply membership_append. apply IH. apply H. }
+  intros l a.
+  split.
+  - intros H1. rewrite reverse_list_twice. apply H. apply H1.
+  - apply H.
+Qed.
 
 Lemma overlap_rev: forall (l1 l2: list nat),
   overlap l1 l2 = false -> overlap l1 (rev l2) = false.
@@ -916,7 +926,16 @@ Qed.
 
 Lemma membership_splits_list: forall (l: list nat) (a: nat),
   In a l <-> exists (l1 l2: list nat), l1 ++ [a] ++ l2 = l.
-Proof. Admitted.
+Proof.
+  intros l a. split.
+  - intros H. induction l as [| h t IH].
+    + exfalso. apply H.
+    + simpl in H. destruct H as [H | H].
+      * exists []. exists t. simpl. rewrite H. reflexivity.
+      * apply IH in H. destruct H as [l1 [l2 H]].
+        exists (h :: l1). exists l2. simpl. rewrite <- H. simpl. reflexivity.
+  - intros [l1 [l2 H]]. rewrite <- H. apply membership_append_r. apply membership_append. left. reflexivity.
+Qed.
 
 Lemma sublist_length_less: forall (l1 l2 l3: list nat) (len': nat),
   length l3 < S len' /\ l1 ++ l2 = l3 /\ ~(l1 = []) -> length l2 < len'.
@@ -1253,5 +1272,13 @@ Proof.
       * constructor.
         -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
         -- apply IHxs. apply IH.
+Qed.
+
+
+Lemma subset_identity: forall (l: list nat),
+  subset l l = true.
+Proof.
+  unfold subset. intros l.
+  apply forallb_true_iff_mem. intros x H. apply member_In_equiv. apply H.
 Qed.
 
