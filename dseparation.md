@@ -192,7 +192,16 @@ Main idea: provide function describing graph that properly conditions on $Z$ but
 <img src="graphs/force_u_equal_v.png" alt="force_u_equal_v" style="width:600px;"/>
 </p>
 
-Induction on $d$-connected path (by number of nodes): if the path minus the first node can be assigned nodefunctions such that all non-collider nodes must have the same value, then adding on the first node preserves this property.
+Induction on $d$-connected path $u \leftrightarrow u_1 \leftrightarrow u_2 \leftrightarrow \cdots \leftrightarrow u_k \leftrightarrow v$: assuming that there exists some graph function that makes $f(u_1) = \cdots = f(u_k) = f(v)$, show the same for $f(u)$.
+
+Base cases: $u \leftarrow v$ and $u \rightarrow v$
+
+Induction step: use casework
+
+1. $u \leftarrow u_1 \rightarrow u_2$
+2. $u \leftarrow u_1 \leftarrow u_2$
+3. $u \rightarrow u_1 \rightarrow u_2$
+4. $u \rightarrow u_1 \leftarrow u_2$
 
 ### Challenges
 
@@ -200,6 +209,7 @@ Induction on $d$-connected path (by number of nodes): if the path minus the firs
 <p align="center">
 <img src="graphs/induction.png" alt="induction" style="width:600px;"/>
 </p>
+
 - For a collider with a descendant conditioned on, the descendant path could overlap the original path. Then, cannot guarantee equality of all node values (need to take new path)
 <p align="center">
 <img src="graphs/collider_descendant_overlap.png" alt="colliderdescendant" style="width:600px;"/>
@@ -240,6 +250,7 @@ Otherwise, some unblocked ancestor $x$ of $v$ changed its unobserved term from $
 <p align="center">
 <img src="graphs/collider_descendant.png" alt="colliderdescendant" style="width:200px;"/>
 </p>
+
 - Also have to guarantee the rest of the path is disjoint. More complicated (intersect multiple places? Path with no colliders?)
 
   - Theorem: if there exist a shared unblocked ancestor $w$ of $u$ and $z$ and a shared unblocked ancestor $x$ of $z$ and $v$, then there exist $w', x'$ such that
@@ -248,3 +259,48 @@ Otherwise, some unblocked ancestor $x$ of $v$ changed its unobserved term from $
     - There are directed paths from $w'$ to $z$ and from $x'$ to $z$ such that they remain the same as each other after intersecting (or never intersect)
     - There is a directed path from $w'$ to $u$ that is disjoint from the paths to $z$
     - There is a directed path from $x'$ to $v$ that is disjoint from the paths to $z$
+
+# Showing equivalence of `find_value` and `get_value_of_node`
+
+```coq
+(* computes value of u using A_eval to find computed values of u's parents *)
+Definition get_value_of_node {X: Type} (u: node) (G: graph) (g: graphfun) (U A_eval: assignments X) : option X :=
+  match (get_assigned_value U u) with
+  | Some unobs => match (get_parent_assignments A_eval (find_parents u G)) with
+                  | Some p => Some ((g u) (unobs, p))
+                  | None => None (* won't reach this, contradicts topo correctness *)
+                  end
+  | None => None (* error, U needs to have unobserved value of all nodes *)
+  end.
+
+(* given topological order of nodes (ts) and partially evaluated assignments (A_eval), returns all node values *)
+Fixpoint get_values_from_topo_sort {X: Type} (ts: nodes) (G: graph) (g: graphfun) (U: assignments X) (A_eval: assignments X) : option (assignments X) :=
+  match ts with
+  | [] => Some A_eval
+  | u :: ts' => match (get_value_of_node u G g U A_eval) with
+                | Some x => get_values_from_topo_sort ts' G g U (add_assignment A_eval u x)
+                | None => None
+                end
+  end.
+
+(* computes values of all nodes in topological order *)
+Definition get_values {X: Type} (G: graph) (g: graphfun) (U: assignments X) : option (assignments X) :=
+  match (topological_sort G) with
+  | Some ts => get_values_from_topo_sort ts G g U []
+  | None => None (* graph is cyclic *)
+  end.
+
+(* returns value of node u after computing values of all nodes in topological order *)
+Definition find_value {X: Type} (G: graph) (g: graphfun) (u: node) (U: assignments X): option X :=
+  match (get_values G g U) with
+  | Some values => get_assigned_value values u
+  | None => None
+  end.
+
+(* goal: show that find_value is really just a call to get_value_of_node after computing u's parent values *)
+Theorem find_value_gives_value_of_node: forall X (G: graph) (g: graphfun) (U: assignments X) (u: node),
+  G_well_formed G = true /\ contains_cycle G = false
+  -> is_assignment_for U (nodes_in_graph G) = true /\ node_in_graph u G = true
+  -> exists (P: assignments X), find_values G g (find_parents u G) U = Some P
+                             /\ find_value G g u U = get_value_of_node u G g U P.
+```
