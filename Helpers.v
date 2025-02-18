@@ -53,6 +53,18 @@ Proof.
         -- apply IH. apply H.
 Qed.
 
+Lemma member_In_equiv_F : 
+  forall (l : list nat) (x: nat), member x l = false <-> ~(In x l).
+Proof.
+  intros l x.
+  split.
+  - intros Hmem F. apply member_In_equiv in F. rewrite F in Hmem. discriminate Hmem.
+  - intros Hmem. destruct (member x l) as [|] eqn:F.
+    + exfalso. apply Hmem. apply member_In_equiv. apply F.
+    + reflexivity.
+Qed.
+
+
 Theorem length_member: forall (l: list nat) (n': nat),
   (length l = S n') -> exists x, In x l.
 Proof.
@@ -1019,6 +1031,19 @@ Proof.
       * simpl in H. rewrite eqb_refl in H. simpl in H. rewrite andb_comm in H. discriminate H.
       * simpl in H. apply split_and_true in H. destruct H as [_ H]. apply split_and_true in H. destruct H as [H _].
         simpl. right. left. apply eqb_eq in H. rewrite H. reflexivity.
+    + simpl. right. apply IH. apply H.
+Qed.
+
+Lemma first_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c v: nat),
+  sublist [a; b; c] (l ++ [v]) = true -> In a l.
+Proof.
+  intros l a b c v H.
+  induction l as [| h t IH].
+  - simpl in H. rewrite orb_comm in H. simpl in H. rewrite andb_comm in H. simpl in H. discriminate H.
+  - simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + destruct t as [| h' t'].
+      * simpl in H. rewrite andb_comm in H. rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H.
+      * simpl in H. apply split_and_true in H. destruct H as [H _]. left. apply eqb_eq in H. rewrite H. reflexivity.
     + simpl. right. apply IH. apply H.
 Qed.
 
