@@ -1248,11 +1248,33 @@ Proof.
       apply sublist_breaks_down_list. exists (l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
 Qed.
 
-Lemma start_of_sublist_still_sublist: forall (a w b v: nat) (t: list nat),
-  sublist [a; w; b] (t ++ [v]) = true
-  -> sublist [a; w] (t ++ [v]) = true.
+Lemma end_of_sublist_still_sublist_2: forall (a1 a a2 h v: nat) (t: list nat),
+  sublist [a1; a; a2] (h :: t ++ [v]) = true
+  -> sublist [a; a2] (h :: t ++ [v]) = true.
 Proof.
-  intros a w b v t H.
+  intros a1 a a2 h v t H.
+  simpl in H. destruct (a1 =? h) as [|] eqn:Ha1h.
+  - destruct (match t ++ [v] with
+    | [] => false
+    | h2 :: t2 => (a =? h2) && match t2 with
+                               | [] => false
+                               | h3 :: _ => (a2 =? h3) && true
+                               end
+    end) as [|] eqn:H1.
+    + simpl. destruct t as [| h' t'].
+      * simpl in H1. rewrite andb_comm in H1. discriminate H1.
+      * simpl. simpl in H1. rewrite H1. rewrite orb_comm. simpl. reflexivity.
+    + simpl in H. apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+      apply sublist_breaks_down_list. exists (h :: l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
+  - simpl in H. apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+      apply sublist_breaks_down_list. exists (h :: l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
+Qed.
+
+Lemma start_of_sublist_still_sublist: forall (a w b: nat) (l: list nat),
+  sublist [a; w; b] l = true
+  -> sublist [a; w] l = true.
+Proof.
+  intros a w b l H.
   apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
   apply sublist_breaks_down_list. exists l1. exists (b :: l2). rewrite <- H. simpl. reflexivity.
 Qed.
