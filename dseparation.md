@@ -111,8 +111,6 @@ f(v) = x
 - Harder, probably induction (or maybe prove not independent $\Rightarrow$ $d$-separated?)
 - Now $u, p$ don't have to be independent -- there could be a path from $u \leftrightarrow \cdots \leftrightarrow p \leftrightarrow \cdots v$. We know that it's blocked, but we don't know where ($p$ could totally depend on $u$)
 
-# Update (1/17/2025)
-
 - Reformulated definition of conditional independence
 - Worked through both directions on paper, partially proved both directions in Coq
 
@@ -304,3 +302,39 @@ Theorem find_value_gives_value_of_node: forall X (G: graph) (g: graphfun) (U: as
   -> exists (P: assignments X), find_values G g (find_parents u G) U = Some P
                              /\ find_value G g u U = get_value_of_node u G g U P.
 ```
+
+# Update (2/21/2025)
+
+## Subtle case that could allow $u$ and $v$ to be not "conditionally independent," but $d$-separated
+
+Original definition of onditional independence: In assignment of unobserved values that properly conditions on $Z$ where the value of $u$ is $a$,
+
+1. Allow unblocked ancestors of $u$ to change to take on $b$
+2. Allow unblocked ancestors of **nodes in $Z$ that changed value due to step 1** to change to re-condition on $Z$, with $u$ still taking on $b$
+3. Ensure that $v$ still takes on the same value that it did before any changes were made
+
+<p align="center">
+<img src="graphs/newdefinition.JPG" alt="doublecondition" style="width:700px;"/>
+</p>
+
+- First two graphs work with original definition:
+
+  - Leftmost: $u$ and $v$ are $d$-separated by mediator $z$. If $u$ changes to take on value $b$, the value of $z$ might change. In step 2, the value of $a$ could change in order to change the value of $z$ back to its conditioned value. This will change the value of $v$ back to its original value $\Rightarrow$ conditionally independent
+  - Middle: $u$ and $v$ are $d$-donnceted by collider $z$. If $a$ changes to change the value of $z$ back to conditioned value in step 2, the value of $v$ could also change $\Rightarrow$ _not_ conditionally independent
+
+- Rightmost definition fails for the original definition: $u$ and $v$ are $d$-separated by mediator $z_1$. If $u$ changes to take on value $b$, then $z_1$ could change its value, so $z_2$ could also change its value. Then, $a$ could change its value, which could change the value of $v$ $\Rightarrow$ _not_ conditionally independent
+
+## Update to definition
+
+Key lemma:
+For a node $u$, if $A_{U_1}(u) \neq A_{U_2}(u)$ **and both $U_1$ and $U_2$ properly condition on $Z$**, then there must be a node $w$ such that
+
+1. $w$ is an unblocked ancestor of $u$
+2. $A_{U_1}(w) \neq A_{U_2}(w)$
+3. $U_1(w) \neq U_2(w)$
+
+Conditional independence: In assignment of unobserved values that properly conditions on $Z$ where the value of $u$ is $a$,
+
+1. Allow unblocked ancestors of $u$ to change to take on $b$
+2. Allow unblocked ancestors of **nodes in $Z$ with an unblocked ancestor that changed in step 1** to change to re-condition on $Z$, with $u$ still taking on $b$
+3. Ensure that $v$ still takes on the same value that it did before any changes were made
