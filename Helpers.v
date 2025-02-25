@@ -1272,6 +1272,20 @@ Proof.
       apply sublist_breaks_down_list. exists (h :: l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
 Qed.
 
+Lemma end_of_sublist_still_sublist_gen: forall (a h: nat) (t l: list nat),
+  sublist (a :: l) (h :: t) = true
+  -> sublist l t = true.
+Proof.
+  intros a h t l H.
+  generalize dependent h. induction t as [| h' t' IH].
+  - intros h H. simpl in H. destruct (a =? h) as [|] eqn:Hah.
+    + simpl in H. destruct l as [| hl tl]. simpl. reflexivity. simpl in H. discriminate H.
+    + simpl in H. discriminate H.
+  - intros h H. simpl in H. destruct ((a =? h) && prefix l (h' :: t')) as [|] eqn:H'.
+    + apply split_and_true in H'. simpl. destruct H' as [_ H']. rewrite H'. reflexivity.
+    + simpl in H. apply IH in H. simpl. rewrite H. rewrite orb_comm. reflexivity.
+Qed.
+
 Lemma start_of_sublist_still_sublist: forall (a w b: nat) (l: list nat),
   sublist [a; w; b] l = true
   -> sublist [a; w] l = true.
