@@ -1068,6 +1068,19 @@ Proof.
     + simpl. right. apply IH. apply H.
 Qed.
 
+Lemma first_elt_of_sublist_not_last_elt_gen: forall (l t: list nat) (a b v: nat),
+  sublist (a :: b :: t) (l ++ [v]) = true -> In a l.
+Proof.
+  intros l t a b v H.
+  induction l as [| hl tl IH].
+  - simpl in H. rewrite orb_comm in H. simpl in H. rewrite andb_comm in H. simpl in H. discriminate H.
+  - simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + destruct t as [| h' t'].
+      * simpl in H. rewrite andb_comm in H. apply split_and_true in H. left. destruct H as [_ H]. apply eqb_eq in H. rewrite H. reflexivity.
+      * simpl in H. apply split_and_true in H. destruct H as [H _]. left. apply eqb_eq in H. rewrite H. reflexivity.
+    + simpl. right. apply IH. apply H.
+Qed.
+
 Lemma middle_elt_of_sublist_not_first_elt: forall (l: list nat) (a b c: nat),
   sublist [a; b; c] (b :: l) = true -> In b l.
 Proof.

@@ -4374,7 +4374,7 @@ Fixpoint find_mediators_in_nodes (l: nodes) (G: graph) : nodes :=
   | h :: t => match t with
               | [] => []
               | h1 :: [] => []
-              | h1 :: (h2 :: t2) => if (is_mediator_bool h h2 h1 G) then h1 :: (find_mediators_in_nodes t G)
+              | h1 :: (h2 :: t2) => if (is_mediator_bool h h2 h1 G || is_mediator_bool h2 h h1 G) then h1 :: (find_mediators_in_nodes t G)
                                     else find_mediators_in_nodes t G
               end
   end.
@@ -4387,7 +4387,9 @@ Definition find_mediators_in_path (p: path) (G: graph) : nodes :=
 
 Theorem mediators_vs_edges_in_path: forall (l: nodes) (G: graph) (x: node),
   In x (find_mediators_in_nodes l G)
-    <-> exists y z: node, sublist [y; x; z] l = true /\ is_edge (y, x) G = true /\ is_edge (x, z) G = true.
+    <-> exists y z: node, sublist [y; x; z] l = true
+        /\ ((is_edge (y, x) G = true /\ is_edge (x, z) G = true)
+            \/ (is_edge (x, y) G = true /\ is_edge (z, x) G = true)).
 Proof.
   intros l G x. split.
   { intros Hmed. induction l as [| h t IH].
@@ -4401,17 +4403,28 @@ Proof.
            { exists h. exists h''. split.
              - rewrite <- Hhx. simpl.
                rewrite eqb_refl. simpl. rewrite eqb_refl. simpl. rewrite eqb_refl. reflexivity.
-             - unfold is_mediator_bool in Hmed2. apply split_and_true in Hmed2.
+             - left. unfold is_mediator_bool in Hmed2. apply split_and_true in Hmed2.
                rewrite <- Hhx. apply Hmed2. }
            { apply IH in Hind. destruct Hind as [y Hind]. destruct Hind as [z Hind].
              exists y. exists z. split.
              - destruct Hind as [Hsub _]. simpl. apply split_orb_true. right. apply Hsub.
              - destruct Hind as [_ Hedge]. apply Hedge. }
-        -- simpl in Hmed. rewrite Hmed2 in Hmed. simpl in Hmed. apply IH in Hmed.
-           destruct Hmed as [y [z Hmed]]. exists y. exists z.
-           split.
-           { destruct Hmed as [Hsub _]. simpl. apply split_orb_true. right. apply Hsub. }
-           { destruct Hmed as [_ Hedge]. apply Hedge. } }
+        -- simpl in Hmed. rewrite Hmed2 in Hmed. simpl in Hmed. destruct (is_mediator_bool h'' h h') as [|] eqn:Hmed3.
+           ++ simpl in Hmed. destruct Hmed as [Hhx | Hind].
+              { exists h. exists h''. split.
+                - rewrite <- Hhx. simpl.
+                  rewrite eqb_refl. simpl. rewrite eqb_refl. simpl. rewrite eqb_refl. reflexivity.
+                - right. unfold is_mediator_bool in Hmed3. apply split_and_true in Hmed3.
+                  rewrite <- Hhx. apply and_comm. apply Hmed3. }
+              { apply IH in Hind. destruct Hind as [y Hind]. destruct Hind as [z Hind].
+                exists y. exists z. split.
+                - destruct Hind as [Hsub _]. simpl. apply split_orb_true. right. apply Hsub.
+                - destruct Hind as [_ Hedge]. apply Hedge. }
+           ++ simpl in Hmed. apply IH in Hmed.
+              destruct Hmed as [y [z Hmed]]. exists y. exists z.
+              split.
+              { destruct Hmed as [Hsub _]. simpl. apply split_orb_true. right. apply Hsub. }
+              { destruct Hmed as [_ Hedge]. apply Hedge. } }
   { intros [y [z [Hsub Hedge]]]. induction l as [| h t IH].
   - simpl in Hsub. discriminate Hsub.
   - destruct t as [| h' t'].
@@ -4428,28 +4441,55 @@ Proof.
       * simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hyxz | Hind].
         -- apply split_and_true in Hyxz. destruct Hyxz as [Hy Hxz].
            apply split_and_true in Hxz. destruct Hxz as [Hx Hz].
-           rewrite andb_comm in Hz. simpl in Hz.
-           assert (Hmed: (is_mediator_bool h h'' h' G) = true).
+           rewrite andb_comm in Hz. simpl in Hz. simpl.
+           assert (Hmed: (is_mediator_bool h h'' h' G || is_mediator_bool h'' h h' G) = true).
            { unfold is_mediator_bool.
              rewrite eqb_eq in Hy. rewrite <- Hy.
              rewrite eqb_eq in Hx. rewrite <- Hx.
-             rewrite eqb_eq in Hz. rewrite <- Hz.
-             destruct Hedge as [Hyx Hxz]. rewrite Hyx. rewrite Hxz. reflexivity. }
+             rewrite eqb_eq in Hz. rewrite <- Hz. apply split_orb_true. rewrite split_and_true. rewrite split_and_true.
+             destruct Hedge as [Hedge | Hedge]. left. apply Hedge. right. rewrite and_comm. apply Hedge. }
            simpl. rewrite Hmed. simpl. left. rewrite eqb_eq in Hx. rewrite Hx. reflexivity.
         -- apply IH in Hind. destruct (is_mediator_bool h h'' h' G) as [|] eqn:Hmed.
            { simpl. rewrite Hmed. simpl. right. apply Hind. }
-           { simpl. rewrite Hmed. apply Hind. } }
+           { simpl. rewrite Hmed. simpl. destruct (is_mediator_bool h'' h h' G) as [|] eqn:Hmed'.
+             - simpl. right. apply Hind.
+             - apply Hind. } }
 Qed.
 
 Theorem directed_path_all_mediators: forall (u v m: node) (l: nodes) (G: graph),
   is_directed_path_in_graph (u, v, l) G = true /\ In m l -> In m (find_mediators_in_path (u, v, l) G).
 Proof.
-Admitted.
+  intros u v m l G [Hp Hm].
+  generalize dependent u. induction l as [| h t IH].
+  - intros u H. exfalso. apply Hm.
+  - intros u Hp. destruct Hm as [Hm | Hm].
+    + simpl. destruct t as [| h' t'].
+      * simpl. simpl in Hp. unfold is_mediator_bool. apply split_and_true in Hp. rewrite split_and_true in Hp. destruct Hp as [Huh [Hhv _]].
+        rewrite Huh. rewrite Hhv. simpl. left. apply Hm.
+      * simpl. simpl in Hp. unfold is_mediator_bool. apply split_and_true in Hp. rewrite split_and_true in Hp. destruct Hp as [Huh [Hhv _]].
+        rewrite Huh. rewrite Hhv. simpl. left. apply Hm.
+    + simpl. destruct t as [| h' t'].
+      * exfalso. apply Hm.
+      * simpl. destruct (is_mediator_bool u h' h G || is_mediator_bool h' u h G) as [|] eqn:H'.
+        -- simpl. right. apply IH.
+           ++ apply Hm.
+           ++ simpl in Hp. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
+        -- simpl. apply IH.
+           ++ apply Hm.
+           ++ simpl in Hp. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
+Qed.
 
 Theorem mediators_same_in_reverse_path: forall (u v m: node) (l: nodes) (G: graph),
   In m (find_mediators_in_path (u, v, l) G) -> In m (find_mediators_in_path (v, u, rev l) G).
-Proof. (* TODO need to change defn of mediators to include this *)
-Admitted.
+Proof.
+  intros u v m l G H.
+  apply mediators_vs_edges_in_path. apply mediators_vs_edges_in_path in H. destruct H as [y [z [Hsub Hedge]]].
+  exists z. exists y. split.
+  - apply sublist_rev in Hsub. simpl in Hsub. rewrite reverse_list_append in Hsub. simpl in Hsub. apply Hsub.
+  - destruct Hedge as [Hedge | Hedge].
+    + right. rewrite and_comm. apply Hedge.
+    + left. rewrite and_comm. apply Hedge.
+Qed.
 
 (* p contains chain A -> B -> C, where B in Z (the conditioning set) *)
 Definition is_blocked_by_mediator_2 (p: path) (G: graph) (Z: nodes) : bool :=
@@ -4544,8 +4584,12 @@ Qed.
 Theorem confounders_same_in_reverse_path: forall (u v m: node) (l: nodes) (G: graph),
   In m (find_confounders_in_path (u, v, l) G) -> In m (find_confounders_in_path (v, u, rev l) G).
 Proof.
-(* TODO use sublist theorem *)
-Admitted.
+  intros u v m l G H.
+  apply confounders_vs_edges_in_path. apply confounders_vs_edges_in_path in H. destruct H as [y [z [Hsub Hedge]]].
+  exists z. exists y. split.
+  - apply sublist_rev in Hsub. simpl in Hsub. rewrite reverse_list_append in Hsub. simpl in Hsub. apply Hsub.
+  - rewrite and_comm. apply Hedge.
+Qed.
 
 (* p contains fork A <- B -> C, where B in Z (the conditioning set) *)
 Definition is_blocked_by_confounder_2 (p: path) (G: graph) (Z: nodes) : bool :=
@@ -4669,8 +4713,12 @@ Qed.
 Theorem colliders_same_in_reverse_path: forall (u v m: node) (l: nodes) (G: graph),
   In m (find_colliders_in_path (u, v, l) G) -> In m (find_colliders_in_path (v, u, rev l) G).
 Proof.
-(* TODO use sublist theorem *)
-Admitted.
+  intros u v m l G H.
+  apply colliders_vs_edges_in_path. apply colliders_vs_edges_in_path in H. destruct H as [y [z [Hsub Hedge]]].
+  exists z. exists y. split.
+  - apply sublist_rev in Hsub. simpl in Hsub. rewrite reverse_list_append in Hsub. simpl in Hsub. apply Hsub.
+  - rewrite and_comm. apply Hedge.
+Qed.
 
 
 
@@ -4944,9 +4992,53 @@ Theorem intermediate_node_in_path: forall G: graph, forall u v x: node, forall l
 Proof. (* TODO should me much more doable with sublist definition *)
   intros G u v x l.
   intros Hpath. split.
-  - intros Hmem.
-  unfold is_path_in_graph in Hpath. simpl in Hpath.
-Admitted.
+  - intros Hmem. generalize dependent u. induction l as [| h t IH].
+    + exfalso. apply Hmem.
+    + intros u Hu. destruct Hmem as [Hmem | Hmem].
+      * rewrite <- Hmem. simpl in Hu. destruct G as [V E]. apply split_and_true in Hu. destruct Hu as [Hhu Hu].
+        destruct t as [| h' t'].
+        -- simpl in Hu. rewrite andb_comm in Hu. simpl in Hu. apply split_orb_true in Hu. apply split_orb_true in Hhu.
+           destruct Hhu as [Huh | Hhu]. destruct Hu as [Hhv | Hvh].
+           ++ left. apply mediators_vs_edges_in_path. exists u. exists v. split.
+              simpl. repeat rewrite eqb_refl. reflexivity. left. rewrite Huh. split. reflexivity. apply Hhv.
+           ++ right. right. apply colliders_vs_edges_in_path. exists u. exists v. split. simpl. repeat rewrite eqb_refl. reflexivity.
+              split. apply Huh. apply Hvh.
+           ++ destruct Hu as [Hhv | Hvh].
+              ** right. left. apply confounders_vs_edges_in_path. exists u. exists v. split.
+                 simpl. repeat rewrite eqb_refl. reflexivity. split. apply Hhu. apply Hhv.
+              ** left. apply mediators_vs_edges_in_path. exists u. exists v. split.
+                 simpl. repeat rewrite eqb_refl. reflexivity. right. split. apply Hhu. apply Hvh.
+        -- simpl in Hu. apply split_and_true in Hu. destruct Hu as [Hu _]. apply split_orb_true in Hu. apply split_orb_true in Hhu.
+           destruct Hhu as [Huh | Hhu]. destruct Hu as [Hhv | Hvh].
+           ++ left. apply mediators_vs_edges_in_path. exists u. exists h'. split.
+              simpl. repeat rewrite eqb_refl. reflexivity. left. rewrite Huh. split. reflexivity. apply Hhv.
+           ++ right. right. apply colliders_vs_edges_in_path. exists u. exists h'. split. simpl. repeat rewrite eqb_refl. reflexivity.
+              split. apply Huh. apply Hvh.
+           ++ destruct Hu as [Hhv | Hvh].
+              ** right. left. apply confounders_vs_edges_in_path. exists u. exists h'. split.
+                 simpl. repeat rewrite eqb_refl. reflexivity. split. apply Hhu. apply Hhv.
+              ** left. apply mediators_vs_edges_in_path. exists u. exists h'. split.
+                 simpl. repeat rewrite eqb_refl. reflexivity. right. split. apply Hhu. apply Hvh.
+      * specialize IH with (u := h). apply IH in Hmem.
+        2: { simpl in Hu. destruct G as [V E]. apply split_and_true in Hu. apply Hu. }
+        destruct Hmem as [H | [H | H]].
+        -- left. simpl. destruct t as [| h' t'].
+           ++ simpl. simpl in H. exfalso. apply H.
+           ++ simpl. destruct (is_mediator_bool u h' h G || is_mediator_bool h' u h G) as [|]. right. apply H. apply H.
+        -- right. left. destruct t as [| h' t'].
+           ++ simpl. simpl in H. exfalso. apply H.
+           ++ simpl. destruct (is_confounder_bool u h' h G) as [|]. right. apply H. apply H.
+        -- right. right. destruct t as [| h' t'].
+           ++ simpl. simpl in H. exfalso. apply H.
+           ++ simpl. destruct (is_collider_bool u h' h G) as [|]. right. apply H. apply H.
+  - intros Hx. destruct Hx as [Hx | [Hx | Hx]].
+    + apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [Hsub Hedg]]].
+      apply end_of_sublist_still_sublist_gen in Hsub. apply first_elt_of_sublist_not_last_elt_gen in Hsub. apply Hsub.
+    + apply confounders_vs_edges_in_path in Hx. destruct Hx as [y [z [Hsub Hedg]]].
+      apply end_of_sublist_still_sublist_gen in Hsub. apply first_elt_of_sublist_not_last_elt_gen in Hsub. apply Hsub.
+    + apply colliders_vs_edges_in_path in Hx. destruct Hx as [y [z [Hsub Hedg]]].
+      apply end_of_sublist_still_sublist_gen in Hsub. apply first_elt_of_sublist_not_last_elt_gen in Hsub. apply Hsub.
+Qed.
 
 Theorem if_mediator_then_not_confounder: forall (G: graph) (u v x: node),
   contains_cycle G = false -> is_mediator_bool u v x G = true
@@ -4979,6 +5071,7 @@ Theorem if_mediator_then_not_confounder_path: forall (G: graph) (u: node) (p: pa
   contains_cycle G = false -> In u (find_mediators_in_path p G)
   -> ~(In u (find_confounders_in_path p G)) /\ ~(In u (find_colliders_in_path p G)).
 Proof.
+  intros G u p Hcyc Hu. 
 Admitted.
 
 Theorem if_confounder_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
@@ -5503,12 +5596,15 @@ Proof.
     + apply overlap_has_member_in_common in Hover. destruct Hover as [x [HxZ Hx]].
       apply no_overlap_non_member with (x := x) in H.
       * exfalso. apply H. apply HxZ.
-      * apply mediators_vs_edges_in_path. apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [Hyz [Hyx Hxz]]]].
-        exists y. exists z. repeat split.
-        -- apply sublist_breaks_down_list. apply sublist_breaks_down_list in Hyz. destruct Hyz as [l2 [l3 Hl23]].
-           exists (u :: l2). exists l3. simpl. rewrite <- Hl23. simpl. reflexivity.
-        -- apply Hyx.
-        -- apply Hxz.
+      * apply mediators_vs_edges_in_path. apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [Hyz [[Hyx Hxz] | [Hxy Hzx]]]]].
+        { exists y. exists z. repeat split.
+          -- apply sublist_breaks_down_list. apply sublist_breaks_down_list in Hyz. destruct Hyz as [l2 [l3 Hl23]].
+             exists (u :: l2). exists l3. simpl. rewrite <- Hl23. simpl. reflexivity.
+          -- left. split. apply Hyx. apply Hxz. }
+        { exists y. exists z. repeat split.
+          -- apply sublist_breaks_down_list. apply sublist_breaks_down_list in Hyz. destruct Hyz as [l2 [l3 Hl23]].
+             exists (u :: l2). exists l3. simpl. rewrite <- Hl23. simpl. reflexivity.
+          -- right. split. apply Hxy. apply Hzx. }
     + reflexivity.
   - destruct H as [_ [H _]].
     destruct (overlap Z (find_confounders_in_path (h, v, t) G)) as [|] eqn:Hover.
@@ -6265,26 +6361,26 @@ Proof.
       * unfold path_into_start in Hin. destruct l as [| h t].
         -- apply is_edge_then_node_in_graph with (v := v). right. rewrite <- Hx. apply Hin.
         -- apply is_edge_then_node_in_graph with (v := h). right. rewrite <- Hx. apply Hin.
-      * apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [Hx _]]]].
-        apply is_edge_then_node_in_graph with (v := y). right. apply Hx.
-    + apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [Hx _]]]].
-      apply is_edge_then_node_in_graph with (v := y). right. apply Hx.
+      * apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [[Hx _] | [Hx _]]]]].
+        apply is_edge_then_node_in_graph with (v := y). right. apply Hx. apply is_edge_then_node_in_graph with (v := y). left. apply Hx.
+    + apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [[Hx _] | [Hx _ ]]]]].
+      apply is_edge_then_node_in_graph with (v := y). right. apply Hx. apply is_edge_then_node_in_graph with (v := y). left. apply Hx.
   - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
     + destruct Hx as [Hx | Hx].
       * unfold path_into_start in Hin. destruct l as [| h t].
         -- apply is_edge_then_node_in_graph with (v := v). right. rewrite <- Hx. apply Hin.
         -- apply is_edge_then_node_in_graph with (v := h). right. rewrite <- Hx. apply Hin.
       * apply membership_append_or in Hx. destruct Hx as [Hx | Hx].
-        -- apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [Hx _]]]].
-           apply is_edge_then_node_in_graph with (v := y). right. apply Hx.
+        -- apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [[Hx _] | [Hx _]]]]].
+           apply is_edge_then_node_in_graph with (v := y). right. apply Hx. apply is_edge_then_node_in_graph with (v := y). left. apply Hx.
         -- destruct Hx as [Hx | F].
            ++ apply nodes_in_graph_in_V with (p := (u, v, l)). split.
               ** unfold node_in_path. simpl. rewrite Hx. rewrite eqb_refl. rewrite <- orb_assoc. rewrite orb_comm. reflexivity.
               ** apply Hp.
            ++ exfalso. apply F.
     + apply membership_append_or in Hx. destruct Hx as [Hx | Hx].
-        -- apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [Hx _]]]].
-           apply is_edge_then_node_in_graph with (v := y). right. apply Hx.
+        -- apply mediators_vs_edges_in_path in Hx. destruct Hx as [y [z [_ [[Hx _] | [Hx _]]]]].
+           apply is_edge_then_node_in_graph with (v := y). right. apply Hx. apply is_edge_then_node_in_graph with (v := y). left. apply Hx.
         -- destruct Hx as [Hx | F].
            ++ apply nodes_in_graph_in_V with (p := (u, v, l)). split.
               ** unfold node_in_path. simpl. rewrite Hx. rewrite eqb_refl. rewrite <- orb_assoc. rewrite orb_comm. reflexivity.
@@ -6380,48 +6476,6 @@ Proof.
   simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
 Qed.
 
-Lemma A1_induction_case: forall (G: graph) (u h v: node) (t: nodes),
-  is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
-  -> path_into_start (u, v, h :: t) G = true /\ path_out_of_h G u v h t = true -> get_A1_binded_nodes_in_g_path G (u, v, h :: t) = u :: (get_A1_binded_nodes_in_g_path G (h, v, t)).
-Proof.
-  intros G u h v t [Hp Hcyc] [Hin Houth].
-  unfold get_A1_binded_nodes_in_g_path.
-  destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
-  - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
-    rewrite path_out_of_h_same in Houth. apply acyclic_path_one_direction in Houth.
-    + rewrite Houth. f_equal. simpl. destruct t as [| h' t'].
-      * simpl. assert (Hmed: is_mediator_bool u v h G = false).
-        { unfold is_mediator_bool. simpl in Hin. apply acyclic_no_two_cycle in Hin.
-          - rewrite Hin. reflexivity.
-          - apply Hcyc. }
-        rewrite Hmed. reflexivity.
-      * assert (Hmed: is_mediator_bool u h' h G = false).
-        { unfold is_mediator_bool. simpl in Hin. apply acyclic_no_two_cycle in Hin.
-          - rewrite Hin. reflexivity.
-          - apply Hcyc. }
-        simpl. rewrite Hmed. reflexivity.
-    + split.
-      * simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
-      * apply Hcyc.
-  - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
-    rewrite path_out_of_h_same in Houth. apply acyclic_path_one_direction in Houth.
-    + rewrite Houth. f_equal. simpl. destruct t as [| h' t'].
-      * simpl. assert (Hmed: is_mediator_bool u v h G = false).
-        { unfold is_mediator_bool. simpl in Hin. apply acyclic_no_two_cycle in Hin.
-          - rewrite Hin. reflexivity.
-          - apply Hcyc. }
-        rewrite Hmed. reflexivity.
-      * assert (Hmed: is_mediator_bool u h' h G = false).
-        { unfold is_mediator_bool. simpl in Hin. apply acyclic_no_two_cycle in Hin.
-          - rewrite Hin. reflexivity.
-          - apply Hcyc. }
-        simpl. rewrite Hmed. reflexivity.
-    + split.
-      * apply is_path_in_graph_induction with (u := u). apply Hp.
-      * apply Hcyc.
-  -  apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Qed.
-
 Lemma A1_induction_into_start: forall (G: graph) (u h v: node) (t: nodes),
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
   -> path_into_start (u, v, h :: t) G = true -> get_A1_binded_nodes_in_g_path G (u, v, h :: t) = u :: (get_A1_binded_nodes_in_g_path G (h, v, t)).
@@ -6432,23 +6486,21 @@ Proof.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     destruct (path_into_start (h, v, t) G) as [|] eqn:Hinh.
     + simpl. destruct t as [| h' t']. simpl.
-      * unfold is_mediator_bool. admit. (* need to add backwards edges for mediator. Here, (h, u) is an edge and so is (v, h) *)
-      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin.
-        (* need to add backwards edges for mediator. Here, (h, u) is an edge and so is (h', h) *) admit.
+      * unfold is_mediator_bool. simpl in Hin. rewrite Hin. simpl in Hinh. rewrite Hinh. rewrite orb_comm. simpl. reflexivity.
+      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. rewrite Hin. rewrite Hinh. rewrite orb_comm. simpl. reflexivity.
     + simpl. destruct t as [| h' t']. simpl.
-      * unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity. apply Hcyc.
-      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity. apply Hcyc.
+      * unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity. apply Hcyc.
+      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity. apply Hcyc.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     destruct (path_into_start (h, v, t) G) as [|] eqn:Hinh.
     + simpl. destruct t as [| h' t']. simpl.
-      * unfold is_mediator_bool. simpl in Hin. simpl in Hinh. admit. (* need to add backwards edges for mediator. Here, (h, u) is an edge and so is (v, h) *)
-      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin.
-        (* need to add backwards edges for mediator. Here, (h, u) is an edge and so is (h', h) *) admit.
+      * unfold is_mediator_bool. simpl in Hin. simpl in Hinh. rewrite Hinh. rewrite Hin. rewrite orb_comm. simpl. reflexivity.
+      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. rewrite Hinh. rewrite Hin. rewrite orb_comm. simpl. reflexivity.
     + simpl. destruct t as [| h' t']. simpl.
-      * unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity. apply Hcyc.
-      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity. apply Hcyc.
-  -  apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Admitted.
+      * unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity. apply Hcyc.
+      * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity. apply Hcyc.
+  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
+Qed.
 
 Lemma A1_induction_out_of_start_out_of_h: forall (G: graph) (u h v: node) (t: nodes),
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
@@ -6508,22 +6560,29 @@ Proof.
   + assert (Hmed: find_mediators_in_path (u, h, rev t) G = find_mediators_in_path (u, v, rev (h :: t)) G).
     { simpl in H. simpl. simpl in Hpath. generalize dependent u. induction (rev t) as [| h' t' IH].
       - intros u H Hpath Houth. simpl. unfold is_mediator_bool. simpl in Houth. inversion Houth.
-        assert (Huh: is_edge (u, h) G = false). { apply acyclic_no_two_cycle. apply Hcyc. apply H1. } rewrite Huh. simpl. reflexivity.
+        assert (Huh: is_edge (u, h) G = false). { apply acyclic_no_two_cycle. apply Hcyc. apply H1. } rewrite Huh. simpl. simpl in H. inversion H. rewrite H2. reflexivity.
       - intros u H Hpath Houth. simpl. destruct t' as [| h'' t''].
         + simpl. destruct (is_mediator_bool u h h' G) as [|] eqn:Huhh'.
           * unfold is_mediator_bool. simpl in Houth. inversion Houth.
-            assert (Huh: is_edge (h', h) G = false). { apply acyclic_no_two_cycle. apply Hcyc. apply H1. } rewrite Huh. simpl. reflexivity.
+            assert (Huh: is_edge (h', h) G = false). { apply acyclic_no_two_cycle. apply Hcyc. apply H1. } rewrite Huh. simpl. rewrite H1. simpl.
+            simpl in H. inversion H. rewrite H2. reflexivity.
           * simpl in H. unfold is_mediator_bool. unfold is_mediator_bool in Huhh'. simpl in Houth. inversion Houth.
-            assert (Huh: is_edge (h', h) G = false). { apply acyclic_no_two_cycle. apply Hcyc. apply H1. } rewrite Huh. simpl. reflexivity.
+            assert (Huh: is_edge (h', h) G = false). { apply acyclic_no_two_cycle. apply Hcyc. apply H1. } rewrite Huh. simpl. rewrite H1. simpl.
+            inversion H. rewrite H2. simpl. reflexivity.
         + simpl. destruct (is_mediator_bool u h'' h' G) as [|] eqn:Huhh'.
-          * f_equal. simpl in IH. apply IH.
+          * f_equal. simpl in IH. simpl. f_equal. apply IH.
             -- simpl in H. apply H.
             -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply Hpath.
             -- simpl in Houth. apply Houth.
-          * apply IH.
+          * simpl. f_equal. destruct (is_mediator_bool h'' u h' G) as [|].
+            { simpl. f_equal. apply IH.
+            -- simpl in H. apply H.
+            -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply Hpath.
+            -- simpl in Houth. apply Houth. }
+            { apply IH.
             -- simpl in H. simpl. apply H.
             -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply Hpath.
-            -- simpl in Houth. simpl. apply Houth. }
+            -- simpl in Houth. simpl. apply Houth. } }
     rewrite Hmed. destruct (path_into_start (u, v, rev (h :: t)) G) as [|] eqn:Hin.
     - rewrite path_into_start_induction_rev in Hin. rewrite Hin. reflexivity.
     - rewrite path_into_start_induction_rev in Hin. rewrite Hin. reflexivity.
@@ -6539,8 +6598,8 @@ Proof.
              simpl in H. inversion H. simpl in Hhv. rewrite H2 in Hhv. rewrite andb_comm in Hhv. rewrite orb_comm in Hhv. simpl in Hhv. rewrite Hhv. simpl. reflexivity.
           * simpl. unfold is_mediator_bool. simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply split_and_true in Hpath. destruct Hpath as [Hhh Hhv].
              simpl in Houth. inversion Houth. simpl in Hhh. rewrite H1 in Hhh. rewrite orb_comm in Hhh. simpl in Hhh. simpl. rewrite Hhh.
-             simpl in H. inversion H. simpl in Hhv. rewrite H2 in Hhv. rewrite andb_comm in Hhv. rewrite orb_comm in Hhv. simpl in Hhv. rewrite Hhv. simpl. reflexivity.
-        + simpl. destruct (is_mediator_bool u h'' h' G) as [|] eqn:Huhh'.
+             simpl in H. inversion H. simpl in Hhv. rewrite H2 in Hhv. rewrite andb_comm in Hhv. rewrite orb_comm in Hhv. simpl in Hhv. rewrite Hhv. simpl. rewrite H1. simpl. reflexivity.
+        + simpl. destruct (is_mediator_bool u h'' h' G || is_mediator_bool h'' u h' G) as [|] eqn:Huhh'.
           * simpl. f_equal. apply IH.
             -- simpl. simpl in H. apply H.
             -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply Hpath.
@@ -7164,13 +7223,11 @@ Proof.
             destruct Hi as [i Hi].
             exists ((u, i) :: A1'). exists A2'. exists A3'.
             assert (HA1ind: get_A1_binded_nodes_in_g_path G (u, v, h :: t) = u :: get_A1_binded_nodes_in_g_path G (h, v, t)).
-            { apply A1_induction_case.
+            { apply A1_induction_into_start.
               - split.
                 ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
                 ** destruct HG as [_ [_ HG]]. apply HG.
-              - split.
-                ** apply Hin.
-                ** apply Houth. }
+              - apply Hin. }
             assert (HA4ind: get_A4_binded_nodes_in_g_path G (u, v, h :: t) = get_A4_binded_nodes_in_g_path G (h, v, t)).
             { apply A4_induction_case.
               - split.
@@ -7440,9 +7497,9 @@ Proof.
                                        + simpl. apply split_orb_true. right. apply Haxsub.
                                        + apply Hb.
                                        + apply Hca.
-                                     - unfold is_edge. destruct G as [V E]. simpl in Hnodeba. destruct Hnodeba as [Hnodeb Hnodea].
+                                     - left. split. unfold is_edge. destruct G as [V E]. simpl in Hnodeba. destruct Hnodeba as [Hnodeb Hnodea].
                                        rewrite Hnodeb. rewrite Hnodea. simpl in Hba. rewrite Hba. reflexivity.
-                                     - apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. unfold is_edge. destruct G as [V E].
+                                       apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. unfold is_edge. destruct G as [V E].
                                        simpl in Hnodeba. destruct Hnodeba as [_ Hnodea]. rewrite Hnodea. simpl in Haxix. rewrite Haxix.
                                        simpl in Hnodex. rewrite Hnodex. reflexivity. }
                                    unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
@@ -7628,8 +7685,8 @@ Proof.
                                        + apply Hb.
                                        + apply Haxsub.
                                        + apply Hca.
-                                     - admit. (* need to change mediators to include backwards edges too *)
-                                     - apply edge_in_graph_then_is_edge. apply HG. (* apply edge_from_parent_to_child. apply index_exists. exists ib. apply Hib. *) }
+                                     - right. split. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge. apply HG. apply Haxix.
+                                       apply edge_in_graph_then_is_edge. apply HG. apply Hba. }
 
                                    unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
                                    + destruct (path_into_start (h, v, t) G) as [|]. right. apply Hamed. apply Hamed.
@@ -8185,9 +8242,9 @@ Proof.
           assert (Hh: In h (find_mediators_in_path (u, v, h :: t) G) \/ In h (find_confounders_in_path (u, v, h :: t) G)).
           { destruct (path_out_of_start (u, v, h :: t) G) as [|] eqn:Hout.
             - simpl in Hout. left. apply mediators_vs_edges_in_path. destruct t as [| ht tt].
-              + exists u. exists v. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
+              + exists u. exists v. repeat split. simpl. repeat rewrite eqb_refl. reflexivity. left. split.
                 apply Hout. simpl in Houth. apply Houth.
-              + exists u. exists ht. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
+              + exists u. exists ht. repeat split. simpl. repeat rewrite eqb_refl. reflexivity. left. split.
                 apply Hout. simpl in Houth. apply Houth.
             - simpl in Hout. assert (Hedge: is_edge (h, u) G = true).
               { apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. rewrite Hout in Hp. simpl in Hp.
@@ -8381,9 +8438,11 @@ Proof.
           assert (Hh: In h (find_mediators_in_path (u, v, h :: t) G)).
           { apply mediators_vs_edges_in_path. destruct t as [| ht tt].
             - exists u. exists v. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
-              simpl in Hin. simpl in Houth. admit. (* need mediator definition *) admit.
+              simpl in Hin. simpl in Houth. right. split. apply Hin. apply paths_start_to_end_correct in Hpind. destruct Hpind as [Hpind _].
+              simpl in Hpind. rewrite Houth  in Hpind. simpl in Hpind. destruct G as [V E]. rewrite andb_comm in Hpind. simpl in Hpind. apply Hpind.
             - exists u. exists ht. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
-              simpl in Hin. simpl in Houth. admit. (* need mediator definition *) admit. }
+              simpl in Hin. simpl in Houth. right. split. apply Hin. apply paths_start_to_end_correct in Hpind. destruct Hpind as [Hpind _].
+              simpl in Hpind. rewrite Houth  in Hpind. simpl in Hpind. destruct G as [V E]. apply split_and_true in Hpind. apply Hpind. }
           destruct Hconn as [Hmed _]. apply no_overlap_non_member with (x := h) in Hmed.
           * apply Hmed. apply HhZ.
           * apply Hh.
@@ -8400,7 +8459,7 @@ Admitted.
 
 
 
-(* using g_path and specific values for A1, A2, and A3, for a d-connected path betw u and v, provide a graphfun
+(* (* using g_path and specific values for A1, A2, and A3, for a d-connected path betw u and v, provide a graphfun
    that requires all non-collider node values along the path (and importantly, f(v) and f(u)), to be equal *)
 Lemma path_d_connected_then_can_equate_values {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path),
   generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G) ->
@@ -8714,7 +8773,7 @@ Proof.
       - (* u -> h <- ... h is a collider, have to include h in A2.
                                          destruct t: if [], manually? else, use induction step with path not incl u and h *)
         admit. }
-Admitted.
+Admitted. *)
 
 Lemma exists_node_not_defined_in_path {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path) (Z: nodes) (A1: assignments nat) (A2: assignments (nat * nat * X * X)),
   generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G)
@@ -8787,7 +8846,7 @@ Proof.
     apply path_start_end_equal in Hp. destruct Hp as [Huu' Hvv']. exists l. rewrite Huu'. rewrite Hvv'. reflexivity. }
   destruct Hpath as [l Hpath].
   remember (get_assignment_for Z x) as AZ. (* use arbitrary assignment of nodes in Z *)
-  pose proof path_d_connected_then_can_equate_values as Heq. specialize Heq with (G := G) (u := u) (v := v) (p := p) (Z := Z) (AZ := AZ).
+  (* pose proof path_d_connected_then_can_equate_values as Heq. specialize Heq with (G := G) (u := u) (v := v) (p := p) (Z := Z) (AZ := AZ).
   apply Heq in HGp as HA12. destruct HA12 as [A1 [A2 HA12]]. clear Heq. destruct HA12 as [HA1 [HA2 Hg]].
   - (* show contradiction with Hcond by showing that v's value changes with u's *)
     (* find node w to bind to either a or b (not in A1 or A2 or Z) *)
@@ -8798,7 +8857,7 @@ Proof.
       - apply Hconn.
       - split. unfold is_exact_assignment_for in *. destruct HA1 as [_ HA1]. apply HA1. destruct HA2 as [_ HA2]. apply HA2. }
     destruct Hanc as [w Hw].
-    remember (get_constant_nodefun_assignments AZ) as AZf. remember ((w, fun (x: (X * (list X))) => fst x) :: AZf) as A3.
+    remember (get_constant_nodefun_assignments AZ) as AZf. remember ((w, fun (x: (X * (list X))) => fst x) :: AZf) as A3. *)
 Admitted.
 (* originally path_d_connected_then_not_independent fully proved, but changed g_path *)
     (* specialize Hg with (A3 := A3) (default := f_constant X x).
@@ -10608,13 +10667,22 @@ Proof.
       * reflexivity.
       * apply shift_maintains_append with (l2 := [v]).
     + simpl. reflexivity.
-  - destruct G as [V E]. simpl in Ho. split.
+  - destruct G as [V E]. simpl in Ho.
+    destruct Hedge as [Hedge | Hedge].
+    { left. split.
     + destruct Hedge as [Hyx _]. apply duplicate_graph_maintains_edges.
       * simpl. apply Ho.
       * apply Hyx.
     + destruct Hedge as [_ Hxz]. apply duplicate_graph_maintains_edges.
       * simpl. apply Ho.
       * apply Hxz. }
+    { right. split.
+    + destruct Hedge as [Hyx _]. apply duplicate_graph_maintains_edges.
+      * simpl. apply Ho.
+      * apply Hyx.
+    + destruct Hedge as [_ Hxz]. apply duplicate_graph_maintains_edges.
+      * simpl. apply Ho.
+      * apply Hxz. } }
   { intros Hmem.
     apply mediators_vs_edges_in_path in Hmem. destruct Hmem as [y' [z' Hmem]].
     destruct Hmem as [Hsub Hedge].
@@ -10643,13 +10711,21 @@ Proof.
                (@cons node (add x o) (@cons node (add z o) (@nil node))))) with (shift_nodes_by_offset [y; x; z] o) in Hsub.
       + apply shift_maintains_subset in Hsub. apply Hsub.
       + simpl. reflexivity.
-    - split.
+    - destruct Hedge as [Hedge | Hedge].
+      { left. split.
       + destruct Hedge as [Hedge _]. apply duplicate_graph_maintains_edges with (o := o).
         * apply Ho.
         * rewrite <- Hy in Hedge. apply Hedge.
       + destruct Hedge as [_ Hedge]. apply duplicate_graph_maintains_edges with (o := o).
         * apply Ho.
         * rewrite <- Hz in Hedge. apply Hedge. }
+      { right. split.
+      + destruct Hedge as [Hedge _]. apply duplicate_graph_maintains_edges with (o := o).
+        * apply Ho.
+        * rewrite <- Hy in Hedge. apply Hedge.
+      + destruct Hedge as [_ Hedge]. apply duplicate_graph_maintains_edges with (o := o).
+        * apply Ho.
+        * rewrite <- Hz in Hedge. apply Hedge. } }
 Qed.
 
 Lemma duplicate_graph_maintains_confounders: forall (u v: node) (l: nodes) (G: graph) (o: nat) (x: node),
