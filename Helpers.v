@@ -427,6 +427,30 @@ Proof.
   - reflexivity.
 Qed.
 
+Lemma overlap_rev_true: forall (l1 l2: list nat),
+  overlap l1 l2 = true -> overlap l1 (rev l2) = true.
+Proof.
+  intros l1 l2 F.
+  destruct (overlap l1 (rev l2)) as [|] eqn:H.
+  - reflexivity.
+  - apply overlap_has_member_in_common in F. destruct F as [x [Hx1 Hx2]].
+    apply no_overlap_non_member with (x := x) in H.
+    + exfalso. apply H. apply Hx1.
+    + apply membership_rev. apply Hx2.
+Qed.
+
+Lemma overlap_flip_2: forall (l1 l2: list nat),
+  overlap l1 l2 = overlap l2 l1.
+Proof.
+  intros l1 l2. destruct (overlap l1 l2) as [|] eqn:H.
+  { symmetry. apply overlap_has_member_in_common in H. destruct H as [x [Hx1 Hx2]].
+    apply overlap_has_member_in_common. exists x. easy. }
+  { symmetry. apply no_overlap_non_member. intros x Hxl1 Hxl2.
+    apply no_overlap_non_member with (x := x) in H.
+    - apply H. apply Hxl1.
+    - apply Hxl2. }
+Qed.
+
 Lemma overlap_flip: forall (l1 l2: list nat),
   overlap l1 l2 = false -> overlap l2 l1 = false.
 Proof.
