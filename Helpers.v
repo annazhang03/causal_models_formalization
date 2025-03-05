@@ -1065,6 +1065,43 @@ Proof.
         -- apply Hover.
 Qed.
 
+Lemma list_has_first_appearance_of_elt: forall (l: list nat) (x: nat),
+  In x l -> exists (l1 l2: list nat), l = l1 ++ [x] ++ l2 /\ ~In x l1.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - exfalso. apply H.
+  - destruct (h =? x) as [|] eqn:Hhx.
+    + apply eqb_eq in Hhx. exists []. exists t. split.
+      * simpl. rewrite Hhx. reflexivity.
+      * intros F. exfalso. apply F.
+    + destruct H as [H | H]. rewrite H in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+      apply IH in H. destruct H as [l1 [l2 H]]. exists (h :: l1). exists l2. split.
+      * simpl. destruct H as [H _]. rewrite H. simpl. reflexivity.
+      * intros [Hx | Hx]. rewrite Hx in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+        apply H. apply Hx.
+Qed.
+
+Theorem list_has_first_elt_in_common_with_other_list: forall (l1 l2: list nat),
+  overlap l1 l2 = true
+  -> exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2''
+        /\ overlap l1 l2' = false.
+Proof.
+  intros l1 l2 H.
+  induction l2 as [| h t IH].
+  - rewrite overlap_flip_2 in H. simpl in H. discriminate H.
+  - rewrite overlap_flip_2 in H. simpl in H. destruct (member h l1) as [|] eqn:Hmem.
+    + apply member_In_equiv in Hmem. apply membership_splits_list in Hmem. destruct Hmem as [l1' [l1'' Hl1]].
+      exists l1'. exists l1''. exists []. exists t. exists h. repeat split.
+      symmetry. apply Hl1.
+      apply overlap_with_empty.
+    + rewrite overlap_flip_2 in H. apply IH in H. destruct H as [l1' [l1'' [l2' [l2'' [x H]]]]].
+      exists l1'. exists l1''. exists (h :: l2'). exists l2''. exists x. repeat split.
+      * apply H.
+      * simpl. f_equal. apply H.
+      * rewrite overlap_flip_2. simpl. rewrite Hmem. rewrite overlap_flip_2. apply H.
+Qed.
+
 Lemma middle_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c: nat),
   sublist [a; b; c] (l ++ [b]) = true -> In b l.
 Proof.
