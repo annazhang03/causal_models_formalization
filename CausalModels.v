@@ -5175,6 +5175,12 @@ Theorem if_confounder_then_not_mediator_path: forall (G: graph) (u: node) (p: pa
 Proof.
 Admitted.
 
+Theorem if_collider_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
+  contains_cycle G = false -> In u (find_colliders_in_path p G)
+  -> ~(In u (find_mediators_in_path p G)) /\ ~(In u (find_confounders_in_path p G)).
+Proof.
+Admitted.
+
 Lemma med_con_col_are_nodes_in_graph: forall (G: graph) (u v w: node),
   is_mediator_bool u v w G = true \/ is_confounder_bool u v w G = true \/ is_collider_bool u v w G = true
   -> node_in_graph u G = true /\ node_in_graph w G = true /\ node_in_graph v G = true.
@@ -5678,6 +5684,85 @@ Proof.
             + destruct Hl2s as [l2s' Hl2s]. exists (mid :: l2s'). exists pe. simpl. rewrite <- Hl2. rewrite Hl2s. unfold node in *. rewrite Hpe.
               f_equal. simpl. rewrite <- app_assoc. simpl. rewrite append_vs_concat. reflexivity.
           - apply Hedge. }
+Qed.
+
+Theorem d_connected_cat: forall (u v h: node) (t: nodes) (G: graph) (Z: nodes),
+  contains_cycle G = false
+  -> d_connected_2 (h, v, t) G Z
+  -> (In h (find_mediators_in_path (u, v, h :: t) G) /\ ~ In h Z)
+     \/ (In h (find_confounders_in_path (u, v, h :: t) G) /\ ~ In h Z)
+     \/ (In h (find_colliders_in_path (u, v, h :: t) G) /\ (some_descendant_in_Z_bool (find_descendants h G) Z = true))
+  -> d_connected_2 (u, v, h :: t) G Z.
+Proof.
+  intros u v h t G Z. intros HGcyc H1. intros H.
+  unfold d_connected_2 in *. repeat split.
+  + apply no_overlap_non_member. intros m Hm Hm'.
+    simpl in Hm. destruct t as [| h' t'].
+    * simpl in Hm. destruct (is_mediator_bool u v h G || is_mediator_bool v u h G) as [|] eqn:Hmed.
+      - assert (In h (find_mediators_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
+        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. }
+        destruct H as [H | [H | H]].
+        -- destruct H as [_ H]. destruct Hm as [Hm | Hm]. apply H. rewrite Hm. apply Hm'. apply Hm.
+        -- destruct H0 as [H0 _]. apply H0. apply H.
+        -- destruct H0 as [_ H0]. apply H0. apply H.
+      - apply Hm.
+    * simpl in Hm. destruct (is_mediator_bool u h' h G || is_mediator_bool h' u h G) as [|] eqn:Hmed.
+      - assert (In h (find_mediators_in_path (u, v, h :: h' :: t') G)). { simpl. rewrite Hmed. left. reflexivity. }
+        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. }
+        destruct H as [H | [H | H]].
+        -- destruct Hm as [Hm | Hm].
+           ++ destruct H as [_ H]. apply H. rewrite Hm. apply Hm'.
+           ++ destruct H1 as [H1 _]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+        -- destruct Hm as [Hm | Hm].
+           ++ destruct H0 as [H0 _]. apply H0. apply H.
+           ++ destruct H1 as [H1 _]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+        -- destruct Hm as [Hm | Hm].
+           ++ destruct H0 as [_ H0]. apply H0. apply H.
+           ++ destruct H1 as [H1 _]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+      - destruct H1 as [H1 _]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+  + apply no_overlap_non_member. intros m Hm Hm'.
+    simpl in Hm. destruct t as [| h' t'].
+    * simpl in Hm. destruct (is_confounder_bool u v h G) as [|] eqn:Hmed.
+      - assert (In h (find_confounders_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
+        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. }
+        destruct H as [H | [H | H]].
+        -- destruct H0 as [H0 _]. apply H0. apply H.
+        -- destruct H as [_ H]. destruct Hm as [Hm | Hm]. apply H. rewrite Hm. apply Hm'. apply Hm.
+        -- destruct H0 as [_ H0]. apply H0. apply H.
+      - apply Hm.
+    * simpl in Hm. destruct (is_confounder_bool u h' h G) as [|] eqn:Hmed.
+      - assert (In h (find_confounders_in_path (u, v, h :: h' :: t') G)). { simpl. rewrite Hmed. left. reflexivity. }
+        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. }
+        destruct H as [H | [H | H]].
+        -- destruct Hm as [Hm | Hm].
+           ++ destruct H0 as [H0 _]. apply H0. apply H.
+           ++ destruct H1 as [_ [H1 _]]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+        -- destruct Hm as [Hm | Hm].
+           ++ destruct H as [_ H]. apply H. rewrite Hm. apply Hm'.
+           ++ destruct H1 as [_ [H1 _]]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+        -- destruct Hm as [Hm | Hm].
+           ++ destruct H0 as [_ H0]. apply H0. apply H.
+           ++ destruct H1 as [_ [H1 _]]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+      - destruct H1 as [_ [H1 _]]. apply no_overlap_non_member with (x := m) in H1. apply H1. apply Hm'. apply Hm.
+  + unfold all_colliders_have_descendant_conditioned_on. apply forallb_true_iff_mem. intros m Hcolm.
+    pose proof Hcolm as H0. apply if_collider_then_not_mediator_path in H0.
+    simpl in Hcolm. destruct t as [| h' t'].
+    * simpl in Hcolm. destruct (is_collider_bool u v h G) as [|] eqn:Hcol.
+      - destruct Hcolm as [Hcolm | Hcolm]. rewrite Hcolm in *. destruct H as [H | [H | H]].
+        -- exfalso. destruct H0 as [H0 _]. apply H0. apply H.
+        -- destruct H0 as [_ H0]. exfalso. apply H0. apply H.
+        -- destruct H as [_ H]. apply H.
+        -- exfalso. apply Hcolm.
+      - exfalso. apply Hcolm.
+    * simpl in Hcolm. destruct (is_collider_bool u h' h G) as [|] eqn:Hcol.
+      - destruct Hcolm as [Hcolm | Hcolm].
+        -- rewrite Hcolm in *. destruct H as [H | [H | H]].
+           ++ exfalso. destruct H0 as [H0 _]. apply H0. apply H.
+           ++ destruct H0 as [_ H0]. exfalso. apply H0. apply H.
+           ++ destruct H as [_ H]. apply H.
+        -- destruct H1 as [_ [_ H1]]. apply forallb_true with (x := m) in H1. apply H1. apply Hcolm.
+      - destruct H1 as [_ [_ H1]]. apply forallb_true with (x := m) in H1. apply H1. apply Hcolm.
+    * apply HGcyc.
 Qed.
 
 Lemma subpath_preserves_mediators: forall (w u v m: node) (l1 l2 l3: nodes) (G: graph),
@@ -6210,12 +6295,8 @@ Theorem exists_d_connected_path_with_collider_descendants_disjoint2: forall (G: 
                         (exists (b: bool), path_out_of_node w (u, v, l) G = Some b /\ path_out_of_node w (u, v, l') G = Some (negb b))
       -> ((exists (du: node) (pu: nodes), is_directed_path_in_graph (w, du, pu) G = true /\ In du Z /\ ~In w Z)
           \/ path_out_of_node w (u, v, l') G <> Some true /\ In w Z)
+           (* if path changed direction into u, then it's due to a descendant path *)
          /\ (path_out_of_node w (u, v, l') G = Some true -> ~(In w Z)))
-     (* (* path would only change w.r.t first node if it was due to a descendant path going into that node *)
-     (path_into_start (u, v, l) G = true -> path_into_start (u, v, l') G = true) /\
-     (* if path changed direction into u, then it's due to a descendant path *)
-     (path_into_start (u, v, l) G = false /\ path_into_start (u, v, l') G = true
-       -> In u Z \/ exists (du: node) (pu: nodes), is_directed_path_in_graph (u, du, pu) G = true /\ In du Z) *)
      /\
      exists (D: assignments (nodes * node)),
        is_exact_assignment_for D (find_colliders_in_path (u, v, l') G) /\
@@ -6362,19 +6443,9 @@ Proof.
            destruct Hcolc as [p' [d' [Hpd'' Hpd']]]. rewrite HDc in Hpd''. inversion Hpd''. clear Hpd''. rewrite <- H0 in *. rewrite <- H1 in *. clear H0. clear H1.
 
            assert (Hlp2: rev lp2 = [] -> u = d /\ lp1 = p).
-           { (* intros Hlp2.
-             assert (Hlem: rev (lp1 ++ [u]) = rev (p ++ [d])).
-             { rewrite <- Hlp. rewrite reverse_list_append. rewrite reverse_list_append. rewrite reverse_list_append. rewrite Hlp2.
-               simpl. reflexivity. }
-             rewrite reverse_list_append in Hlem. rewrite reverse_list_append in Hlem. simpl in Hlem.
-             inversion Hlem. split. reflexivity. rewrite reverse_list_twice with (l := lp1). rewrite H1. rewrite <- reverse_list_twice.
-             reflexivity. *) apply Hl2. apply Hlp. }
+           { apply Hl2. apply Hlp. }
            assert (Hlp2': forall (hlp2: node) (tlp2: nodes), rev lp2 = hlp2 :: tlp2 -> d = hlp2 /\ p = lp1 ++ [u] ++ (rev tlp2)).
-           { (* intros hlp2 tlp2 Hlp2'. assert (Hlem: rev (lp1 ++ [u] ++ lp2) = rev (p ++ [d])).
-             { rewrite <- Hlp. reflexivity. }
-             rewrite reverse_list_append in Hlem. rewrite reverse_list_append in Hlem. rewrite Hlp2' in Hlem. simpl in Hlem. rewrite reverse_list_append in Hlem.
-             simpl in Hlem. inversion Hlem. split. reflexivity. rewrite reverse_list_twice with (l := p).
-             rewrite <- H1. repeat rewrite reverse_list_append. rewrite <- reverse_list_twice. simpl. reflexivity. *) apply Hl2. apply Hlp. }
+           { apply Hl2. apply Hlp. }
 
            assert (Hcyc': acyclic_path_2 (u, v, rev lp1 ++ [c] ++ lc2)).
            { apply concat_paths_acyclic.
@@ -7111,18 +7182,30 @@ Proof.
                        - apply acyclic_path_correct_2 in Hcychx. apply Hcychx. }
 
                      split.
-                     { repeat split.
-                       - apply no_overlap_non_member. intros m Hm.
-                         assert (Hm': In m (h :: ph1)). { admit. }
-                         destruct Hm' as [Hm' | Hm']. rewrite <- Hm'. apply HhZ. intros HmZ. destruct Hh' as [_ [_ [Hh' _]]].
-                         apply no_overlap_non_member with (x := m) in Hh'. apply Hh'. destruct (rev ph2) as [| hph2 tph2] eqn:Hph2.
-                         + assert (Hph2': rev ph2 = [] -> x = zh /\ ph1 = ph). { apply Hl2. symmetry. apply Hx. } apply Hph2' in Hph2. destruct Hph2 as [_ Hph2].
-                           rewrite <- Hph2. apply Hm'.
-                         + assert (Hph2': rev ph2 = hph2 :: tph2 -> zh = hph2 /\ ph = ph1 ++ [x] ++ rev tph2). { apply Hl2. symmetry. apply Hx. } apply Hph2' in Hph2. clear Hph2'.
-                           destruct Hph2 as [_ Hph2]. rewrite Hph2. apply membership_append. apply Hm'.
-                         + apply HmZ.
-                       - admit. (* no confounders, since directed path *)
-                       - admit. (* no colliders, directed path *) } split.
+                     { apply d_connected_cat. apply HG.
+                       - assert (Hpath'': is_directed_path_in_graph (h, x, ph1) G = true). { simpl in Hdir. apply split_and_true in Hdir. apply Hdir. }
+                         repeat split.
+                         + apply no_overlap_non_member. intros w Hw Hw'.
+                           assert (Hw'': In w ph1).
+                           { apply directed_path_is_path in Hpath''. apply intermediate_node_in_path with (x := w) in Hpath''. apply Hpath''. left. apply Hw. }
+                           destruct Hh' as [_ [_ [Hh' _]]]. apply no_overlap_non_member with (x := w) in Hh'. apply Hh'. symmetry in Hx. apply Hl2 in Hx.
+                           destruct (rev ph2) as [| hph2 tph2] eqn:Hph2.
+                           * apply Hx in Hph2. destruct Hph2 as [_ Hph2]. rewrite <- Hph2. apply Hw''.
+                           * apply Hx in Hph2. destruct Hph2 as [_ Hph2]. rewrite Hph2. apply membership_append. apply Hw''.
+                           * apply Hw'.
+                         + apply no_overlap_non_member. intros w Hw Hw'.
+                           assert (Hw'': In w ph1).
+                           { apply directed_path_is_path in Hpath''. apply intermediate_node_in_path with (x := w) in Hpath''. apply Hpath''. right. left. apply Hw. }
+                           assert (Hmed: In w (find_mediators_in_path (h, x, ph1) G)). { apply directed_path_all_mediators. split. apply Hpath''. apply Hw''. }
+                           apply if_confounder_then_not_mediator_path in Hw. destruct Hw as [Hw _]. apply Hw. apply Hmed. apply HG.
+                         + apply forallb_true_iff_mem. intros w Hw.
+                           assert (Hw'': In w ph1).
+                           { apply directed_path_is_path in Hpath''. apply intermediate_node_in_path with (x := w) in Hpath''. apply Hpath''. right. right. apply Hw. }
+                           assert (Hmed: In w (find_mediators_in_path (h, x, ph1) G)). { apply directed_path_all_mediators. split. apply Hpath''. apply Hw''. }
+                           apply if_collider_then_not_mediator_path in Hw. destruct Hw as [Hw _]. exfalso. apply Hw. apply Hmed. apply HG.
+                       - left. split.
+                         + apply directed_path_all_mediators. split. apply Hdir. left. reflexivity.
+                         + apply HhZ. } split.
                      { apply directed_path_is_path. apply Hdir. } split.
 
                      { intros w Hw.
@@ -7217,24 +7300,28 @@ Proof.
                          apply intermediate_node_in_path with (x := cy) in Hpath''. apply Hpath''. right. right. apply Hpdy. }
                        apply membership_splits_list in Hcy. destruct Hcy as [lcyv1 [lcyv2 Hcy]].
 
-                       exists (h :: ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2). split.
+                       exists (h :: ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2).
 
+                       assert (Hcychv: acyclic_path_2 (h, v, ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2)).
+                       { apply concat_paths_acyclic. split. apply Hlhv. split.
+                         - apply subpath_still_acyclic_2 with (v := x) (l2 := ph12) (l3 := ph1). split. symmetry. apply Hy'. apply Hcychx.
+                         - apply Hcyccy with (dy := dy) (py := py) (lcyv1 := lcyv1) (lcyd2 := lyd2). apply Hpdy''. apply Hcy. apply Hy'.
+                         - split.
+                           + apply Hcyccy with (dy := dy) (py := py) (lcyv1 := lcyv1) (lcyd2 := lyd2) (y := y). apply Hpdy''. apply Hcy. apply Hy'.
+                           + (* Hx'': ph1 does not intersect lhv after x *)
+                             intros Hmem. apply no_overlap_non_member with (x := v) in Hx''. apply Hx''. rewrite Hx.
+                             apply membership_append. destruct Hy' as [Hy' _]. rewrite Hy'. apply membership_append. apply Hmem.
+                             left. reflexivity.
+                         - (* lyd1: Hy'. [cy, lcyv2]: Hx'', ph1 does not intersect lhv after x *)
+                           apply no_overlap_non_member. intros w Hw Hw'. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
+                           + destruct Hy' as [Hph1 [_ Hy']]. apply no_overlap_non_member with (x := w) in Hy'. apply Hy'. rewrite Hph1. apply membership_append. apply Hw'.
+                             apply membership_rev. apply Hw.
+                           + apply no_overlap_non_member with (x := w) in Hx''. apply Hx''. rewrite Hx. apply membership_append. destruct Hy' as [Hy' _]. rewrite Hy'. apply membership_append. apply Hw'.
+                             right. apply membership_rev. rewrite <- Hcy. apply membership_append_r. apply Hw. }
+
+                       split.
                        { apply acyclic_path_cat_2.
-                         { apply concat_paths_acyclic. split. apply Hlhv. split.
-                           - apply subpath_still_acyclic_2 with (v := x) (l2 := ph12) (l3 := ph1). split. symmetry. apply Hy'. apply Hcychx.
-                           - apply Hcyccy with (dy := dy) (py := py) (lcyv1 := lcyv1) (lcyd2 := lyd2). apply Hpdy''. apply Hcy. apply Hy'.
-                           - split.
-                             + apply Hcyccy with (dy := dy) (py := py) (lcyv1 := lcyv1) (lcyd2 := lyd2) (y := y). apply Hpdy''. apply Hcy. apply Hy'.
-                             + (* Hx'': ph1 does not intersect lhv after x *)
-                               intros Hmem. apply no_overlap_non_member with (x := v) in Hx''. apply Hx''. rewrite Hx.
-                               apply membership_append. destruct Hy' as [Hy' _]. rewrite Hy'. apply membership_append. apply Hmem.
-                               left. reflexivity.
-                           - (* lyd1: Hy'. [cy, lcyv2]: Hx'', ph1 does not intersect lhv after x *)
-                             apply no_overlap_non_member. intros w Hw Hw'. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
-                             + destruct Hy' as [Hph1 [_ Hy']]. apply no_overlap_non_member with (x := w) in Hy'. apply Hy'. rewrite Hph1. apply membership_append. apply Hw'.
-                               apply membership_rev. apply Hw.
-                             + apply no_overlap_non_member with (x := w) in Hx''. apply Hx''. rewrite Hx. apply membership_append. destruct Hy' as [Hy' _]. rewrite Hy'. apply membership_append. apply Hw'.
-                               right. apply membership_rev. rewrite <- Hcy. apply membership_append_r. apply Hw. }
+                         apply Hcychv.
                          { (* u not in [ph1,y] b/c cycle. u not in [rev lyd1] b/c HuL. u not in [cy, lcyv2] b/c Hulhv *)
                            intros Hmem. simpl in Hmem. destruct Hmem as [Hmem | Hmem]. rewrite Hmem in Hhu. rewrite eqb_refl in Hhu. discriminate Hhu.
                            rewrite app_comm_cons in Hmem. rewrite app_assoc in Hmem. apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
@@ -7247,10 +7334,37 @@ Proof.
                              + apply member_In_equiv_F in Hulhv. apply Hulhv. rewrite Hlhvrev. apply membership_append_r. right. simpl. rewrite <- Hcy. apply membership_append_r. apply Hmem.
                            - destruct Hmem as [Hmem | Hmem]. destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Hmem. apply Hmem. } }
 
+                        assert (Hphv: is_path_in_graph (h, v, ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2) G = true).
+                        { apply concat_paths_still_a_path. split.
+                          - apply subpath_still_path_2 with (v := x) (l2 := ph12) (l3 := ph1). split. symmetry. apply Hy'.
+                            apply directed_path_is_path. simpl in Hdir. apply split_and_true in Hdir. apply Hdir.
+                          - apply concat_paths_still_a_path. split.
+                            + admit. (* Hcyccy-esque lemma for this TODO *)
+                            + apply subpath_still_path with (w := h) (l1 := rev lx2 ++ [x] ++ lcyv1) (l3 := lhv). split. symmetry. rewrite <- app_assoc. rewrite <- app_assoc. unfold nodes in *. unfold node in *. rewrite Hcy. apply Hlhvrev.
+                              apply Hlhv. }
+
                         split.
                         { (* h is a mediator and not in Z (HhZ). ph1 directed path. y collider with desc path to dy (already in Dx)
-                             lyd1 directed path. cy now mediator, not in Z. everything else same as before *) admit. }
-                        split. admit.
+                             lyd1 directed path. cy now mediator, not in Z. everything else same as before *) 
+                          apply d_connected_cat. apply HG.
+                          - apply concat_d_connected_paths. apply HG. apply Hphv. split.
+                            + admit. (* reuse from d-conn_cat before *)
+                            + split.
+                              * apply concat_d_connected_paths. apply HG.
+                                unfold concat. apply subpath_still_path with (w := h) (l1 := ph11) (l3 := ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2). split. reflexivity. apply Hphv.
+                                split.
+                                -- apply reverse_d_connected_paths. admit.
+                                -- split.
+                                   ++ apply subpath_still_d_connected_gen with (w := h) (l1 := rev lx2 ++ [x] ++ lcyv1) (l3 := lhv). split. symmetry. rewrite <- app_assoc. rewrite <- app_assoc. unfold nodes in *. unfold node in *. rewrite Hcy. apply Hlhvrev.
+                                      apply Hlhv.
+                                   ++ unfold concat. apply subpath_still_acyclic with (w := h) (l1 := ph11) (l3 := ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2). split. reflexivity. apply Hcychv.
+                                -- left. admit.
+                              * apply Hcychv.
+                            + right. right. admit.
+                          - left. admit. }
+
+                        split.
+                        { simpl. destruct G as [V E]. rewrite Huh. simpl. apply Hphv. }
 
                         split. { intros w Hw. (* [h, y): pydy, not in Z. y: either = dy or not in Z. [lyd1]: path in, exists dy, py *) admit. }
                         assert (HDcy: exists (D: assignments (nodes * node)), get_collider_descendants_for_subpath Dh (find_colliders_in_path (cy, v, lcyv2) G) = Some D).
