@@ -415,6 +415,12 @@ Proof.
   - apply H.
 Qed.
 
+Lemma overlap_cat: forall (x: nat) (l1 l2: list nat),
+  overlap (x :: l1) l2 = false -> overlap l1 l2 = false.
+Proof.
+  intros x l1 l2 H. simpl in H. destruct (member x l2) as [|]. discriminate H. apply H.
+Qed.
+
 Lemma overlap_rev: forall (l1 l2: list nat),
   overlap l1 l2 = false -> overlap l1 (rev l2) = false.
 Proof.
