@@ -1284,6 +1284,32 @@ Proof.
       * simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply Hc.
 Qed.
 
+Lemma two_sublists_the_same_gen: forall (l l1 l1' l2 l2': list nat) (a: nat),
+  l = l1 ++ [a] ++ l2
+  -> l = l1' ++ [a] ++ l2'
+  -> count a l = 1
+  -> l2 = l2'.
+Proof.
+  intros l l1 l1' l2 l2' a Hl Hl' Hc.
+  generalize dependent l1. generalize dependent l1'. induction l as [| h t IH].
+  - intros l1' Hl' l1 Hl. simpl in Hc. discriminate Hc.
+  - intros l1' Hl' l1 Hl. simpl in Hc.
+    destruct l1' as [| hl1' tl1'].
+    + simpl in Hl'. destruct l1 as [| hl1 tl1].
+      * simpl in Hl. inversion Hl'. inversion Hl. rewrite <- H3. apply H1.
+      * inversion Hl. inversion Hl'. rewrite H2 in Hc. rewrite eqb_refl in Hc.
+        assert (In a t). { rewrite H1. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
+    + destruct l1 as [| hl1 tl1].
+      * inversion Hl'. inversion Hl. rewrite H2 in Hc. rewrite eqb_refl in Hc.
+        assert (In a t). { rewrite H1. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
+      * apply IH with (l1' := tl1') (l1 := tl1).
+        -- destruct (h =? a) as [|] eqn:Hha. 
+           ++ assert (In a t). { inversion Hl. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
+           ++ apply Hc.
+        -- inversion Hl'. reflexivity.
+        -- inversion Hl. reflexivity.
+Qed.
+
 Lemma sublist_rev: forall (l1 l2: list nat),
   sublist l1 l2 = true -> sublist (rev l1) (rev l2) = true.
 Proof.
