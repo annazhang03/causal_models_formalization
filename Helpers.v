@@ -27,6 +27,15 @@ Proof.
   - simpl. rewrite eqb_refl. rewrite IHl. reflexivity.
 Qed.
 
+Theorem eqblist_empty: forall (l: list nat) (x: nat),
+  eqblist (l ++ [x]) [] = false.
+Proof.
+  intros l x.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. reflexivity.
+Qed.
+
 Fixpoint member (v : nat) (s : list nat) : bool
   := match s with
       | nil => false
