@@ -27,6 +27,15 @@ Proof.
   - simpl. rewrite eqb_refl. rewrite IHl. reflexivity.
 Qed.
 
+Theorem eqblist_empty: forall (l: list nat) (x: nat),
+  eqblist (l ++ [x]) [] = false.
+Proof.
+  intros l x.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. reflexivity.
+Qed.
+
 Fixpoint member (v : nat) (s : list nat) : bool
   := match s with
       | nil => false
@@ -52,6 +61,18 @@ Proof.
         -- reflexivity.
         -- apply IH. apply H.
 Qed.
+
+Lemma member_In_equiv_F : 
+  forall (l : list nat) (x: nat), member x l = false <-> ~(In x l).
+Proof.
+  intros l x.
+  split.
+  - intros Hmem F. apply member_In_equiv in F. rewrite F in Hmem. discriminate Hmem.
+  - intros Hmem. destruct (member x l) as [|] eqn:F.
+    + exfalso. apply Hmem. apply member_In_equiv. apply F.
+    + reflexivity.
+Qed.
+
 
 Theorem length_member: forall (l: list nat) (n': nat),
   (length l = S n') -> exists x, In x l.
@@ -403,6 +424,12 @@ Proof.
   - apply H.
 Qed.
 
+Lemma overlap_cat: forall (x: nat) (l1 l2: list nat),
+  overlap (x :: l1) l2 = false -> overlap l1 l2 = false.
+Proof.
+  intros x l1 l2 H. simpl in H. destruct (member x l2) as [|]. discriminate H. apply H.
+Qed.
+
 Lemma overlap_rev: forall (l1 l2: list nat),
   overlap l1 l2 = false -> overlap l1 (rev l2) = false.
 Proof.
@@ -413,6 +440,30 @@ Proof.
     + exfalso. apply H. apply Hx1.
     + apply membership_rev. apply Hx2.
   - reflexivity.
+Qed.
+
+Lemma overlap_rev_true: forall (l1 l2: list nat),
+  overlap l1 l2 = true -> overlap l1 (rev l2) = true.
+Proof.
+  intros l1 l2 F.
+  destruct (overlap l1 (rev l2)) as [|] eqn:H.
+  - reflexivity.
+  - apply overlap_has_member_in_common in F. destruct F as [x [Hx1 Hx2]].
+    apply no_overlap_non_member with (x := x) in H.
+    + exfalso. apply H. apply Hx1.
+    + apply membership_rev. apply Hx2.
+Qed.
+
+Lemma overlap_flip_2: forall (l1 l2: list nat),
+  overlap l1 l2 = overlap l2 l1.
+Proof.
+  intros l1 l2. destruct (overlap l1 l2) as [|] eqn:H.
+  { symmetry. apply overlap_has_member_in_common in H. destruct H as [x [Hx1 Hx2]].
+    apply overlap_has_member_in_common. exists x. easy. }
+  { symmetry. apply no_overlap_non_member. intros x Hxl1 Hxl2.
+    apply no_overlap_non_member with (x := x) in H.
+    - apply H. apply Hxl1.
+    - apply Hxl2. }
 Qed.
 
 Lemma overlap_flip: forall (l1 l2: list nat),
@@ -624,12 +675,14 @@ Proof.
            ++ discriminate H.
 Qed.
 
-Lemma split_and_true : forall a b, a && b = true -> a = true /\ b = true.
+Lemma split_and_true : forall a b, a && b = true <-> a = true /\ b = true.
 Proof.
-  intros a b H.
-  split.
-  - apply andb_true_elim2 in H. apply H.
-  - rewrite andb_comm in H. apply andb_true_elim2 in H. apply H.
+  intros a b. split.
+  { intros H.
+    split.
+    - apply andb_true_elim2 in H. apply H.
+    - rewrite andb_comm in H. apply andb_true_elim2 in H. apply H. }
+  { intros H. destruct H as [H1 H2]. rewrite H1. rewrite H2. reflexivity. }
 Qed.
 
 Theorem orb_true_elim2 : forall b c : bool,
@@ -944,6 +997,25 @@ Proof.
         simpl. rewrite Hsub. rewrite orb_comm. reflexivity. }
 Qed.
 
+Lemma not_first_node_has_sublist: forall (a h v: nat) (t: list nat),
+  (a =? h) = false /\ In a (t ++ [v])
+  -> exists b : nat, sublist [b; a] (h :: t ++ [v]) = true.
+Proof.
+  intros a h v t [H1 H2]. generalize dependent h. induction t as [| h' t' IH].
+  - intros h H1. exists h. simpl. simpl in H2. destruct H2 as [H2 | F].
+    + rewrite H2. repeat rewrite eqb_refl. reflexivity.
+    + exfalso. apply F.
+  - intros h H1. simpl. destruct (a =? h') as [|] eqn:Ha.
+    + exists h. rewrite eqb_refl. simpl. reflexivity.
+    + simpl. assert (Hind: exists b : nat, sublist [b; a] (h' :: t' ++ [v]) = true).
+      { apply IH. simpl in H2. destruct H2 as [F | H2].
+        - rewrite F in Ha. rewrite eqb_refl in Ha. discriminate Ha.
+        - apply H2.
+        - apply Ha. }
+      destruct Hind as [b Hb]. exists b. simpl in Hb. rewrite Hb. rewrite orb_comm. reflexivity.
+Qed.
+
+
 Lemma rearrange_list_concat_app: forall (l1 l2: list nat) (m v: nat),
   l1 ++ m :: l2 ++ [v] = (l1 ++ m :: l2) ++ [v].
 Proof.
@@ -1008,6 +1080,43 @@ Proof.
         -- apply Hover.
 Qed.
 
+Lemma list_has_first_appearance_of_elt: forall (l: list nat) (x: nat),
+  In x l -> exists (l1 l2: list nat), l = l1 ++ [x] ++ l2 /\ ~In x l1.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - exfalso. apply H.
+  - destruct (h =? x) as [|] eqn:Hhx.
+    + apply eqb_eq in Hhx. exists []. exists t. split.
+      * simpl. rewrite Hhx. reflexivity.
+      * intros F. exfalso. apply F.
+    + destruct H as [H | H]. rewrite H in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+      apply IH in H. destruct H as [l1 [l2 H]]. exists (h :: l1). exists l2. split.
+      * simpl. destruct H as [H _]. rewrite H. simpl. reflexivity.
+      * intros [Hx | Hx]. rewrite Hx in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+        apply H. apply Hx.
+Qed.
+
+Theorem list_has_first_elt_in_common_with_other_list: forall (l1 l2: list nat),
+  overlap l1 l2 = true
+  -> exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2''
+        /\ overlap l1 l2' = false.
+Proof.
+  intros l1 l2 H.
+  induction l2 as [| h t IH].
+  - rewrite overlap_flip_2 in H. simpl in H. discriminate H.
+  - rewrite overlap_flip_2 in H. simpl in H. destruct (member h l1) as [|] eqn:Hmem.
+    + apply member_In_equiv in Hmem. apply membership_splits_list in Hmem. destruct Hmem as [l1' [l1'' Hl1]].
+      exists l1'. exists l1''. exists []. exists t. exists h. repeat split.
+      symmetry. apply Hl1.
+      apply overlap_with_empty.
+    + rewrite overlap_flip_2 in H. apply IH in H. destruct H as [l1' [l1'' [l2' [l2'' [x H]]]]].
+      exists l1'. exists l1''. exists (h :: l2'). exists l2''. exists x. repeat split.
+      * apply H.
+      * simpl. f_equal. apply H.
+      * rewrite overlap_flip_2. simpl. rewrite Hmem. rewrite overlap_flip_2. apply H.
+Qed.
+
 Lemma middle_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c: nat),
   sublist [a; b; c] (l ++ [b]) = true -> In b l.
 Proof.
@@ -1019,6 +1128,32 @@ Proof.
       * simpl in H. rewrite eqb_refl in H. simpl in H. rewrite andb_comm in H. discriminate H.
       * simpl in H. apply split_and_true in H. destruct H as [_ H]. apply split_and_true in H. destruct H as [H _].
         simpl. right. left. apply eqb_eq in H. rewrite H. reflexivity.
+    + simpl. right. apply IH. apply H.
+Qed.
+
+Lemma first_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c v: nat),
+  sublist [a; b; c] (l ++ [v]) = true -> In a l.
+Proof.
+  intros l a b c v H.
+  induction l as [| h t IH].
+  - simpl in H. rewrite orb_comm in H. simpl in H. rewrite andb_comm in H. simpl in H. discriminate H.
+  - simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + destruct t as [| h' t'].
+      * simpl in H. rewrite andb_comm in H. rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H.
+      * simpl in H. apply split_and_true in H. destruct H as [H _]. left. apply eqb_eq in H. rewrite H. reflexivity.
+    + simpl. right. apply IH. apply H.
+Qed.
+
+Lemma first_elt_of_sublist_not_last_elt_gen: forall (l t: list nat) (a b v: nat),
+  sublist (a :: b :: t) (l ++ [v]) = true -> In a l.
+Proof.
+  intros l t a b v H.
+  induction l as [| hl tl IH].
+  - simpl in H. rewrite orb_comm in H. simpl in H. rewrite andb_comm in H. simpl in H. discriminate H.
+  - simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + destruct t as [| h' t'].
+      * simpl in H. rewrite andb_comm in H. apply split_and_true in H. left. destruct H as [_ H]. apply eqb_eq in H. rewrite H. reflexivity.
+      * simpl in H. apply split_and_true in H. destruct H as [H _]. left. apply eqb_eq in H. rewrite H. reflexivity.
     + simpl. right. apply IH. apply H.
 Qed.
 
@@ -1036,6 +1171,245 @@ Proof.
       * simpl. right. left. reflexivity.
       * apply H.
 Qed.
+
+Lemma middle_elt_of_sublist_not_first_elt_gen: forall (A t: list nat) (a b h: nat),
+  sublist (a :: A) (h :: t) = true /\ In b A -> In b t.
+Proof.
+  intros A t a b h [H1 H2].
+  generalize dependent h. induction t as [| hl tl IH].
+  - intros h H1. simpl in H1. rewrite orb_comm in H1. simpl in H1. apply split_and_true in H1. destruct H1 as [_ H1].
+    destruct A as [| ha ta]. apply H2. simpl in H1. discriminate H1.
+  - intros h H1. simpl in H1. destruct ((a =? h) && prefix A (hl :: tl)) as [|] eqn:Hpre.
+    + apply split_and_true in Hpre. destruct Hpre as [_ Hpre]. apply prefix_breaks_down_list in Hpre.
+      apply membership_splits_list in H2. destruct H2 as [A1 [A2 HA]]. rewrite <- HA in Hpre. destruct Hpre as [t2 Ht].
+      rewrite <- Ht. apply membership_append. apply membership_append_r. apply membership_append. left. reflexivity.
+    + simpl in H1. right. apply IH with (h := hl). apply H1.
+Qed.
+
+Lemma index_of_sublist: forall (a b: nat) (i: nat) (l: list nat),
+  sublist [b; a] l = true
+  -> count a l = 1
+  -> count b l = 1
+  -> Some (S i) = index l a
+  -> Some i = index l b.
+Proof.
+  intros a b i l. intros H1 Hc Hcb H2.
+  generalize dependent i. induction l as [| h t IH].
+  - simpl in H1. discriminate H1.
+  - intros i H2. simpl in H2. destruct (h =? a) as [|] eqn:Hha. inversion H2.
+    simpl in H1. destruct t as [| h' t'].
+    + simpl in H1. rewrite andb_comm in H1. simpl in H1. discriminate H1.
+    + destruct (a =? h') as [|] eqn:Hah.
+      * simpl in H2. rewrite eqb_sym in Hah. rewrite Hah in H2. inversion H2. destruct (h =? b) as [|] eqn:Hhb.
+        -- simpl. rewrite Hhb. reflexivity.
+        -- rewrite eqb_sym in Hhb. rewrite Hhb in H1. simpl in H1.
+           assert (In a t').
+           { apply middle_elt_of_sublist_not_first_elt_gen with (A := [a]) (a := b) (h := h'). split. apply H1. left. reflexivity. }
+           simpl in Hc. rewrite Hha in Hc. rewrite Hah in Hc. apply member_count_at_least_1 in H. lia.
+      * destruct i as [|i'] eqn:Hi.
+        -- rewrite eqb_sym in Hah. simpl in H2. rewrite Hah in H2. destruct (index t' a) as [j|]. inversion H2. discriminate H2.
+        -- specialize IH with (i := i').
+           assert (b =? h = false).
+           { destruct (b =? h) as [|] eqn:Hbh.
+             - simpl in H1. assert (In b (h' :: t')). { apply sublist_member with (l1 := [b; a]). split.
+               + left. reflexivity.
+               + apply H1. }
+               simpl in Hcb. rewrite eqb_sym in Hbh. rewrite Hbh in Hcb. apply member_count_at_least_1 in H. simpl in H. lia.
+             - reflexivity. }
+           assert (Hind: Some i' = index (h' :: t') b).
+           { apply IH.
+             - rewrite andb_comm in H1. simpl in H1. apply H1.
+             - simpl in Hc. rewrite Hha in Hc. apply Hc.
+             - destruct (index (h' :: t') a) as [j|].
+               + simpl in Hcb. rewrite eqb_sym in H. rewrite H in Hcb. apply Hcb.
+               + inversion H2.
+             - destruct (index (h' :: t') a) as [j|].
+               + inversion H2. reflexivity.
+               + discriminate H2. }
+           simpl. rewrite eqb_sym in H. rewrite H. simpl in Hind. rewrite <- Hind. reflexivity.
+Qed.
+
+Lemma merge_two_sublists: forall (l: list nat) (a b x: nat),
+  sublist [a; x] l = true
+  -> sublist [b; a] l = true
+  -> count a l = 1
+  -> sublist [b; a; x] l = true.
+Proof.
+  intros l a b x Hx Hb Hc.
+  induction l as [| h t IH].
+  - simpl in Hx. discriminate Hx.
+  - simpl in Hx.
+    destruct (a =? h) as [|] eqn:Hah.
+    + assert (Hat: In a t).
+      { apply middle_elt_of_sublist_not_first_elt_gen with (A := [a]) (a := b) (h := h). split.
+        - apply Hb.
+        - left. reflexivity. }
+      simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply member_count_at_least_1 in Hat. lia.
+    + simpl in Hx. simpl in Hb. destruct (b =? h) as [|] eqn:Hbh.
+      * destruct t as [| h' t'].
+        -- simpl in Hb. discriminate Hb.
+        -- simpl in Hb. destruct (a =? h') as [|] eqn:Hah'.
+           ++ simpl in Hx. rewrite Hah' in Hx. destruct t' as [| h'' t''].
+              ** simpl in Hx. discriminate Hx.
+              ** destruct (x =? h'') as [|] eqn:Hxh''.
+                 --- simpl. rewrite Hbh. rewrite Hah'. rewrite Hxh''. reflexivity.
+                 --- assert (Ha: In a (h'' :: t'')).
+                     { apply sublist_member with (l1 := [a; x]). split. left. reflexivity. simpl in Hx. apply Hx. }
+                     simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. rewrite eqb_sym in Hah'. rewrite Hah' in Hc.
+                     apply member_count_at_least_1 in Ha. simpl in Ha. lia.
+           ++ simpl. apply split_orb_true. right. apply IH.
+              ** apply Hx.
+              ** apply Hb.
+              ** simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply Hc.
+      * simpl in Hb. simpl. apply split_orb_true. right. apply IH.
+        -- apply Hx.
+        -- apply Hb.
+        -- simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply Hc.
+Qed.
+
+Lemma two_sublists_the_same: forall (l: list nat) (a b b': nat),
+  sublist [a; b] l = true
+  -> sublist [a; b'] l = true
+  -> count a l = 1
+  -> b = b'.
+Proof.
+  intros l a b b' Hb Hb' Hc.
+  induction l as [| h t IH].
+  - simpl in Hb. discriminate Hb.
+  - simpl in Hb.
+    destruct (a =? h) as [|] eqn:Hah.
+    + destruct t as [| h' t'].
+      * simpl in Hb. discriminate Hb.
+      * destruct (b =? h') as [|] eqn:Hbh'.
+        -- simpl in Hb'. rewrite Hah in Hb'. destruct (b' =? h') as [|] eqn:Hbh''.
+           ++ apply eqb_eq in Hbh'. rewrite Hbh'. apply eqb_eq in Hbh''. rewrite Hbh''. reflexivity.
+           ++ simpl in Hb'. assert (Ha: In a (h' :: t')). { apply sublist_member with (l1 := [a; b']). split. left. reflexivity. apply Hb'. }
+              simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply member_count_at_least_1 in Ha. simpl in Ha. lia.
+        -- simpl in Hb. assert (Ha: In a (h' :: t')). { apply sublist_member with (l1 := [a; b]). split. left. reflexivity. apply Hb. }
+           simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply member_count_at_least_1 in Ha. simpl in Ha. lia.
+    + simpl in Hb. simpl in Hb'. rewrite Hah in Hb'. simpl in Hb'. apply IH.
+      * apply Hb.
+      * apply Hb'.
+      * simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply Hc.
+Qed.
+
+Lemma two_sublists_the_same_gen: forall (l l1 l1' l2 l2': list nat) (a: nat),
+  l = l1 ++ [a] ++ l2
+  -> l = l1' ++ [a] ++ l2'
+  -> count a l = 1
+  -> l2 = l2'.
+Proof.
+  intros l l1 l1' l2 l2' a Hl Hl' Hc.
+  generalize dependent l1. generalize dependent l1'. induction l as [| h t IH].
+  - intros l1' Hl' l1 Hl. simpl in Hc. discriminate Hc.
+  - intros l1' Hl' l1 Hl. simpl in Hc.
+    destruct l1' as [| hl1' tl1'].
+    + simpl in Hl'. destruct l1 as [| hl1 tl1].
+      * simpl in Hl. inversion Hl'. inversion Hl. rewrite <- H3. apply H1.
+      * inversion Hl. inversion Hl'. rewrite H2 in Hc. rewrite eqb_refl in Hc.
+        assert (In a t). { rewrite H1. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
+    + destruct l1 as [| hl1 tl1].
+      * inversion Hl'. inversion Hl. rewrite H2 in Hc. rewrite eqb_refl in Hc.
+        assert (In a t). { rewrite H1. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
+      * apply IH with (l1' := tl1') (l1 := tl1).
+        -- destruct (h =? a) as [|] eqn:Hha. 
+           ++ assert (In a t). { inversion Hl. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
+           ++ apply Hc.
+        -- inversion Hl'. reflexivity.
+        -- inversion Hl. reflexivity.
+Qed.
+
+Lemma sublist_rev: forall (l1 l2: list nat),
+  sublist l1 l2 = true -> sublist (rev l1) (rev l2) = true.
+Proof.
+  intros l1 l2 H.
+  apply sublist_breaks_down_list in H. destruct H as [A [B H]].
+  apply sublist_breaks_down_list. exists (rev B). exists (rev A).
+  rewrite <- reverse_list_append. rewrite <- reverse_list_append. f_equal. rewrite <- app_assoc. apply H.
+Qed.
+
+Lemma two_sublists_the_same_2: forall (l: list nat) (a b b': nat),
+  sublist [b; a] l = true
+  -> sublist [b'; a] l = true
+  -> count a l = 1
+  -> b = b'.
+Proof.
+  intros l a b b' Hb Hb' Hc.
+  apply sublist_rev in Hb. simpl in Hb. apply sublist_rev in Hb'. simpl in Hb'.
+  rewrite count_reverse in Hc.
+  apply two_sublists_the_same with (l := rev l) (a := a).
+  - apply Hb.
+  - apply Hb'.
+  - apply Hc.
+Qed.
+
+Lemma end_of_sublist_still_sublist: forall (a1 a a2 h v: nat) (t: list nat),
+  sublist [a1; a; a2] (h :: t ++ [v]) = true
+  -> sublist [a; a2] (t ++ [v]) = true.
+Proof.
+  intros a1 a a2 h v t H.
+  simpl in H. destruct (a1 =? h) as [|] eqn:Ha1h.
+  - destruct (match t ++ [v] with
+    | [] => false
+    | h2 :: t2 => (a =? h2) && match t2 with
+                               | [] => false
+                               | h3 :: _ => (a2 =? h3) && true
+                               end
+    end) as [|] eqn:H1.
+    + destruct t as [| h' t'].
+      * simpl in H1. rewrite andb_comm in H1. discriminate H1.
+      * simpl. simpl in H1. rewrite H1. reflexivity.
+    + simpl in H. apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+      apply sublist_breaks_down_list. exists (l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
+  - simpl in H. apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+      apply sublist_breaks_down_list. exists (l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
+Qed.
+
+Lemma end_of_sublist_still_sublist_2: forall (a1 a a2 h v: nat) (t: list nat),
+  sublist [a1; a; a2] (h :: t ++ [v]) = true
+  -> sublist [a; a2] (h :: t ++ [v]) = true.
+Proof.
+  intros a1 a a2 h v t H.
+  simpl in H. destruct (a1 =? h) as [|] eqn:Ha1h.
+  - destruct (match t ++ [v] with
+    | [] => false
+    | h2 :: t2 => (a =? h2) && match t2 with
+                               | [] => false
+                               | h3 :: _ => (a2 =? h3) && true
+                               end
+    end) as [|] eqn:H1.
+    + simpl. destruct t as [| h' t'].
+      * simpl in H1. rewrite andb_comm in H1. discriminate H1.
+      * simpl. simpl in H1. rewrite H1. rewrite orb_comm. simpl. reflexivity.
+    + simpl in H. apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+      apply sublist_breaks_down_list. exists (h :: l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
+  - simpl in H. apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+      apply sublist_breaks_down_list. exists (h :: l1 ++ [a1]). exists l2. rewrite <- H. simpl. rewrite append_vs_concat. reflexivity.
+Qed.
+
+Lemma end_of_sublist_still_sublist_gen: forall (a h: nat) (t l: list nat),
+  sublist (a :: l) (h :: t) = true
+  -> sublist l t = true.
+Proof.
+  intros a h t l H.
+  generalize dependent h. induction t as [| h' t' IH].
+  - intros h H. simpl in H. destruct (a =? h) as [|] eqn:Hah.
+    + simpl in H. destruct l as [| hl tl]. simpl. reflexivity. simpl in H. discriminate H.
+    + simpl in H. discriminate H.
+  - intros h H. simpl in H. destruct ((a =? h) && prefix l (h' :: t')) as [|] eqn:H'.
+    + apply split_and_true in H'. simpl. destruct H' as [_ H']. rewrite H'. reflexivity.
+    + simpl in H. apply IH in H. simpl. rewrite H. rewrite orb_comm. reflexivity.
+Qed.
+
+Lemma start_of_sublist_still_sublist: forall (a w b: nat) (l: list nat),
+  sublist [a; w; b] l = true
+  -> sublist [a; w] l = true.
+Proof.
+  intros a w b l H.
+  apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
+  apply sublist_breaks_down_list. exists l1. exists (b :: l2). rewrite <- H. simpl. reflexivity.
+Qed.
+
 
 Lemma last_elts_of_equal_lists: forall (l1 l2: list nat) (a b: nat),
   l1 ++ [a] = l2 ++ [b] -> a = b.
