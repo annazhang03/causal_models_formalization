@@ -5227,23 +5227,99 @@ Proof.
 Qed.
 
 Theorem if_mediator_then_not_confounder_path: forall (G: graph) (u: node) (p: path),
-  contains_cycle G = false -> In u (find_mediators_in_path p G)
+  contains_cycle G = false
+  -> acyclic_path_2 p
+  -> In u (find_mediators_in_path p G)
   -> ~(In u (find_confounders_in_path p G)) /\ ~(In u (find_colliders_in_path p G)).
 Proof.
-  intros G u p Hcyc Hu. (* TODO think the condition needs to be that the path is acyclic...but shouldn't change things with proofs *)
-Admitted.
+  intros G w [[u v] l] HG Hc Hu.
+  split.
+  - intros Hu'. apply mediators_vs_edges_in_path in Hu. destruct Hu as [y [z [Hsub1 Hedge1]]].
+    apply confounders_vs_edges_in_path in Hu'. destruct Hu' as [y' [z' [Hsub2 Hedge2]]].
+    destruct Hedge1 as [Hedge1 | Hedge1].
+    + assert (Hy: y = y').
+      { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := w).
+        - apply start_of_sublist_still_sublist in Hsub1. apply Hsub1.
+        - apply start_of_sublist_still_sublist in Hsub2. apply Hsub2.
+        - apply acyclic_path_count with (x := w) in Hc. apply Hc. apply sublist_member with (l1 := [y; w; z]). split.
+          right. left. reflexivity. apply Hsub1. }
+      rewrite <- Hy in *.
+      apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
+    + assert (Hy: z = z').
+      { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := w).
+        - apply end_of_sublist_still_sublist_2 in Hsub1. apply Hsub1.
+        - apply end_of_sublist_still_sublist_2 in Hsub2. apply Hsub2.
+        - apply acyclic_path_count with (x := w) in Hc. apply Hc. apply sublist_member with (l1 := [y; w; z]). split.
+          right. left. reflexivity. apply Hsub1. }
+      rewrite <- Hy in *.
+      apply contains_cycle_false_correct with (p := (w, w, [z])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      simpl. destruct Hedge1 as [_ Hedge1]. rewrite Hedge1. destruct Hedge2 as [_ Hedge2]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
+  - intros Hu'. apply mediators_vs_edges_in_path in Hu. destruct Hu as [y [z [Hsub1 Hedge1]]].
+    apply colliders_vs_edges_in_path in Hu'. destruct Hu' as [y' [z' [Hsub2 Hedge2]]].
+    destruct Hedge1 as [Hedge1 | Hedge1].
+    + assert (Hy: z = z').
+      { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := w).
+        - apply end_of_sublist_still_sublist_2 in Hsub1. apply Hsub1.
+        - apply end_of_sublist_still_sublist_2 in Hsub2. apply Hsub2.
+        - apply acyclic_path_count with (x := w) in Hc. apply Hc. apply sublist_member with (l1 := [y; w; z]). split.
+          right. left. reflexivity. apply Hsub1. }
+      rewrite <- Hy in *.
+      apply contains_cycle_false_correct with (p := (w, w, [z])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      simpl. destruct Hedge1 as [_ Hedge1]. rewrite Hedge1. destruct Hedge2 as [_ Hedge2]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
+    + assert (Hy: y = y').
+      { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := w).
+        - apply start_of_sublist_still_sublist in Hsub1. apply Hsub1.
+        - apply start_of_sublist_still_sublist in Hsub2. apply Hsub2.
+        - apply acyclic_path_count with (x := w) in Hc. apply Hc. apply sublist_member with (l1 := [y; w; z]). split.
+          right. left. reflexivity. apply Hsub1. }
+      rewrite <- Hy in *.
+      apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
+Qed.
 
 Theorem if_confounder_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
-  contains_cycle G = false -> In u (find_confounders_in_path p G)
+  contains_cycle G = false
+  -> acyclic_path_2 p
+  -> In u (find_confounders_in_path p G)
   -> ~(In u (find_mediators_in_path p G)) /\ ~(In u (find_colliders_in_path p G)).
 Proof.
-Admitted.
+  intros G w [[u v] l] HG Hc Hu.
+  split.
+  - intros Hu'. apply if_mediator_then_not_confounder_path in Hu'.
+    + destruct Hu' as [Hu' _]. apply Hu'. apply Hu.
+    + apply HG.
+    + apply Hc.
+  - intros Hu'. apply colliders_vs_edges_in_path in Hu'. destruct Hu' as [y [z [Hsub1 Hedge1]]].
+    apply confounders_vs_edges_in_path in Hu. destruct Hu as [y' [z' [Hsub2 Hedge2]]].
+    assert (Hy: y = y').
+    { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := w).
+      - apply start_of_sublist_still_sublist in Hsub1. apply Hsub1.
+      - apply start_of_sublist_still_sublist in Hsub2. apply Hsub2.
+      - apply acyclic_path_count with (x := w) in Hc. apply Hc. apply sublist_member with (l1 := [y; w; z]). split.
+        right. left. reflexivity. apply Hsub1. }
+    rewrite <- Hy in *.
+    apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+    simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
+Qed.
 
 Theorem if_collider_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
-  contains_cycle G = false -> In u (find_colliders_in_path p G)
+  contains_cycle G = false
+  -> acyclic_path_2 p
+  -> In u (find_colliders_in_path p G)
   -> ~(In u (find_mediators_in_path p G)) /\ ~(In u (find_confounders_in_path p G)).
 Proof.
-Admitted.
+  intros G w [[u v] l] HG Hc Hu.
+  split.
+  - intros Hu'. apply if_mediator_then_not_confounder_path in Hu'.
+    + destruct Hu' as [_ Hu']. apply Hu'. apply Hu.
+    + apply HG.
+    + apply Hc.
+  - intros Hu'. apply if_confounder_then_not_mediator_path in Hu'.
+  + destruct Hu' as [_ Hu']. apply Hu'. apply Hu.
+    + apply HG.
+    + apply Hc.
+Qed.
 
 Lemma med_con_col_are_nodes_in_graph: forall (G: graph) (u v w: node),
   is_mediator_bool u v w G = true \/ is_confounder_bool u v w G = true \/ is_collider_bool u v w G = true
@@ -5586,6 +5662,7 @@ Proof.
             ** destruct Hmidcol as [Hmid HmidZ]. apply if_mediator_then_not_confounder_path in Hmedm.
                --- destruct Hmedm as [_ Hmedm]. exfalso. apply Hmedm. rewrite <- Hmmid. apply Hmid.
                --- apply HGcyc.
+               --- apply Hcyc.
          ++ (* m must be a mediator of l2 *)
             assert (Hmedm2: In m (find_mediators_in_path (mid, v, l2) G)).
             { apply mediators_vs_edges_in_path in Hmedm. destruct Hmedm as [y [z [Hsub Hedge]]].
@@ -5655,6 +5732,7 @@ Proof.
             ** destruct Hmidcol as [Hmid HmidZ]. apply if_confounder_then_not_mediator_path in Hconm.
                --- destruct Hconm as [_ Hconm]. exfalso. apply Hconm. rewrite <- Hmmid. apply Hmid.
                --- apply HGcyc.
+               --- apply Hcyc.
          ++ (* m must be a confounder of l2 *)
             assert (Hconm2: In m (find_confounders_in_path (mid, v, l2) G)).
             { apply confounders_vs_edges_in_path in Hconm. destruct Hconm as [y [z [Hsub Hedge]]].
@@ -5718,9 +5796,11 @@ Proof.
         ** destruct Hmidmed as [Hmid HmidZ]. apply if_mediator_then_not_confounder_path in Hmid.
            --- destruct Hmid as [_ Hmid]. exfalso. apply Hmid. rewrite Hmmid in *. apply Hcolm.
            --- apply HGcyc.
+           --- apply Hcyc.
         ** destruct Hmidcon as [Hmid HmidZ]. apply if_confounder_then_not_mediator_path in Hmid.
            --- destruct Hmid as [_ Hmid]. exfalso. apply Hmid. rewrite Hmmid in *. apply Hcolm.
            --- apply HGcyc.
+           --- apply Hcyc.
         ** destruct Hmidcol as [Hmid HmidZ]. rewrite <- Hmmid. apply HmidZ.
       - destruct H2 as [_ [_ H2]]. unfold all_colliders_have_descendant_conditioned_on in H2. apply forallb_true with (x := m) in H2.
         { apply H2. }
@@ -5752,19 +5832,20 @@ Qed.
 
 Theorem d_connected_cat: forall (u v h: node) (t: nodes) (G: graph) (Z: nodes),
   contains_cycle G = false
+  -> acyclic_path_2 (u, v, h :: t)
   -> d_connected_2 (h, v, t) G Z
   -> (In h (find_mediators_in_path (u, v, h :: t) G) /\ ~ In h Z)
      \/ (In h (find_confounders_in_path (u, v, h :: t) G) /\ ~ In h Z)
      \/ (In h (find_colliders_in_path (u, v, h :: t) G) /\ (some_descendant_in_Z_bool (find_descendants h G) Z = true))
   -> d_connected_2 (u, v, h :: t) G Z.
 Proof.
-  intros u v h t G Z. intros HGcyc H1. intros H.
+  intros u v h t G Z. intros HGcyc Hcyc H1. intros H.
   unfold d_connected_2 in *. repeat split.
   + apply no_overlap_non_member. intros m Hm Hm'.
     simpl in Hm. destruct t as [| h' t'].
     * simpl in Hm. destruct (is_mediator_bool u v h G || is_mediator_bool v u h G) as [|] eqn:Hmed.
       - assert (In h (find_mediators_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. }
+        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct H as [_ H]. destruct Hm as [Hm | Hm]. apply H. rewrite Hm. apply Hm'. apply Hm.
         -- destruct H0 as [H0 _]. apply H0. apply H.
@@ -5772,7 +5853,7 @@ Proof.
       - apply Hm.
     * simpl in Hm. destruct (is_mediator_bool u h' h G || is_mediator_bool h' u h G) as [|] eqn:Hmed.
       - assert (In h (find_mediators_in_path (u, v, h :: h' :: t') G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. }
+        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct Hm as [Hm | Hm].
            ++ destruct H as [_ H]. apply H. rewrite Hm. apply Hm'.
@@ -5788,7 +5869,7 @@ Proof.
     simpl in Hm. destruct t as [| h' t'].
     * simpl in Hm. destruct (is_confounder_bool u v h G) as [|] eqn:Hmed.
       - assert (In h (find_confounders_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. }
+        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct H0 as [H0 _]. apply H0. apply H.
         -- destruct H as [_ H]. destruct Hm as [Hm | Hm]. apply H. rewrite Hm. apply Hm'. apply Hm.
@@ -5796,7 +5877,7 @@ Proof.
       - apply Hm.
     * simpl in Hm. destruct (is_confounder_bool u h' h G) as [|] eqn:Hmed.
       - assert (In h (find_confounders_in_path (u, v, h :: h' :: t') G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. }
+        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct Hm as [Hm | Hm].
            ++ destruct H0 as [H0 _]. apply H0. apply H.
@@ -5827,6 +5908,7 @@ Proof.
         -- destruct H1 as [_ [_ H1]]. apply forallb_true with (x := m) in H1. apply H1. apply Hcolm.
       - destruct H1 as [_ [_ H1]]. apply forallb_true with (x := m) in H1. apply H1. apply Hcolm.
     * apply HGcyc.
+    * apply Hcyc.
 Qed.
 
 Lemma subpath_preserves_mediators: forall (w u v m: node) (l1 l2 l3: nodes) (G: graph),
@@ -7228,7 +7310,7 @@ Proof.
                     ** right. split. simpl in Hdir. apply split_and_true in Hdir. apply Hdir. apply Hvc. }
 
            assert (Hccol: ~ In c (find_colliders_in_path (u, v, rev lp1 ++ [c] ++ lc2) G)).
-           { apply if_mediator_then_not_confounder_path in Hc. 2: { apply HG. } apply Hc. }
+           { apply if_mediator_then_not_confounder_path in Hc. 2: { apply HG. } 2: { apply Hcyc'. } apply Hc. }
 
            assert (Hx': forall (x': node),
                           In x' (find_mediators_in_path (u, c, rev lp1) G) \/
@@ -7266,10 +7348,12 @@ Proof.
                   assert (Hcon: In x' (find_mediators_in_path (u, c, rev lp1) G)).
                   { apply Hx''. apply Hx'. right. left. apply Hmem. }
                   apply if_mediator_then_not_confounder_path in Hcon. destruct Hcon as [Hcon _]. apply Hcon. apply Hmem. apply HG.
+                  apply subpath_still_acyclic_2 with (v := v) (l2 := lc2) (l3 := rev lp1 ++ [c] ++ lc2). split. reflexivity. apply Hcyc'.
                 * unfold all_colliders_have_descendant_conditioned_on. apply forallb_true_iff_mem. intros x' Hmem.
                   assert (Hcon: In x' (find_mediators_in_path (u, c, rev lp1) G)).
                   { apply Hx''. apply Hx'. right. right. apply Hmem. }
                   apply if_mediator_then_not_confounder_path in Hcon. destruct Hcon as [_ Hcon]. exfalso. apply Hcon. apply Hmem. apply HG.
+                  apply subpath_still_acyclic_2 with (v := v) (l2 := lc2) (l3 := rev lp1 ++ [c] ++ lc2). split. reflexivity. apply Hcyc'.
                + apply subpath_still_d_connected_gen with (w := h) (l1 := lc1) (l3 := lhv). split. apply Hlhvc. apply Hlhv.
              - (* since c starts descendant path, cannot be collider. not in Z by Hpd'. *)
                (* need to determine first edge c <-> ...lc2 *)
@@ -7333,7 +7417,8 @@ Proof.
              - rewrite Hcolyv'. reflexivity.
              - assert (Hhuc: In huc (find_mediators_in_path (u, c, rev lp1) G)).
                { apply Hx''. apply Hx'. right. right. left. reflexivity. }
-               apply if_mediator_then_not_confounder_path in Hhuc. exfalso. apply Hhuc. rewrite Hcoluc. left. reflexivity. apply HG. }
+               apply if_mediator_then_not_confounder_path in Hhuc. exfalso. apply Hhuc. rewrite Hcoluc. left. reflexivity. apply HG.
+               apply subpath_still_acyclic_2 with (v := v) (l2 := lc2) (l3 := rev lp1 ++ [c] ++ lc2). split. reflexivity. apply Hcyc'. }
 
            assert (HD: exists (D: assignments (nodes * node)), get_collider_descendants_for_subpath Dh (find_colliders_in_path (c, v, lc2) G) = Some D).
            { apply collider_descendants_for_subpath_existence_2 with (u := h) (l1 := lc1) (L := L).
@@ -7378,12 +7463,20 @@ Proof.
            { assert (Hh: In h (h :: lhv)). { left. reflexivity. }
              apply intermediate_node_in_path with (x := h) in Hpath'. apply Hpath' in Hh. apply Hh. }
 
+           assert (Hu_h_lhv_cyc: acyclic_path_2 (u, v, h :: lhv)).
+           { apply acyclic_path_correct_2. simpl. rewrite Hhu. apply split_and_true. split. apply negb_true_iff. apply member_In_equiv_F. intros Humem.
+             apply membership_append_or in Humem. destruct Humem as [Humem | [Humem | Humem]]. apply member_In_equiv_F in Hulhv. apply Hulhv. apply Humem.
+             destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Humem. apply Humem.
+             destruct Hlhv as [[Hlhv _] _]. apply acyclic_path_correct_2 in Hlhv. simpl in Hlhv. apply Hlhv. }
+
+
            rewrite <- or_assoc in Hh. destruct Hh as [Hh | Hh].
            --- (* CASE 2B: h is not a collider *)
                assert (HFcol: find_colliders_in_path (u, v, h :: lhv) G = find_colliders_in_path (h, v, lhv) G).
                { assert (HFcol: ~In h (find_colliders_in_path (u, v, h :: lhv) G)).
-                 { destruct Hh as [Hh | Hh]. apply if_mediator_then_not_confounder_path in Hh. apply Hh. apply HG.
-                   apply if_confounder_then_not_mediator_path in Hh. apply Hh. apply HG. }
+                 { destruct Hh as [Hh | Hh].
+                   - apply if_mediator_then_not_confounder_path in Hh. apply Hh. apply HG. apply Hu_h_lhv_cyc.
+                   - apply if_confounder_then_not_mediator_path in Hh. apply Hh. apply HG. apply Hu_h_lhv_cyc. }
 
                  simpl. destruct lhv as [| h' t'].
                  - simpl. destruct (is_collider_bool u v h G) as [|] eqn:Hcol.
@@ -7516,11 +7609,11 @@ Proof.
                    simpl. destruct lhv as [| hlhv tlhv].
                    + simpl. destruct (is_mediator_bool u v h G || is_mediator_bool v u h G) as [|] eqn:Hmed.
                      * assert (Hmedh: In h (find_mediators_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
-                       apply if_mediator_then_not_confounder_path in Hmedh. exfalso. destruct Hmedh as [Hmedh _]. apply Hmedh. apply Hh. apply HG.
+                       apply if_mediator_then_not_confounder_path in Hmedh. exfalso. destruct Hmedh as [Hmedh _]. apply Hmedh. apply Hh. apply HG. apply Hu_h_lhv_cyc.
                      * apply overlap_with_empty.
                    + simpl. destruct (is_mediator_bool u hlhv h G || is_mediator_bool hlhv u h G) as [|] eqn:Hmed.
                      * assert (Hmedh: In h (find_mediators_in_path (u, v, h :: hlhv :: tlhv) G)). { simpl. rewrite Hmed. left. reflexivity. }
-                       apply if_mediator_then_not_confounder_path in Hmedh. exfalso. destruct Hmedh as [Hmedh _]. apply Hmedh. apply Hh. apply HG.
+                       apply if_mediator_then_not_confounder_path in Hmedh. exfalso. destruct Hmedh as [Hmedh _]. apply Hmedh. apply Hh. apply HG. apply Hu_h_lhv_cyc.
                      * apply Hlhv. }
 
                { destruct Hh as [Hh | Hh].
@@ -7528,11 +7621,11 @@ Proof.
                    simpl. destruct lhv as [| hlhv tlhv].
                    + simpl. destruct (is_confounder_bool u v h G) as [|] eqn:Hmed.
                      * assert (Hmedh: In h (find_confounders_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
-                       apply if_mediator_then_not_confounder_path in Hh. exfalso. destruct Hh as [Hh _]. apply Hh. apply Hmedh. apply HG.
+                       apply if_mediator_then_not_confounder_path in Hh. exfalso. destruct Hh as [Hh _]. apply Hh. apply Hmedh. apply HG. apply Hu_h_lhv_cyc.
                      * apply overlap_with_empty.
                    + simpl. destruct (is_confounder_bool u hlhv h G) as [|] eqn:Hmed.
                      * assert (Hmedh: In h (find_confounders_in_path (u, v, h :: hlhv :: tlhv) G)). { simpl. rewrite Hmed. left. reflexivity. }
-                       apply if_mediator_then_not_confounder_path in Hh. exfalso. destruct Hh as [Hh _]. apply Hh. apply Hmedh. apply HG.
+                       apply if_mediator_then_not_confounder_path in Hh. exfalso. destruct Hh as [Hh _]. apply Hh. apply Hmedh. apply HG. apply Hu_h_lhv_cyc.
                      * apply Hlhv.
                  - (* if h is a confounder in the new path, then u<-h->...lhv
                       if arrow didn't change, then confounder in original path, so not in Z
@@ -7655,7 +7748,7 @@ Proof.
                    destruct Hlhv as [[Hlhv _] _]. unfold acyclic_path_2 in Hlhv. destruct Hlhv as [_ [Hlhv _]]. exfalso. apply Hlhv. apply Hhmem. }
 
                assert (Hconn': d_connected_2 (u, v, h :: lhv) G Z).
-               { apply d_connected_cat. apply HG. apply Hlhv. right. right. split. apply Hh.
+               { apply d_connected_cat. apply HG. apply Hu_h_lhv_cyc. apply Hlhv. right. right. split. apply Hh.
 
                  pose proof Hconn as Hconn'. destruct Hconn as [_ [_ Hconn]]. simpl in Hconn. destruct t as [| ht tt].
                  + simpl in Hconn. destruct (is_collider_bool u v h G) as [|] eqn:Hcolht.
@@ -7855,9 +7948,9 @@ Proof.
 
                  assert (Hconncy: forall (p l1 l2: nodes) (d c x: node),
                                       p ++ [d] = l1 ++ [x] ++ l2
-                                      -> is_directed_path_in_graph (c, d, p) G = true /\ overlap p Z = false
+                                      -> is_directed_path_in_graph (c, d, p) G = true /\ overlap p Z = false /\ acyclic_path_2 (c, d, p)
                                       -> d_connected_2 (c, x, l1) G Z).
-                 { intros p l1 l2 d c x Hpd [Hdir Hover].
+                 { intros p l1 l2 d c x Hpd [Hdir [Hover Hcyclic]].
                    assert (Hpath'': is_directed_path_in_graph (c, x, l1) G = true).
                    { apply Hpathcy' with (dy := d) (py := p) (l2 := l2). apply Hdir. apply Hpd. }
                    repeat split.
@@ -7874,11 +7967,13 @@ Proof.
                      { apply directed_path_is_path in Hpath''. apply intermediate_node_in_path with (x := w) in Hpath''. apply Hpath''. right. left. apply Hw. }
                      assert (Hmed: In w (find_mediators_in_path (c, x, l1) G)). { apply directed_path_all_mediators. split. apply Hpath''. apply Hw''. }
                      apply if_confounder_then_not_mediator_path in Hw. destruct Hw as [Hw _]. apply Hw. apply Hmed. apply HG.
+                     apply Hacyc with (dy := d) (l2 := l2) (l3 := p). split. symmetry. apply Hpd. apply Hcyclic.
                    + apply forallb_true_iff_mem. intros w Hw.
                      assert (Hw'': In w l1).
                      { apply directed_path_is_path in Hpath''. apply intermediate_node_in_path with (x := w) in Hpath''. apply Hpath''. right. right. apply Hw. }
                      assert (Hmed: In w (find_mediators_in_path (c, x, l1) G)). { apply directed_path_all_mediators. split. apply Hpath''. apply Hw''. }
-                     apply if_collider_then_not_mediator_path in Hw. destruct Hw as [Hw _]. exfalso. apply Hw. apply Hmed. apply HG. }
+                     apply if_collider_then_not_mediator_path in Hw. destruct Hw as [Hw _]. exfalso. apply Hw. apply Hmed. apply HG.
+                     apply Hacyc with (dy := d) (l2 := l2) (l3 := p). split. symmetry. apply Hpd. apply Hcyclic. }
 
                  assert (Huph: member u (ph ++ [zh]) = false).
                  { (* since u->h->...ph...->zh is a directed path and G is acyclic *)
@@ -7991,18 +8086,19 @@ Proof.
                    { apply directed_path_all_mediators. split. apply Hdir. apply directed_path_is_path in Hdir. apply intermediate_node_in_path with (x := ch) in Hdir.
                      apply Hdir. right. right. unfold nodes in *. unfold node in *. rewrite Hcolc. left. reflexivity. }
                    apply if_mediator_then_not_confounder_path in Hch. exfalso. destruct Hch as [_ Hch]. apply Hch. unfold nodes in *. unfold node in *. rewrite Hcolc. left. reflexivity.
-                   apply HG. }
+                   apply HG. apply acyclic_path_cat_2. apply Hacyc with (dy := zh) (l2 := ph2') (l3 := ph). split. symmetry. apply Hph'. apply Hh'. intros Humem. destruct Humem as [Humem | Humem].
+                   rewrite Humem in Hhu. rewrite eqb_refl in Hhu. discriminate Hhu. apply member_In_equiv_F in Huph. apply Huph. rewrite Hph'. rewrite <- append_vs_concat. apply membership_append. apply Humem. }
 
-                 assert (Hcoldir: forall (c x' d: node) (p' p1' p2': nodes), p' ++ [d] = p1' ++ x' :: p2' -> is_directed_path_in_graph (c, d, p') G = true
+                 assert (Hcoldir: forall (c x' d: node) (p' p1' p2': nodes), p' ++ [d] = p1' ++ x' :: p2' -> is_directed_path_in_graph (c, d, p') G = true -> acyclic_path_2 (c, d, p')
                                 -> find_colliders_in_path (x', c, rev p1') G = []). (* the path is reverse of directed *)
-                 { intros c x' d ph' ph1' ph2' Hph' Hdir. destruct (find_colliders_in_path (x', c, rev ph1') G) as [| ch ct] eqn:Hcolc. reflexivity.
+                 { intros c x' d ph' ph1' ph2' Hph' Hdir Hcyc'. destruct (find_colliders_in_path (x', c, rev ph1') G) as [| ch ct] eqn:Hcolc. reflexivity.
                    assert (Hdir': is_directed_path_in_graph (c, x', ph1') G = true).
                    { apply Hpathcy' with (dy := d) (py := ph') (l2 := ph2'). apply Hdir. apply Hph'. }
                    assert (Hch: In ch (find_mediators_in_path (x', c, rev ph1') G)).
                    { apply mediators_same_in_reverse_path. apply directed_path_all_mediators. split. apply Hdir'. apply directed_path_is_path in Hdir'. apply intermediate_node_in_path with (x := ch) in Hdir'.
                      apply Hdir'. right. right. rewrite reverse_list_twice with (l := ph1'). apply colliders_same_in_reverse_path. unfold nodes in *. unfold node in *. rewrite Hcolc. left. reflexivity. }
                    apply if_mediator_then_not_confounder_path in Hch. exfalso. destruct Hch as [_ Hch]. apply Hch. unfold nodes in *. unfold node in *. rewrite Hcolc. left. reflexivity.
-                   apply HG. }
+                   apply HG. apply reverse_path_still_acyclic. apply Hacyc with (dy := d) (l2 := ph2') (l3 := ph'). split. symmetry. apply Hph'. apply Hcyc'. }
 
                  destruct (overlap (ph ++ [zh]) (lhv ++ [v])) as [|] eqn:Hoverh.
                  - apply overlap_rev_true in Hoverh.
@@ -8035,8 +8131,9 @@ Proof.
                        - apply acyclic_path_correct_2 in Hcychx. apply Hcychx. }
 
                      split.
-                     { apply d_connected_cat. apply HG.
-                       - apply Hconncy with (p := ph) (l2 := ph2) (d := zh). apply Hx. split. apply Hh'. apply Hh'.
+                     { apply d_connected_cat. apply HG. apply acyclic_path_cat_2. apply Hcychx. intros [Humem | Humem].
+                       rewrite Humem in Hhu. rewrite eqb_refl in Hhu. discriminate Hhu. apply member_In_equiv_F in Huph. apply Huph. rewrite Hx. rewrite <- append_vs_concat. apply membership_append. apply Humem.
+                       - apply Hconncy with (p := ph) (l2 := ph2) (d := zh). apply Hx. split. apply Hh'. split. apply Hh'. apply Hh'.
                        - left. split.
                          + apply directed_path_all_mediators. split. apply Hdir. left. reflexivity.
                          + apply HhZ. } split.
@@ -8197,7 +8294,7 @@ Proof.
                            + apply no_overlap_non_member with (x := w) in Hx''. apply Hx''. rewrite Hx. apply membership_append. destruct Hy' as [Hy' _]. rewrite Hy'. apply membership_append. apply Hw'.
                              right. apply membership_rev. rewrite <- Hcy. apply membership_append_r. apply Hw. }
 
-                       split.
+                       assert (Hcycuhv: acyclic_path_2 (u, v, h :: ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2)).
                        { apply acyclic_path_cat_2.
                          apply Hcychv.
                          { (* u not in [ph1,y] b/c cycle. u not in [rev lyd1] b/c HuL. u not in [cy, lcyv2] b/c Hulhv *)
@@ -8211,6 +8308,9 @@ Proof.
                                  destruct Hy' as [_ [Hy' _]]. rewrite Hy'. rewrite app_assoc. apply membership_append. apply membership_rev. rewrite reverse_list_append. simpl. right. apply Hmem.
                              + apply member_In_equiv_F in Hulhv. apply Hulhv. rewrite Hlhvrev. apply membership_append_r. right. simpl. rewrite <- Hcy. apply membership_append_r. apply Hmem.
                            - destruct Hmem as [Hmem | Hmem]. destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Hmem. apply Hmem. } }
+
+                       split.
+                       { apply Hcycuhv. }
 
                         assert (Hphv: is_path_in_graph (h, v, ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2) G = true).
                         { apply concat_paths_still_a_path. split.
@@ -8248,16 +8348,16 @@ Proof.
                         split.
                         { (* h is a mediator and not in Z (HhZ). ph1 directed path. y collider with desc path to dy (already in Dx)
                              lyd1 directed path. cy now mediator, not in Z. everything else same as before *) 
-                          apply d_connected_cat. apply HG.
+                          apply d_connected_cat. apply HG. apply Hcycuhv.
                           - apply concat_d_connected_paths. apply HG. apply Hphv. split.
                             + apply Hconncy with (p := ph) (l2 := ph12 ++ [x] ++ ph2) (d := zh). destruct Hy' as [Hy' _]. rewrite Hx. rewrite Hy'. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity.
-                              split. apply Hh'. apply Hh'.
+                              split. apply Hh'. split. apply Hh'. apply Hh'.
                             + split.
                               * apply concat_d_connected_paths. apply HG.
                                 unfold concat. apply subpath_still_path with (w := h) (l1 := ph11) (l3 := ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2). split. reflexivity. apply Hphv.
                                 split.
-                                -- apply reverse_d_connected_paths. apply Hconncy with (p := py) (l2 := lyd2) (d := dy). apply Hy'. split. apply Hpdy''.
-                                   apply overlap_cat with (x := cy). apply Hpdy''.
+                                -- apply reverse_d_connected_paths. apply Hconncy with (p := py) (l2 := lyd2) (d := dy). apply Hy'. split. apply Hpdy''. split.
+                                   apply overlap_cat with (x := cy). apply Hpdy''. apply Hpdy''.
                                 -- split.
                                    ++ apply subpath_still_d_connected_gen with (w := h) (l1 := rev lx2 ++ [x] ++ lcyv1) (l3 := lhv). split. symmetry. rewrite <- app_assoc. rewrite <- app_assoc. unfold nodes in *. unfold node in *. rewrite Hcy. apply Hlhvrev.
                                       apply Hlhv.
@@ -8347,7 +8447,7 @@ Proof.
                           apply subpath_preserves_colliders_2 with (w := u) (v := v) (G := G) in Hcoluv. destruct Hcoluv as [Hcoluv | Hcoluv].
                           - (* h is a mediator, not a collider *)
                             apply if_mediator_then_not_confounder_path in Hhmed. exfalso. destruct Hhmed as [_ Hhmed]. apply Hhmed. unfold concat. unfold nodes in *.
-                            unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG.
+                            unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG. apply Hcycuhv.
                           - unfold nodes in *. rewrite Hcoluv.
 
                             assert (Hcolhv: ph11 ++ [y] ++ (rev lyd1 ++ [cy] ++ lcyv2) = ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2).
@@ -8360,11 +8460,12 @@ Proof.
                             apply subpath_preserves_colliders_2 with (w := h) (u := y) (v := v) (G := G) in Hcolhv. destruct Hcolhv as [Hcolhv | Hcolhv].
                             + unfold nodes in *. rewrite Hcolhv. unfold node in *. rewrite Hcolhy.
                               assert (Hcolyv: rev lyd1 ++ [cy] ++ lcyv2 = rev lyd1 ++ [cy] ++ lcyv2). { reflexivity. } apply subpath_preserves_colliders_2 with (w := y) (v := v) (G := G) in Hcolyv.
-                              assert (Hcolycy: find_colliders_in_path (y, cy, rev lyd1) G = []). { apply Hcoldir with (d := dy) (p' := py) (p2' := lyd2). apply Hy'. apply Hpdy''. }
+                              assert (Hcolycy: find_colliders_in_path (y, cy, rev lyd1) G = []). { apply Hcoldir with (d := dy) (p' := py) (p2' := lyd2). apply Hy'. apply Hpdy''. apply Hpdy''. }
                               unfold nodes in *. unfold node in *. rewrite Hcolycy in *. destruct Hcolyv as [Hcolyv | Hcolyv].
                               * (* cy is a mediator, not a collider *)
                                 apply if_mediator_then_not_confounder_path in Hcymed. exfalso. destruct Hcymed as [_ Hcymed]. apply Hcymed. unfold concat. unfold nodes in *.
-                                unfold node in *. simpl in Hcolyv. simpl. rewrite Hcolyv. left. reflexivity. apply HG.
+                                unfold node in *. simpl in Hcolyv. simpl. rewrite Hcolyv. left. reflexivity. apply HG. unfold concat. apply subpath_still_acyclic with (w := h) (l1 := ph11) (l3 := ph11 ++ [y] ++ rev lyd1 ++ [cy] ++ lcyv2).
+                                split. reflexivity. apply Hcychv.
                               * rewrite Hcolyv. simpl. reflexivity.
                             + (* y is a collider, so should be included in Hcolhv *)
                               unfold concat in Hycol.
@@ -8704,7 +8805,7 @@ Proof.
                              * apply no_overlap_non_member with (x := w) in Hx''. apply Hx''. apply membership_append. rewrite Hph. apply membership_append. apply Hw'.
                                right. apply membership_rev. rewrite <- Hcy. apply membership_append_r. apply Hw. }
 
-                       split.
+                       assert (Hcycuhv: acyclic_path_2 (u, v, h :: ph1 ++ [x] ++ lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2)).
                        { apply acyclic_path_cat_2.
                          { apply Hcychv. }
 
@@ -8720,6 +8821,8 @@ Proof.
                                  destruct Hy' as [_ [Hy' _]]. rewrite Hy'. rewrite app_assoc. apply membership_append. apply membership_rev. rewrite reverse_list_append. simpl. apply Hmem.
                                * apply member_In_equiv_F in Hulhv. apply Hulhv. rewrite Hlhvrev. apply membership_append_r. right. simpl. rewrite <- Hcy. apply membership_append_r. apply Hmem.
                            - destruct Hmem as [Hmem | Hmem]. destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Hmem. apply Hmem. } }
+
+                       split. apply Hcycuhv.
 
                        assert (Hphv: is_path_in_graph (concat h x v ph1 (lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2)) G = true).
                        { apply concat_paths_still_a_path. split.
@@ -8764,18 +8867,18 @@ Proof.
                        { (* (u, h, ph1, x) all mediators. x is mediator (not in z, Hh'). [lxy1] mediators
                             y collider, either = zh = dy and in Z, or not in Z but has path to dy
                             [lcyd1 mediators, not in Z. cy mediator, not in Z. lcyv2 from lhv d-conn *) 
-                         apply d_connected_cat. apply HG.
+                         apply d_connected_cat. apply HG. apply Hcycuhv.
                          - apply concat_d_connected_paths. apply HG. apply Hphv. split.
-                           + apply Hconncy with (p := ph) (l2 := ph2) (d := zh). apply Hx. split. apply Hh'. apply Hh'.
+                           + apply Hconncy with (p := ph) (l2 := ph2) (d := zh). apply Hx. split. apply Hh'. split. apply Hh'. apply Hh'.
                            + split. apply concat_d_connected_paths. apply HG. unfold concat. apply subpath_still_path with (w := h) (l1 := ph1) (l3 := ph1 ++ [x] ++ lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2).
                              split. reflexivity. apply Hphv. split.
                              * apply subpath_still_d_connected_gen with (w := h) (l1 := ph1) (l3 := ph1 ++ [x] ++ lxy1). split. reflexivity.
                                apply Hconncy with (p := ph) (l2 := lxy2) (d := zh). rewrite <- app_assoc. rewrite <- app_assoc. rewrite Hx. destruct Hy' as [Hy' _]. rewrite Hy'. reflexivity.
-                               split. apply Hh'. apply Hh'.
+                               split. apply Hh'. split. apply Hh'. apply Hh'.
                              * split. apply concat_d_connected_paths. apply HG. apply subpath_still_path with (w := h) (l1 := ph1 ++ [x] ++ lxy1) (l3 := ph1 ++ [x] ++ lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2).
                                rewrite <- app_assoc. rewrite <- app_assoc. split. reflexivity. apply Hphv. split.
-                               -- apply reverse_d_connected_paths. apply Hconncy with (p := py) (l2 := lcyd2) (d := dy). apply Hy'. split. apply Hpdy''.
-                                  apply overlap_cat with (x := cy). apply Hpdy''.
+                               -- apply reverse_d_connected_paths. apply Hconncy with (p := py) (l2 := lcyd2) (d := dy). apply Hy'. split. apply Hpdy''. split.
+                                  apply overlap_cat with (x := cy). apply Hpdy''. apply Hpdy''.
                                -- split. apply subpath_still_d_connected_gen with (w := h) (l1 := rev lx2 ++ [x] ++ lcyv1) (l3 := lhv). split. rewrite Hlhvrev. rewrite <- Hcy. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity. apply Hlhv.
                                   apply subpath_still_acyclic with (w := h) (l1 := ph1 ++ [x] ++ lxy1) (l3 := ph1 ++ [x] ++ lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2). split.
                                   rewrite <- app_assoc. rewrite <- app_assoc. reflexivity. apply Hcychv.
@@ -8860,7 +8963,7 @@ Proof.
                           apply subpath_preserves_colliders_2 with (w := u) (v := v) (G := G) in Hcoluv. destruct Hcoluv as [Hcoluv | Hcoluv].
                           - (* h is a mediator, not a collider *)
                             apply if_mediator_then_not_confounder_path in Hhmed. exfalso. destruct Hhmed as [_ Hhmed]. apply Hhmed. unfold concat. unfold nodes in *.
-                            unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG.
+                            unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG. apply Hcycuhv.
                           - unfold nodes in *. rewrite Hcoluv.
 
                             assert (Hcolhv: (ph1 ++ [x] ++ lxy1) ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2 = ph1 ++ [x] ++ lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2).
@@ -8873,11 +8976,12 @@ Proof.
                             apply subpath_preserves_colliders_2 with (w := h) (u := y) (v := v) (G := G) in Hcolhv. destruct Hcolhv as [Hcolhv | Hcolhv].
                             + unfold nodes in *. rewrite Hcolhv. unfold node in *. rewrite Hcolhy.
                               assert (Hcolyv: rev lcyd1 ++ [cy] ++ lcyv2 = rev lcyd1 ++ [cy] ++ lcyv2). { reflexivity. } apply subpath_preserves_colliders_2 with (w := y) (v := v) (G := G) in Hcolyv.
-                              assert (Hcolycy: find_colliders_in_path (y, cy, rev lcyd1) G = []). { apply Hcoldir with (d := dy) (p' := py) (p2' := lcyd2). apply Hy'. apply Hpdy''. }
+                              assert (Hcolycy: find_colliders_in_path (y, cy, rev lcyd1) G = []). { apply Hcoldir with (d := dy) (p' := py) (p2' := lcyd2). apply Hy'. apply Hpdy''. apply Hpdy''. }
                               unfold nodes in *. unfold node in *. rewrite Hcolycy in *. destruct Hcolyv as [Hcolyv | Hcolyv].
                               * (* cy is a mediator, not a collider *)
                                 apply if_mediator_then_not_confounder_path in Hcymed. exfalso. destruct Hcymed as [_ Hcymed]. apply Hcymed. unfold concat. unfold nodes in *.
-                                unfold node in *. simpl in Hcolyv. simpl. rewrite Hcolyv. left. reflexivity. apply HG.
+                                unfold node in *. simpl in Hcolyv. simpl. rewrite Hcolyv. left. reflexivity. apply HG. unfold concat. unfold concat in Hcychv. apply subpath_still_acyclic with (w := h) (l1 := ph1 ++ x :: lxy1) (l3 := ph1 ++ x :: lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2).
+                                split. rewrite <- app_assoc. reflexivity. apply Hcychv.
                               * rewrite Hcolyv. simpl. reflexivity.
                             + (* y is a collider, so should be included in Hcolhv *)
                               unfold concat in Hycol.
@@ -9152,7 +9256,7 @@ Proof.
                          - apply directed_path_is_path. simpl in Hdir. apply split_and_true in Hdir. apply Hdir.
                          - apply subpath_still_path with (w := h) (l1 := rev lx2) (l3 := lhv). split. symmetry. apply Hlhvrev. apply Hlhv. }
 
-                       split.
+                       assert (Hcycuhv: acyclic_path_2 (u, v, h :: ph1 ++ [x] ++ rev tlx1)).
                        { apply acyclic_path_correct_2. simpl. rewrite Hhu.
                          apply split_and_true. split.
                          - rewrite <- app_assoc. simpl. rewrite <- append_vs_concat. apply negb_true_iff. apply member_In_equiv_F. intros Hu. apply membership_append_or in Hu.
@@ -9162,6 +9266,8 @@ Proof.
                              * apply member_In_equiv_F in Hulhv. apply Hulhv. apply membership_rev. rewrite H1. apply membership_append. apply membership_rev. apply Hu.
                              * destruct Hcyc as [Hcyc _]. apply Hcyc. destruct Hu as [Hu | Hu]. symmetry. apply Hu. exfalso. apply Hu.
                          - apply acyclic_path_correct_2 in Hcyc'. simpl in Hcyc'. rewrite <- app_assoc in Hcyc'. simpl in Hcyc'. rewrite <- app_assoc. simpl. apply Hcyc'. }
+
+                       split. apply Hcycuhv.
 
                        assert (Hhmed: In h (find_mediators_in_path (u, v, h :: ph1 ++ [x] ++ rev tlx1) G)).
                        { apply mediator_means_edge_out with (c := h) (G := G) in Hx.
@@ -9247,8 +9353,8 @@ Proof.
                          ++ apply Hh'. }
 
                        split.
-                       { apply d_connected_cat. apply HG. apply concat_d_connected_paths. apply HG. apply Hpath''. split.
-                         - apply Hconncy with (p := ph) (d := zh) (l2 := ph2). apply Hx. split. apply Hh'. apply Hh'.
+                       { apply d_connected_cat. apply HG. apply Hcycuhv. apply concat_d_connected_paths. apply HG. apply Hpath''. split.
+                         - apply Hconncy with (p := ph) (d := zh) (l2 := ph2). apply Hx. split. apply Hh'. split. apply Hh'. apply Hh'.
                          - split. apply subpath_still_d_connected_gen with (w := h) (l1 := rev lx2) (l3 := lhv). split. symmetry. apply Hlhvrev. apply Hlhv.
                            apply Hcyc'.
                          - destruct b as [|] eqn:Hb. (* HbLx: either x is not a collider (Houtx), so not in Z, or collider with ph2++[zh] desc path. *)
@@ -9315,7 +9421,7 @@ Proof.
                             apply subpath_preserves_colliders_2 with (w := u) (v := v) (G := G) in Hcoluv. destruct Hcoluv as [Hcoluv | Hcoluv].
                             - (* h is a mediator, not a collider *)
                               apply if_mediator_then_not_confounder_path in Hhmed. exfalso. destruct Hhmed as [_ Hhmed]. apply Hhmed. unfold concat. unfold nodes in *.
-                              unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG.
+                              unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG. apply Hcycuhv.
                             - unfold nodes in *. rewrite Hcoluv.
 
                               assert (Hcolhv: ph1 ++ [x] ++ rev tlx1 = ph1 ++ [x] ++ rev tlx1).
@@ -9328,7 +9434,7 @@ Proof.
                               apply subpath_preserves_colliders_2 with (w := h) (u := x) (v := v) (G := G) in Hcolhv. destruct Hcolhv as [Hcolhv | Hcolhv].
                               + (* x is a mediator, not a collider *)
                                 apply if_mediator_then_not_confounder_path in Hxmed. exfalso. destruct Hxmed as [_ Hxmed]. apply Hxmed. unfold concat. unfold nodes in *.
-                                unfold node in *. simpl in Hcolhv. simpl. rewrite Hcolhv. apply membership_append_r. left. reflexivity. apply HG. reflexivity.
+                                unfold node in *. simpl in Hcolhv. simpl. rewrite Hcolhv. apply membership_append_r. left. reflexivity. apply HG. apply Hcyc'. reflexivity.
                               + unfold node in *. simpl in Hcolhv. simpl. rewrite Hcolhv. simpl in Hcolhy. rewrite Hcolhy. simpl. reflexivity. }
 
                          unfold nodes in *. rewrite Hcolhv. split. apply collider_subpath_is_exact_assignment with (D := Dh). apply HDx.
@@ -9375,7 +9481,7 @@ Proof.
                             apply subpath_preserves_colliders_2 with (w := u) (v := v) (G := G) in Hcoluv. destruct Hcoluv as [Hcoluv | Hcoluv].
                             - (* h is a mediator, not a collider *)
                               apply if_mediator_then_not_confounder_path in Hhmed. exfalso. destruct Hhmed as [_ Hhmed]. apply Hhmed. unfold concat. unfold nodes in *.
-                              unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG.
+                              unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG. apply Hcycuhv.
                             - unfold nodes in *. rewrite Hcoluv.
 
                               assert (Hcolhv: ph1 ++ [x] ++ rev tlx1 = ph1 ++ [x] ++ rev tlx1).
@@ -9607,7 +9713,7 @@ Proof.
                          + apply no_overlap_non_member with (x := w) in Hoverh. apply Hoverh. destruct Hy' as [Hy' _]. rewrite Hy'. apply membership_append. apply Hw'.
                           rewrite <- Hcy. apply membership_append. apply membership_append_r. apply Hw. }
 
-                     split.
+                     assert (Hcycuhv: acyclic_path_2 (u, v, h :: lhy1 ++ [y] ++ rev lcy1 ++ [cy] ++ lhcy2)).
                      { apply acyclic_path_cat_2.
                        apply Hcychv.
                        { (* u not in [lhy1,y] b/c cycle. u not in [rev lcy1] b/c HuL. u not in [cy, lhcy2] b/c Hulhv *)
@@ -9622,6 +9728,8 @@ Proof.
                                apply Hcolcy'. split. apply Hpdy'. apply Hpdy. apply HLh. destruct Hy' as [_ [Hy' _]]. rewrite Hy'. apply membership_append. apply membership_rev. apply Hmem.
                            + apply member_In_equiv_F in Hulhv. apply Hulhv. rewrite <- Hcy. apply membership_append_r. apply Hmem.
                          - destruct Hmem as [Hmem | Hmem]. destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Hmem. apply Hmem. } }
+
+                     split. apply Hcycuhv.
 
                      assert (Hphv: is_path_in_graph (concat h y v lhy1 (rev lcy1 ++ [cy] ++ lhcy2)) G = true).
                      { apply concat_paths_still_a_path. split.
@@ -9651,11 +9759,11 @@ Proof.
                        apply Hh'. apply Hpdy''. apply Hy'. apply Hy'. }
 
                      split.
-                     { apply d_connected_cat. apply HG. apply concat_d_connected_paths. apply HG.
+                     { apply d_connected_cat. apply HG. apply Hcycuhv. apply concat_d_connected_paths. apply HG.
                        apply Hphv. split.
-                       - apply Hconncy with (p := ph) (l2 := lhy2) (d := zh). apply Hy'. split. apply Hh'. apply Hh'.
+                       - apply Hconncy with (p := ph) (l2 := lhy2) (d := zh). apply Hy'. split. apply Hh'. split. apply Hh'. apply Hh'.
                        - split. apply concat_d_connected_paths. apply HG. apply subpath_still_path with (w := h) (l1 := lhy1) (l3 := lhy1 ++ [y] ++ rev lcy1 ++ [cy] ++ lhcy2). split. reflexivity. apply Hphv. split.
-                         + apply reverse_d_connected_paths. apply Hconncy with (p := py) (l2 := lcy2) (d := dy). apply Hy'. split. apply Hpdy''. apply overlap_cat with (x := cy). apply Hpdy''.
+                         + apply reverse_d_connected_paths. apply Hconncy with (p := py) (l2 := lcy2) (d := dy). apply Hy'. split. apply Hpdy''. split. apply overlap_cat with (x := cy). apply Hpdy''. apply Hpdy''.
                          + split. apply subpath_still_d_connected_gen with (w := h) (l1 := lhcy1) (l3 := lhv). split. apply Hcy. apply Hlhv.
                            apply subpath_still_acyclic with (w := h) (l1 := lhy1) (l3 := lhy1 ++ [y] ++ rev lcy1 ++ [cy] ++ lhcy2). split. reflexivity. apply Hcychv.
                          + left. apply and_comm. split.
@@ -9732,7 +9840,7 @@ Proof.
                         apply subpath_preserves_colliders_2 with (w := u) (v := v) (G := G) in Hcoluv. destruct Hcoluv as [Hcoluv | Hcoluv].
                         - (* h is a mediator, not a collider *)
                           apply if_mediator_then_not_confounder_path in Hhmed. exfalso. destruct Hhmed as [_ Hhmed]. apply Hhmed. unfold concat. unfold nodes in *.
-                          unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG.
+                          unfold node in *. simpl in Hcoluv. simpl. rewrite Hcoluv. left. reflexivity. apply HG. apply Hcycuhv.
                         - unfold nodes in *. rewrite Hcoluv.
 
                           assert (Hcolhv: lhy1 ++ [y] ++ rev lcy1 ++ [cy] ++ lhcy2 = lhy1 ++ [y] ++ rev lcy1 ++ [cy] ++ lhcy2).
@@ -9745,11 +9853,12 @@ Proof.
                           apply subpath_preserves_colliders_2 with (w := h) (u := y) (v := v) (G := G) in Hcolhv. destruct Hcolhv as [Hcolhv | Hcolhv].
                           + unfold nodes in *. rewrite Hcolhv. unfold node in *. rewrite Hcolhy.
                             assert (Hcolyv:rev lcy1 ++ [cy] ++ lhcy2 = rev lcy1 ++ [cy] ++ lhcy2). { reflexivity. } apply subpath_preserves_colliders_2 with (w := y) (v := v) (G := G) in Hcolyv.
-                            assert (Hcolycy: find_colliders_in_path (y, cy, rev lcy1) G = []). { apply Hcoldir with (d := dy) (p' := py) (p2' := lcy2). apply Hy'. apply Hpdy''. }
+                            assert (Hcolycy: find_colliders_in_path (y, cy, rev lcy1) G = []). { apply Hcoldir with (d := dy) (p' := py) (p2' := lcy2). apply Hy'. apply Hpdy''. apply Hpdy''. }
                             unfold nodes in *. unfold node in *. rewrite Hcolycy in *. destruct Hcolyv as [Hcolyv | Hcolyv].
                             * (* cy is a mediator, not a collider *)
                               apply if_mediator_then_not_confounder_path in Hcymed. exfalso. destruct Hcymed as [_ Hcymed]. apply Hcymed. unfold concat. unfold nodes in *.
-                              unfold node in *. simpl in Hcolyv. simpl. rewrite Hcolyv. left. reflexivity. apply HG.
+                              unfold node in *. simpl in Hcolyv. simpl. rewrite Hcolyv. left. reflexivity. apply HG. unfold concat. apply subpath_still_acyclic with (w := h) (l1 := lhy1) (l3 := lhy1 ++ [y] ++ rev lcy1 ++ [cy] ++ lhcy2).
+                              split. reflexivity. apply Hcychv.
                             * rewrite Hcolyv. simpl. reflexivity.
                           + (* y is a collider, so should be included in Hcolhv *)
                             unfold concat in Hycol.
@@ -11291,12 +11400,6 @@ Proof.
     rewrite H. reflexivity.
 Qed.
 
-Lemma A2_nodes_not_in_A1: forall (G: graph) (u: node) (p: path),
-  In u (get_A2_binded_nodes_in_g_path G p) -> ~(In u (get_A1_binded_nodes_in_g_path G p)).
-Proof.
-  (* when A2 includes descendants, not always true. *)
-Admitted.
-
 Definition A2_nodes_colliders_in_graph {X: Type} (G: graph) (p: path) (A2: assignments (nat * nat * X * X)): Prop :=
   forall (c: node) (i j: nat) (x y: X), In (c, (i, j, x, y)) A2
   -> exists (a b: node), nth_error (find_parents c G) i = Some a /\ nth_error (find_parents c G) j = Some b
@@ -11694,15 +11797,155 @@ Proof.
       admit.
 Admitted.
 
-Lemma A4_nodes_not_in_A1: forall (G: graph) (u: node) (p: path),
-  In u (get_A4_binded_nodes_in_g_path G p) -> ~(In u (get_A1_binded_nodes_in_g_path G p)).
+(* TODO move *)
+Lemma mediators_in_A1: forall (G: graph) (a: node) (u v: node) (l: nodes),
+  In a (find_mediators_in_path (u, v, l) G)
+  -> In a (get_A1_binded_nodes_in_g_path G (u, v, l)).
 Proof.
-Admitted.
+  intros G a u v l H.
+  unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + right. apply H.
+    + apply H.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + right. apply membership_append. apply H.
+    + apply membership_append. apply H.
+  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
+Qed.
+
+Lemma A1_mediators_or_endpoints: forall (G: graph) (a: node) (u v: node) (l: nodes),
+  In a (get_A1_binded_nodes_in_g_path G (u, v, l))
+  -> a = u \/ In a (find_mediators_in_path (u, v, l) G) \/ a = v.
+Proof.
+  intros G a u v l H.
+  unfold get_A1_binded_nodes_in_g_path in H. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + destruct H as [H | H]. left. symmetry. apply H. right. left. apply H.
+    + right. left. apply H.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + destruct H as [H | H]. left. symmetry. apply H. apply membership_append_or in H.
+      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
+      exfalso. apply H.
+    + apply membership_append_or in H.
+      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
+      exfalso. apply H.
+  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
+Qed.
+
+Lemma confounders_in_A4: forall (G: graph) (a: node) (u v: node) (l: nodes),
+  In a (find_confounders_in_path (u, v, l) G)
+  -> In a (get_A4_binded_nodes_in_g_path G (u, v, l)).
+Proof.
+  intros G a u v l H.
+  unfold get_A4_binded_nodes_in_g_path. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + apply membership_append. apply H.
+    + right. apply membership_append. apply H.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + apply H.
+    + right. apply H.
+  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
+Qed.
+
+Lemma A4_confounders_or_endpoints: forall (G: graph) (a: node) (u v: node) (l: nodes),
+  In a (get_A4_binded_nodes_in_g_path G (u, v, l))
+  -> a = u \/ In a (find_confounders_in_path (u, v, l) G) \/ a = v.
+Proof.
+  intros G a u v l H.
+  unfold get_A4_binded_nodes_in_g_path in H. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + apply membership_append_or in H.
+      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
+      exfalso. apply H.
+    + destruct H as [H | H]. left. symmetry. apply H. apply membership_append_or in H.
+      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
+      exfalso. apply H.
+  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + right. left. apply H.
+    + destruct H as [H | H]. left. symmetry. apply H. right. left. apply H.
+  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
+Qed.
+
+Lemma A4_nodes_not_in_A1: forall (G: graph) (u: node) (p: path),
+  contains_cycle G = false
+  -> acyclic_path_2 p
+  -> is_path_in_graph p G = true
+  -> In u (get_A4_binded_nodes_in_g_path G p) -> ~(In u (get_A1_binded_nodes_in_g_path G p)).
+Proof.
+  intros G w p HG Hc Hp Hu Hu'. destruct p as [[u v] l].
+  apply A4_confounders_or_endpoints in Hu as H4. apply A1_mediators_or_endpoints in Hu' as H1.
+  destruct H4 as [H4 | [H4 | H4]].
+  - destruct H1 as [H1 | [H1 | H1]].
+    + unfold get_A4_binded_nodes_in_g_path in Hu. unfold get_A1_binded_nodes_in_g_path in Hu'. destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+      * destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+        -- apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+           ++ apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H4. apply Hp. right. left. apply Hu.
+           ++ destruct Hc as [Hc _]. apply Hc. rewrite Hu. rewrite <- H4. reflexivity.
+           ++ apply Hu.
+        -- apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H4. apply Hp. right. left. apply Hu.
+        -- apply Hu.
+      * destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+        -- apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H4. apply Hp. left. apply Hu'.
+        -- apply membership_append_or in Hu'. destruct Hu' as [Hu' | [Hu' | Hu']].
+           ++ apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H4. apply Hp. left. apply Hu'.
+           ++ destruct Hc as [Hc _]. apply Hc. rewrite Hu'. rewrite <- H4. reflexivity.
+           ++ apply Hu'.
+        -- apply Hu.
+    + apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H4. apply Hp. left. apply H1.
+    + destruct Hc as [Hc _]. apply Hc. rewrite <- H4. apply H1.
+  - destruct H1 as [H1 | [H1 | H1]].
+    + apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H1. apply Hp. right. left. apply H4.
+    + apply if_confounder_then_not_mediator_path in H4. destruct H4 as [H4 _]. apply H4. apply H1. apply HG. apply Hc.
+    + apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H1. apply Hp. right. left. apply H4.
+  - destruct H1 as [H1 | [H1 | H1]].
+    + destruct Hc as [Hc _]. apply Hc. rewrite <- H1. apply H4.
+    + apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H4. apply Hp. left. apply H1.
+    + unfold get_A4_binded_nodes_in_g_path in Hu. unfold get_A1_binded_nodes_in_g_path in Hu'. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+      * destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+        -- destruct Hu' as [Hu' | Hu'].
+           ++ destruct Hc as [Hc _]. apply Hc. rewrite Hu'. apply H4.
+           ++ apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H4. apply Hp. left. apply Hu'.
+        -- apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H4. apply Hp. left. apply Hu'.
+      * destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+        -- apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H4. apply Hp. right. left. apply Hu.
+        -- clear Hu'. pose proof Hu as Hu'. destruct Hu' as [Hu' | Hu'].
+           ++ destruct Hc as [Hc _]. apply Hc. rewrite Hu'. apply H4.
+           ++ apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H4. apply Hp. right. left. apply Hu'.
+      * apply Hu.
+Qed.
 
 Lemma A4_nodes_not_in_A2: forall (G: graph) (u: node) (p: path),
-  In u (get_A4_binded_nodes_in_g_path G p) -> ~(In u (get_A2_binded_nodes_in_g_path G p)).
+  contains_cycle G = false
+  -> acyclic_path_2 p
+  -> is_path_in_graph p G = true
+  -> In u (get_A4_binded_nodes_in_g_path G p) -> ~(In u (get_A2_binded_nodes_in_g_path G p)).
 Proof.
-Admitted.
+  intros G w p HG Hc Hp Hu Hu'. destruct p as [[u v] l].
+  apply A4_confounders_or_endpoints in Hu. unfold get_A2_binded_nodes_in_g_path in Hu'.
+  destruct Hu as [Hu | [Hu | Hu]].
+  - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- Hu. apply Hp.
+    right. right. apply Hu'.
+  - apply if_confounder_then_not_mediator_path in Hu. destruct Hu as [_ Hu]. apply Hu. apply Hu'. apply HG. apply Hc.
+  - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- Hu. apply Hp.
+    right. right. apply Hu'.
+Qed.
+
+
+Lemma A2_nodes_not_in_A1: forall (G: graph) (u: node) (p: path),
+  contains_cycle G = false
+  -> acyclic_path_2 p
+  -> is_path_in_graph p G = true
+  -> In u (get_A2_binded_nodes_in_g_path G p) -> ~(In u (get_A1_binded_nodes_in_g_path G p)).
+Proof.
+  intros G w p HG Hc Hp Hu' Hu. destruct p as [[u v] l].
+  apply A1_mediators_or_endpoints in Hu. unfold get_A2_binded_nodes_in_g_path in Hu'.
+  destruct Hu as [Hu | [Hu | Hu]].
+  - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- Hu. apply Hp.
+    right. right. apply Hu'.
+  - apply if_mediator_then_not_confounder_path in Hu. destruct Hu as [_ Hu]. apply Hu. apply Hu'. apply HG. apply Hc.
+  - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- Hu. apply Hp.
+    right. right. apply Hu'.
+Qed.
 
 Lemma sublist_of_path_has_edge: forall (a b h v: node) (t: nodes) (G: graph),
   sublist [b; a] (h :: t ++ [v]) = true
@@ -12902,6 +13145,16 @@ Proof.
   - apply HL'.
 Qed.
 
+Lemma equiv_assignments_preserve_unb_anc_changed {X: Type} `{EqType X}: forall (h h' h1 h1': assignments X) (V: nodes),
+  assignments_equiv h h'
+  -> assignments_equiv h1 h1'
+  -> unblocked_ancestors_that_changed_A_to_B V h' h1' = unblocked_ancestors_that_changed_A_to_B V h h1.
+Proof.
+  intros h h' h1 h1' V Hh Hh1. induction V as [| v1 V'].
+  - simpl. reflexivity.
+  - simpl. rewrite Hh1. rewrite Hh. rewrite IHV'. reflexivity.
+Qed.
+
 Lemma equiv_assignments_preserve_anc {X: Type} `{EqType X}: forall (L L': list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph),
   list_assignments_equiv L L'
   -> assignments_change_only_for_Z_anc_seq' L Z AZ G
@@ -12915,9 +13168,19 @@ Proof.
     destruct t as [| h1 t1]. simpl in Heq. exfalso. apply Heq.
     destruct t1 as [| h2 t2]. simpl in Heq. exfalso. apply Heq.
     simpl in Heq. split.
-    + admit.
+    + unfold assignments_change_only_for_Z_anc_seq' in HL. destruct HL as [HL _]. unfold assignments_change_only_for_subset.
+      intros x. split.
+      * split.
+        { intros Hx. apply assigned_is_true. destruct Heq as [_ [Hh1 [Hh2 _]]]. rewrite <- Hh2. apply assigned_is_true. apply HL.
+          apply assigned_is_true. rewrite Hh1. apply assigned_is_true. apply Hx. }
+        { intros Hx. apply assigned_is_true. destruct Heq as [_ [Hh1 [Hh2 _]]]. rewrite <- Hh1. apply assigned_is_true. apply HL.
+          apply assigned_is_true. rewrite Hh2. apply assigned_is_true. apply Hx. }
+      * intros Hx. destruct Heq as [Hh [Hh1 [Hh2 _]]]. rewrite <- Hh1. rewrite <- Hh2. apply HL.
+        assert (Hanc: unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) h' h1' = unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) h h1).
+        { apply equiv_assignments_preserve_unb_anc_changed. apply Hh. apply Hh1. }
+        rewrite <- Hanc. apply Hx.
     + apply IH with (L := h1 :: h2 :: t2). apply Heq. simpl in HL. apply HL.
-Admitted.
+Qed.
 
 
 Lemma equiv_list_assignments_length {X: Type}: forall (L L': list (assignments X)),
@@ -13049,13 +13312,13 @@ Qed.
 Lemma define_sets_for_equating_values_on_d_connected_path {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path)
   (D: assignments (nodes * node)),
   generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G) ->
-  forall (Z: nodes), ~(In u Z) /\ ~(In v Z) -> d_connected_2 p G Z -> descendant_paths_disjoint_col D u v (path_int p) G Z
+  forall (Z: nodes) (AZ: assignments X), ~(In u Z) /\ ~(In v Z) -> is_exact_assignment_for AZ Z -> d_connected_2 p G Z -> descendant_paths_disjoint_col D u v (path_int p) G Z
   -> exists (A1: assignments nat) (A2: assignments (nat * nat * X * X)) (A3: assignments nat),
      is_exact_assignment_for A1 (get_A1_binded_nodes_in_g_path G p) /\ A1_nodes_binded_to_parent_in_path G p A1 /\ each_node_assigned_once A1
-     /\ is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G p) /\ A2_nodes_colliders_in_graph G p A2
+     /\ is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G p) /\ A2_nodes_colliders_in_graph G p A2 /\ A2_consistent_with_D D A2 AZ
      /\ get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, path_int p) G) = Some A3.
 Proof.
-  intros G u v p D [HG Hp]. intros Z [HuZ HvZ] Hconn Hdesc.
+  intros G u v p D [HG Hp]. intros Z AZ [HuZ HvZ] HAZ Hconn Hdesc.
   assert (Hpath: exists (l: nodes), p = (u, v, l)).
   { destruct p as [[u' v'] l]. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [Hp _]].
     apply path_start_end_equal in Hp. destruct Hp as [Huu' Hvv']. exists l. rewrite Huu'. rewrite Hvv'. reflexivity. }
@@ -13097,6 +13360,7 @@ Proof.
         * unfold each_node_assigned_once. intros w Hw. simpl in Hw. rewrite orb_comm in Hw. simpl in Hw. simpl. rewrite eqb_sym. rewrite Hw.
           simpl. reflexivity.
         * unfold A2_nodes_colliders_in_graph. intros c i' j' x y F. exfalso. apply F.
+        * unfold A2_consistent_with_D. intros w iw jw xw yw Hw. simpl in Hw. discriminate Hw.
 
       + (* u <- v: A1 = {u: i}, where i is the index of v in pa(u). A2 = {} *)
         assert (Hin: path_into_start (u, v, []) G = true).
@@ -13122,7 +13386,8 @@ Proof.
           -- exfalso. apply F.
         * unfold each_node_assigned_once. intros w Hw. simpl in Hw. rewrite orb_comm in Hw. simpl in Hw. simpl. rewrite eqb_sym. rewrite Hw.
           simpl. reflexivity.
-        * unfold A2_nodes_colliders_in_graph. intros c i' j' x y F. exfalso. apply F. }
+        * unfold A2_nodes_colliders_in_graph. intros c i' j' x y F. exfalso. apply F.
+        * unfold A2_consistent_with_D. intros w iw jw xw yw Hw. simpl in Hw. discriminate Hw. }
 
     (* induction step: assume true for path (h, v, t). Show true for (u, v, h :: t) *)
     destruct (path_out_of_h G u v h t) as [|] eqn:Houth.
@@ -13133,7 +13398,7 @@ Proof.
         - apply is_path_in_graph_induction with (u := u). apply Hp.
         - split. apply path_start_end_refl. apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity. apply Hp. }
       pose proof Hp' as Hpind. apply IH in Hp'. clear IH.
-      + destruct Hp' as [A1' [A2' [A3' HA12]]]. destruct HA12 as [HA1' [HA1'' [HA1''' [HA2' [HA2'' HA3']]]]].
+      + destruct Hp' as [A1' [A2' [A3' HA12]]]. destruct HA12 as [HA1' [HA1'' [HA1''' [HA2' [HA2'' [HA2D HA3']]]]]].
         (* u <-> h -> ... <-> v *)
         assert (HA2ind: get_A2_binded_nodes_in_g_path G (u, v, h :: t) = get_A2_binded_nodes_in_g_path G (h, v, t)).
         { apply A2_induction_case.
@@ -13211,6 +13476,7 @@ Proof.
           -- apply HindA2.
           -- apply HindA2.
           -- apply HindA2.
+          -- apply HA2D.
           -- unfold get_A2_binded_nodes_in_g_path in HA2ind. simpl. simpl in HA2ind. rewrite HA2ind. apply HA3'.
 
         * (* u -> h -> ... *)
@@ -13286,6 +13552,7 @@ Proof.
           -- apply HindA2.
           -- apply HindA2.
           -- apply HindA2.
+          -- apply HA2D.
           -- unfold get_A2_binded_nodes_in_g_path in HA2ind. simpl. simpl in HA2ind. rewrite HA2ind. apply HA3'.
 
       + (* since arrow out of h is ->, h cannot be a collider, so h not in Z *)
@@ -13304,7 +13571,7 @@ Proof.
         - split. apply path_start_end_refl. apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity. apply Hp. }
       pose proof Hp' as Hpind. apply IH in Hp'. clear IH.
 
-      + destruct Hp' as [A1' [A2' [A3' HA12]]]. destruct HA12 as [HA1' [HA1'' [HA1''' [HA2' [HA2'' HA3']]]]].
+      + destruct Hp' as [A1' [A2' [A3' HA12]]]. destruct HA12 as [HA1' [HA1'' [HA1''' [HA2' [HA2'' [HA2D HA3']]]]]].
         assert (Hi: exists i: nat, index (find_parents u G) h = Some i).
         { assert (Hh: In h (find_parents u G)).
           { simpl in Hin. apply edge_from_parent_to_child. unfold is_edge in Hin. destruct G as [V E]. simpl. apply split_and_true in Hin. apply Hin. }
@@ -13375,6 +13642,7 @@ Proof.
         -- apply HindA2.
         -- apply HindA2.
         -- apply HindA2.
+        -- apply HA2D.
         -- unfold get_A2_binded_nodes_in_g_path in HA2ind. simpl. simpl in HA2ind. rewrite HA2ind. apply HA3'.
 
       + (* path is u <- h, so h cannot be a collider. Thus, h not in Z *) apply edge_out_not_in_Z with (u := u) (v := v) (t := t) (G := G). apply Hconn.
@@ -13406,7 +13674,21 @@ Proof.
           apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
         destruct Hi as [iv Hiv].
 
-        exists []. exists [(h, (iu, iv, X1, X2))].
+        assert (Hhcol: exists (p: nodes) (d: node) (xd: X), get_assigned_value D h = Some (p, d) /\ get_assigned_value AZ d = Some xd).
+        { assert (Hhcol: In h (find_colliders_in_path (u, v, path_int (u, v, [h])) G)). { simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. left. reflexivity. }
+          apply Hdesc in Hhcol. destruct Hhcol as [Hhcol | Hhcol].
+          - exists []. exists h.
+            assert (HhZ: exists (xh: X), get_assigned_value AZ h = Some xh). { apply assigned_has_value with (L := Z). split. apply Hhcol. apply HAZ. }
+            destruct HhZ as [xh HhZ]. exists xh. split. apply Hhcol. apply HhZ.
+          - destruct Hhcol as [ph [dh Hhcol]]. exists ph. exists dh.
+            assert (HhZ: exists (xh: X), get_assigned_value AZ dh = Some xh). { apply assigned_has_value with (L := Z). split. apply Hhcol. apply HAZ. }
+            destruct HhZ as [xh HhZ]. exists xh. split. apply Hhcol. apply HhZ. }
+        destruct Hhcol as [ph [dh [xh Hhcol]]].
+        assert (Hxh: exists (yh: X), xh <> yh). { destruct (eqb xh X1) as [|] eqn:Hxh. exists X2. intros Hxh'. rewrite Hxh' in Hxh. apply HX. apply eqb_eq'. rewrite eqb_sym'. apply Hxh.
+          exists X1. intros Hxh'. rewrite Hxh' in Hxh. rewrite eqb_refl' in Hxh. discriminate Hxh. }
+        destruct Hxh as [yh Hxh].
+
+        exists []. exists [(h, (iu, iv, xh, yh))].
 
         assert (HA3: exists (A3: assignments nat), get_A3_assignments_for_desc_paths D G
                       (find_colliders_in_path (u, v, path_int (u, v, [h])) G) = Some A3). { apply A3_nodes_existence with (Z := Z). apply Hdesc. }
@@ -13426,6 +13708,8 @@ Proof.
            ++ simpl. repeat rewrite eqb_refl. reflexivity.
            ++ unfold is_collider_bool. rewrite <- H2. rewrite Huh. rewrite Hhv. reflexivity.
            ++ exfalso. apply H0.
+        -- unfold A2_consistent_with_D. intros c i j x' y' Hc. simpl in Hc. destruct (h =? c) as [|] eqn:Hhc. inversion Hc. exists ph. exists dh. split. apply eqb_eq in Hhc. rewrite <- Hhc. apply Hhcol.
+           split. rewrite <- H3. apply Hhcol. rewrite <- H3. rewrite <- H4. apply Hxh. discriminate Hc.
         -- apply HA3.
 
       + (* u -> h <- h' ... t'... v *)
@@ -13497,12 +13781,29 @@ Proof.
                    exists (u :: h :: l2). exists l3. simpl. simpl in Hc. rewrite <- Hc. reflexivity.
                 -- apply Hc. } }
 
-          exists ((h, (iu, iv, X1, X2)) :: A2').
+          assert (Hhcol: exists (p: nodes) (d: node) (xd: X), get_assigned_value D h = Some (p, d) /\ get_assigned_value AZ d = Some xd).
+          { assert (Hhcol: In h (find_colliders_in_path (u, v, path_int (u, v, h :: h' :: t')) G)). { simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. left. reflexivity. }
+            apply Hdesc in Hhcol. destruct Hhcol as [Hhcol | Hhcol].
+            - exists []. exists h.
+              assert (HhZ: exists (xh: X), get_assigned_value AZ h = Some xh). { apply assigned_has_value with (L := Z). split. apply Hhcol. apply HAZ. }
+              destruct HhZ as [xh HhZ]. exists xh. split. apply Hhcol. apply HhZ.
+            - destruct Hhcol as [ph [dh Hhcol]]. exists ph. exists dh.
+              assert (HhZ: exists (xh: X), get_assigned_value AZ dh = Some xh). { apply assigned_has_value with (L := Z). split. apply Hhcol. apply HAZ. }
+              destruct HhZ as [xh HhZ]. exists xh. split. apply Hhcol. apply HhZ. }
+          destruct Hhcol as [ph [dh [xh Hhcol]]].
+          assert (Hxh: exists (yh: X), xh <> yh). { destruct (eqb xh X1) as [|] eqn:Hxh. exists X2. intros Hxh'. rewrite Hxh' in Hxh. apply HX. apply eqb_eq'. rewrite eqb_sym'. apply Hxh.
+            exists X1. intros Hxh'. rewrite Hxh' in Hxh. rewrite eqb_refl' in Hxh. discriminate Hxh. }
+          destruct Hxh as [yh Hxh].
+
+          exists ((h, (iu, iv, xh, yh)) :: A2').
           assert (HA3: exists (A3: assignments nat), get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, h :: h' :: t') G) = Some A3).
           { apply A3_nodes_existence with (Z := Z). apply Hdesc. }
           destruct HA3 as [A3 HA3]. exists A3.
 
-          rewrite <- and_assoc. rewrite <- and_assoc. split. repeat split; apply HA1ind. rewrite <- and_assoc. split. apply HA2ind. apply HA3. }
+          rewrite <- and_assoc. rewrite <- and_assoc. split. repeat split; apply HA1ind. rewrite <- and_assoc. split. apply HA2ind. split. 2: { apply HA3. }
+          unfold A2_consistent_with_D. intros c i j x' y' Hc. simpl in Hc. destruct (h =? c) as [|] eqn:Hhc.
+          - inversion Hc. exists ph. exists dh. split. apply eqb_eq in Hhc. rewrite <- Hhc. apply Hhcol. rewrite <- H3. split. apply Hhcol. rewrite <- H4. apply Hxh.
+          - destruct Hind as [_ [_ [_ [_ [_ [Hind _]]]]]]. unfold A2_consistent_with_D in Hind. apply Hind with (iw := i) (jw := j). apply Hc. }
 
 
         { (* u -> h <- h', so h' not a collider *)
@@ -13612,75 +13913,6 @@ Proof.
       * apply IH. apply Hi. apply Hj. apply each_node_assigned_once_cat with (u := fst h) (i := snd h). destruct h as [h1 h2]. apply HA.
 Qed.
 
-(* TODO move *)
-Lemma mediators_in_A1: forall (G: graph) (a: node) (u v: node) (l: nodes),
-  In a (find_mediators_in_path (u, v, l) G)
-  -> In a (get_A1_binded_nodes_in_g_path G (u, v, l)).
-Proof.
-  intros G a u v l H.
-  unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + right. apply H.
-    + apply H.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + right. apply membership_append. apply H.
-    + apply membership_append. apply H.
-  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Qed.
-
-Lemma A1_mediators_or_endpoints: forall (G: graph) (a: node) (u v: node) (l: nodes),
-  In a (get_A1_binded_nodes_in_g_path G (u, v, l))
-  -> a = u \/ In a (find_mediators_in_path (u, v, l) G) \/ a = v.
-Proof.
-  intros G a u v l H.
-  unfold get_A1_binded_nodes_in_g_path in H. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + destruct H as [H | H]. left. symmetry. apply H. right. left. apply H.
-    + right. left. apply H.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + destruct H as [H | H]. left. symmetry. apply H. apply membership_append_or in H.
-      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
-      exfalso. apply H.
-    + apply membership_append_or in H.
-      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
-      exfalso. apply H.
-  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Qed.
-
-Lemma confounders_in_A4: forall (G: graph) (a: node) (u v: node) (l: nodes),
-  In a (find_confounders_in_path (u, v, l) G)
-  -> In a (get_A4_binded_nodes_in_g_path G (u, v, l)).
-Proof.
-  intros G a u v l H.
-  unfold get_A4_binded_nodes_in_g_path. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + apply membership_append. apply H.
-    + right. apply membership_append. apply H.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + apply H.
-    + right. apply H.
-  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Qed.
-
-Lemma A4_confounders_or_endpoints: forall (G: graph) (a: node) (u v: node) (l: nodes),
-  In a (get_A4_binded_nodes_in_g_path G (u, v, l))
-  -> a = u \/ In a (find_confounders_in_path (u, v, l) G) \/ a = v.
-Proof.
-  intros G a u v l H.
-  unfold get_A4_binded_nodes_in_g_path in H. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + apply membership_append_or in H.
-      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
-      exfalso. apply H.
-    + destruct H as [H | H]. left. symmetry. apply H. apply membership_append_or in H.
-      destruct H as [H | H]. right. left. apply H. destruct H as [H | H]. right. right. symmetry. apply H.
-      exfalso. apply H.
-  - destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + right. left. apply H.
-    + destruct H as [H | H]. left. symmetry. apply H. right. left. apply H.
-  - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Qed.
-
 (* TODO move to be with directed_path_has_directed_edge *)
 Theorem directed_path_has_edge: forall (u v w: node) (l: nodes) (G: graph),
   is_path_in_graph (u, v, l) G = true
@@ -13709,66 +13941,75 @@ Proof.
       * apply Hind.
 Qed.
 
+(* TODO move to be with node_maps_to_assigned *)
+Lemma node_maps_to_assigned_value: forall X (V: nodes) (u: node) (a: X),
+  In u V -> get_assigned_value (get_assignment_for V a) u = Some a.
+Proof.
+  intros X V u a H.
+  induction V as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl in H. destruct (h =? u) as [|] eqn:Hhu.
+    + simpl. rewrite Hhu. reflexivity.
+    + simpl. rewrite Hhu. apply IH. destruct H as [H | H]. rewrite H in Hhu. rewrite eqb_refl in Hhu. discriminate Hhu.
+      apply H.
+Qed.
 
 (* using g_path and specific values for A1, A2, A3, A4, A5, for a d-connected path betw u and v, provide a graphfun
    that requires all non-collider node values along the path (and importantly, f(v) and f(u)), to be equal *)
 Lemma path_d_connected_then_can_equate_values'' {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path)
   (D: assignments (nodes * node)),
   generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G) ->
-  forall (Z: nodes), ~(In u Z) /\ ~(In v Z) -> descendant_paths_disjoint D u v (path_int p) G Z -> d_connected_2 p G Z
+  forall (Z: nodes) (AZ: assignments X), ~(In u Z) /\ ~(In v Z) -> is_exact_assignment_for AZ Z -> descendant_paths_disjoint D u v (path_int p) G Z -> d_connected_2 p G Z
   -> exists (A1: assignments nat) (A2: assignments (nat * nat * X * X)) (A3: assignments nat),
      is_exact_assignment_for A1 (get_A1_binded_nodes_in_g_path G p) /\ A1_nodes_binded_to_parent_in_path G p A1 /\ each_node_assigned_once A1
-     /\ is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G p) /\ A2_nodes_colliders_in_graph G p A2
+     /\ is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G p) /\ A2_nodes_colliders_in_graph G p A2 /\ A2_consistent_with_D D A2 AZ
      /\ get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, path_int p) G) = Some A3
      /\ forall (A4: assignments X), is_exact_assignment_for A4 (get_A4_binded_nodes_in_g_path G p)
-        -> forall (A5: assignments (nodefun X)) (default: nodefun X) (AZ: assignments X),
-           is_exact_assignment_for AZ Z
-           -> A2_consistent_with_D D A2 AZ
-(*            /\ (exists (U: assignments X), is_assignment_for U (nodes_in_graph G) = true /\ unobs_conditions_on_Z G (g_path'' X A1 A2 A3 A4 AZ A5 default) U AZ Z) *)
-           (* the colliders that are given a nodefun, but will still evaluate to conditioned value *)
-           -> forall (U: assignments X),
+        -> forall (A5: assignments (nodefun X)) (default: nodefun X) (x: X),
+           exists (U: assignments X) (xX: X),
               is_assignment_for U (nodes_in_graph G) = true (*  /\ get_values G (g_path'' X A1 A2 A3 A4 AZ A5 default) U [] = Some A *)
-              -> (unobs_conditions_on_Z G (g_path'' X A1 A2 A3 A4 AZ A5 default) U AZ Z
-                  -> forall (x: X) (Ux: assignments X) (LUx: list (assignments X)),
+              /\ (unobs_conditions_on_Z G (g_path'' X A1 A2 A3 A4 AZ A5 default) U AZ Z
+                  /\ (forall (w: node), node_in_path w p = true /\ ~(In w (find_colliders_in_path p G))
+                             -> find_value G (g_path'' X A1 A2 A3 A4 AZ A5 default) w U [] = Some xX) /\ xX <> x
+                  /\ forall (Ux: assignments X) (LUx: list (assignments X)),
                      (assignments_equiv Ux ((hd 0 (get_A4_binded_nodes_in_g_path G p), x) :: U))
                      /\ (list_assignments_equiv LUx (tl (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G p) U x)))
                      (* Ux = (hd 0 (get_A4_binded_nodes_in_g_path G p), x) :: U /\ tl (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G p) U x) = LUx *)
-                    -> (forall w : node,
-                        In w (get_A4_binded_nodes_in_g_path G (u, v, path_int p)) ->
-                        exists r : X, get_assigned_value U w = Some r /\ eqb r x = false)
-                    -> 
-                        find_value G (g_path'' X A1 A2 A3 A4 AZ A5 default) u Ux [] = Some x /\ length LUx <= path_length p
+                    -> find_value G (g_path'' X A1 A2 A3 A4 AZ A5 default) u Ux [] = Some x /\ length LUx <= path_length p
                          /\ sequence_of_ancestors_change_for_Z U Ux LUx G Z AZ u v (path_int p)
                          /\ unobs_conditions_on_Z G (g_path'' X A1 A2 A3 A4 AZ A5 default) (last (Ux :: LUx) Ux) AZ Z
                          /\ (forall (w: node), node_in_path w p = true /\ ~(In w (find_colliders_in_path p G))
                              -> find_value G (g_path'' X A1 A2 A3 A4 AZ A5 default) w (last (Ux :: LUx) Ux) [] = Some x)).
 Proof.
-  intros G u v p D [HG Hp]. intros Z [HuZ HvZ] Hdesc Hconn.
+  intros G u v p D [HG Hp]. intros Z AZ [HuZ HvZ] HAZ Hdesc Hconn.
+
   assert (Hpath: exists (l: nodes), p = (u, v, l)).
   { destruct p as [[u' v'] l]. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [Hp _]].
     apply path_start_end_equal in Hp. destruct Hp as [Huu' Hvv']. exists l. rewrite Huu'. rewrite Hvv'. reflexivity. }
   destruct Hpath as [l Hpath]. rewrite Hpath in *. clear Hpath.
 
   assert (Hlem: exists
-                  (A1 : assignments nat) (A2 : assignments (nat * nat * X * X)) 
-                (A3 : assignments nat),
-                  is_exact_assignment_for A1 (get_A1_binded_nodes_in_g_path G (u, v, l)) /\
-                  A1_nodes_binded_to_parent_in_path G (u, v, l) A1 /\ each_node_assigned_once A1 /\
-                  is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G (u, v, l)) /\
-                  A2_nodes_colliders_in_graph G (u, v, l) A2 /\
-                  get_A3_assignments_for_desc_paths D G
-                    (find_colliders_in_path (u, v, path_int (u, v, l)) G) = Some A3).
-  { apply define_sets_for_equating_values_on_d_connected_path with (Z := Z). split. apply HG. apply Hp. split. apply HuZ. apply HvZ. apply Hconn. destruct Hdesc as [_ Hdesc]. simpl. unfold descendant_paths_disjoint_col. apply Hdesc. }
+                (A1 : assignments nat) (A2 : assignments (nat * nat * X * X)) 
+              (A3 : assignments nat),
+                is_exact_assignment_for A1 (get_A1_binded_nodes_in_g_path G (u, v, l)) /\
+                A1_nodes_binded_to_parent_in_path G (u, v, l) A1 /\
+                each_node_assigned_once A1 /\
+                is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G (u, v, l)) /\
+                A2_nodes_colliders_in_graph G (u, v, l) A2 /\
+                A2_consistent_with_D D A2 AZ /\
+                get_A3_assignments_for_desc_paths D G
+                  (find_colliders_in_path (u, v, path_int (u, v, l)) G) = Some A3).
+  { apply define_sets_for_equating_values_on_d_connected_path with (Z := Z). split. apply HG. apply Hp. split. apply HuZ. apply HvZ. apply HAZ.
+    apply Hconn. destruct Hdesc as [_ Hdesc]. simpl. unfold descendant_paths_disjoint_col. apply Hdesc. }
 
   destruct Hlem as [A1 [A2 [A3 Hlem]]]. exists A1. exists A2. exists A3.
-  rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. split.
+  rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. split.
   repeat split; apply Hlem.
   pose proof Hlem as Hexist. clear Hlem.
 
-  intros A4 HA4 A5 default AZ HAZ HA2D U' HUA Hcond x Ux LUx HeqUx Hrx. destruct HeqUx as [HeqUx HeqLUx].
+  intros A4 HA4 A5 default.
 
-  assert (HUxA: is_assignment_for Ux (nodes_in_graph G) = true).
-  { apply equiv_assignment_still_assignment with (U := (hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), x) :: U'). apply HeqUx. apply is_assignment_for_cat. apply HUA. }
+  apply paths_start_to_end_correct in Hp.
 
   assert (Hi'': forall (g: graphfun) (iw: nat) (a w: node) (unobs' xa: X) (pa: list X) (P U: assignments X),
                       node_in_graph a G = true
@@ -13791,14 +14032,13 @@ Proof.
          + apply Hi'.
        - apply Hxa'. }
      unfold nth_default. rewrite Hiw. rewrite Hxa'. reflexivity. }
-
   remember (g_path'' X A1 A2 A3 A4 AZ A5 default) as g.
 
-  assert (HA4_const: forall (U: assignments X) (w: node), is_assigned A4 w = true
+  assert (HA4_const: forall (U: assignments X) (w: node) (x: X), is_assigned A4 w = true
                       -> is_assignment_for U (nodes_in_graph G) = true
                       -> get_assigned_value U w = Some x
                       -> find_value G g w U [] = Some x).
-  { intros U w HA4w HU HeqU.
+  { intros U w x' HA4w HU HeqU.
     assert (HA4w': In w (get_A4_binded_nodes_in_g_path G (u, v, l))).
     { apply assigned_true_then_in_list with (A := A4). split. apply HA4w. apply HA4. }
     assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
@@ -13807,16 +14047,16 @@ Proof.
          /\ find_value G g w U [] = Some (g w (unobs, pa))).
     { apply find_value_evaluates_to_g. split.
       - apply HG.
-      - split. apply HU. apply A4_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
+      - split. apply HU. apply A4_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply Hp.
          apply HA4w'. }
     destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
     rewrite Heqg. unfold g_path''.
 
     assert (HA1w: get_assigned_value A1 w = None).
-    { apply A4_nodes_not_in_A1 in HA4w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA4w'. }
+    { apply A4_nodes_not_in_A1 in HA4w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA4w'. apply HG. apply Hp. apply Hp. }
     rewrite HA1w.
     assert (HA2w: get_assigned_value A2 w = None).
-    { apply A4_nodes_not_in_A2 in HA4w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA4w'. }
+    { apply A4_nodes_not_in_A2 in HA4w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA4w'. apply HG. apply Hp. apply Hp. }
     rewrite HA2w.
     assert (HA3w: get_assigned_value A3 w = None).
     { apply descendant_paths_disjoint_with_A4 with (D := D) (u := u) (v := v) (l := l) (G := G) (Z := Z). apply Hdesc. apply Hexist. apply HA4w'. }
@@ -13825,6 +14065,536 @@ Proof.
     { apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. apply HA4w'. apply HA4. }
     destruct HA4w'' as [xA4 HA4w'']. rewrite HA4w''. unfold f_unobs. simpl.
     rewrite <- HxU. apply HeqU. }
+
+  assert (Hw: (forall (w : node) (U: assignments X) (x: X),
+                    is_assignment_for U (nodes_in_graph G) = true
+                    -> (forall (u4: node), is_assigned A4 u4 = true -> get_assigned_value U u4 = Some x)
+                    -> node_in_path w (u, v, l) = true /\ ~ In w (find_colliders_in_path (u, v, l) G)
+                    -> find_value G g w U [] = Some x)).
+  { (* show that all nodes in A1 evaluate to x (since they are tied to their parents, which becomes a chain that
+       must eventually end at a node in A4) *)
+    intros w' U x HU Hu4.
+
+    assert (HaU: forall (a: node), is_assigned A4 a = true -> get_assigned_value U a = Some x).
+    { intros a Ha. apply Hu4. apply Ha. }
+
+    assert (HuA4: is_assigned A4 u = true \/ is_assigned A1 u = true).
+    { destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+      + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply Hexist. }
+        unfold get_A1_binded_nodes_in_g_path. rewrite Hin. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+        left. reflexivity. left. reflexivity. apply path_out_of_end_Some in Hout. exfalso. apply Hout.
+      + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
+        unfold get_A4_binded_nodes_in_g_path. rewrite Hin. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+        left. reflexivity. left. reflexivity. apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
+
+    assert (HvA4: is_assigned A4 v = true \/ is_assigned A1 v = true).
+    { destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+      + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
+        unfold get_A4_binded_nodes_in_g_path. rewrite Hout. destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+        apply membership_append_r. left. reflexivity. right. apply membership_append_r. left. reflexivity.
+      + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply Hexist. }
+        unfold get_A1_binded_nodes_in_g_path. rewrite Hout. destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+        right. apply membership_append_r. left. reflexivity. apply membership_append_r. left. reflexivity.
+      + apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
+
+    assert (HA1_const: forall (w: node), is_assigned A1 w = true -> find_value G g w U [] = Some x).
+    { intros w HA1w. destruct Hexist as [HA1 [HA1' [HA2 [HA2' HA3]]]].
+
+       assert (Hwmem: In w (u :: l ++ [v])). { apply member_In_equiv. rewrite <- node_in_path_equiv. apply A1_nodes_in_path with (G := G).
+       apply member_In_equiv. destruct (member w (get_A1_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hwmem.
+       - reflexivity.
+       - apply HA1 in Hwmem. rewrite HA1w in Hwmem. discriminate Hwmem. }
+
+       pose proof HA1w as HA1w'.
+       apply assigned_is_true in HA1w'. destruct HA1w' as [iw HA1w']. pose proof HA1w' as Hiw. apply get_assigned_In in HA1w'.
+       unfold A1_nodes_binded_to_parent_in_path in HA1'. pose proof HA1' as HA1bind. specialize HA1' with (m := w) (i := iw).
+       apply HA1' in HA1w'. destruct HA1w' as [a [Haxix Haxsub]]. destruct Haxsub as [Haxsub | Haxsub].
+       - apply index_exists in Hwmem. destruct Hwmem as [iwp Hiwp].
+         clear Hconn. clear HA2'. clear HA1'.
+         generalize dependent a. generalize dependent w. generalize dependent iw. induction iwp as [| iwp' IH].
+         + intros iw w HA1w Hiwp Hiw a Haxix Haxsub.
+           assert (Huw: u = w). { apply index_correct in Hiwp. simpl in Hiwp. inversion Hiwp. reflexivity. } rewrite <- Huw in *.
+
+           assert (Hu: In u (l ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [u]) (a := a) (h := u). split. apply Haxsub. left. reflexivity. }
+           exfalso. apply membership_append_or in Hu. destruct Hp as [_ [_ Hcyc]].
+           destruct Hu as [Hu | Hu]. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. apply Hu.
+           destruct Hu as [Hu | Hu]. destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Hu. apply Hu.
+         + intros iw w HA1w Hiwp Hiw a Haxix Haxsub.
+
+           assert (HA1w': In w (get_A1_binded_nodes_in_g_path G (u, v, l))).
+           { apply assigned_true_then_in_list with (A := A1). split. apply HA1w. apply HA1. }
+
+           assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
+                /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
+                /\ exists (unobs: X), get_assigned_value U w = Some unobs
+                /\ find_value G g w U [] = Some (g w (unobs, pa))).
+           { apply find_value_evaluates_to_g. split.
+             - apply HG.
+             - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply Hp.
+               apply HA1w'. }
+           destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
+           rewrite Heqg. unfold g_path''. rewrite Hiw. unfold f_parent_i. simpl.
+
+           f_equal. apply Hi'' with (g := g) (U := U) (a := a) (w := w) (P := Px).
+           * apply parents_in_graph with (u := w). apply HG. apply nth_error_In in Haxix. apply Haxix.
+           * apply HU.
+           * apply Haxix.
+           * split. apply Hparx. apply HPx.
+           * assert (Ha: is_assigned A4 a = true \/ is_assigned A1 a = true).
+             { assert (Ha: In a (u :: l)). { apply first_elt_of_sublist_not_last_elt_gen with (t := []) (b := w) (v := v). apply Haxsub. }
+               destruct Ha as [Ha | Ha].
+               - rewrite <- Ha. apply HuA4.
+               - destruct Hp as [Hp [_ Hcyc]]. apply intermediate_node_in_path with (x := a) in Hp. apply Hp in Ha.
+                 destruct Ha as [Ha | [Ha | Ha]].
+                 + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA1. }
+                   apply mediators_in_A1. apply Ha.
+                 + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
+                   apply confounders_in_A4. apply Ha.
+                 + exfalso. apply colliders_vs_edges_in_path in Ha. destruct Ha as [y [z Ha]].
+                   assert (Hwb: z = w).
+                   { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := a).
+                     - apply end_of_sublist_still_sublist_2 with (a1 := y). apply Ha.
+                     - apply Haxsub.
+                     - apply acyclic_path_count with (x := a) in Hcyc.
+                       apply Hcyc. apply sublist_member with (l1 := [a;w]). split. left. reflexivity. apply Haxsub. }
+                   unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
+                   +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                   +++ apply directed_path_is_path. simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
+                       rewrite Haxix. rewrite <- Hwb. destruct Ha as [_ [_ Ha]]. rewrite Ha. reflexivity. apply HG'. }
+
+             destruct Ha as [Ha | Ha].
+             -- apply HA4_const. apply Ha. apply HU. apply HaU. apply Ha.
+             -- (* induction: find node b s.t. b -> a -> w is in path *)
+                apply assigned_is_true in Ha. destruct Ha as [ia Ha]. pose proof Ha as HA1a. apply get_assigned_In in Ha.
+                apply HA1bind in Ha. destruct Ha as [b [Hbaia Hbasub]]. destruct Hbasub as [Hbasub | Hbasub].
+                ++ apply IH with (a := b) (iw := ia). apply assigned_is_true. exists ia. apply HA1a.
+                   ** assert (Hsub: sublist [a; w] (u :: l ++ [v]) = true).
+                      { simpl. simpl in Haxsub. apply Haxsub. }
+                      apply index_of_sublist with (a := w).
+                      { apply Hsub. }
+                      { apply acyclic_path_count with (l := l).
+                        * apply sublist_member with (l1 := [a; w]). split. right. left. reflexivity. apply Hsub.
+                        * apply Hp. }
+                      { apply acyclic_path_count with (l := l).
+                        * apply sublist_member with (l1 := [a; w]). split. left. reflexivity. apply Hsub.
+                        * apply Hp. }
+                      apply Hiwp.
+                   ** apply HA1a.
+                   ** apply Hbaia.
+                   ** apply Hbasub.
+                ++ assert (Hwb: w = b).
+                   { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := a).
+                     - simpl in Haxsub. apply Haxsub.
+                     - simpl in Hbasub. apply Hbasub.
+                     - destruct Hp as [_ [_ Hp]]. apply acyclic_path_count with (x := a) in Hp.
+                       apply Hp. apply sublist_member with (l1 := [a;b]). split. left. reflexivity. apply Hbasub. }
+                   unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
+                   +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                   +++ apply directed_path_is_path. simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
+                       rewrite Hbaia. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite Haxix. reflexivity.
+                       apply HG'. apply HG'.
+       - apply membership_rev in Hwmem. apply index_exists in Hwmem. destruct Hwmem as [iwp Hiwp].
+         clear Hconn. clear HA2'. clear HA1'.
+         generalize dependent a. generalize dependent w. generalize dependent iw. induction iwp as [| iwp' IH].
+         + intros iw w HA1w Hiwp Hiw a Haxix Haxsub. (* w = v, but [w;a] is sublist, contradicts acyclic *)
+           apply index_correct in Hiwp. simpl in Hiwp. rewrite reverse_list_append in Hiwp. simpl in Hiwp. inversion Hiwp.
+           assert (Hwmem': In w (u :: l)). { apply first_elt_of_sublist_not_last_elt_gen with (t := []) (b := a) (v := v). simpl in Haxsub. apply Haxsub. }
+           destruct Hp as [_ [_ Hp]]. exfalso. destruct Hwmem' as [Hwmem' | Hwmem']. destruct Hp as [Hp _]. apply Hp. rewrite H1. apply Hwmem'.
+           destruct Hp as [_ [_ [Hp _]]]. apply Hp. rewrite H1. apply Hwmem'.
+         + intros iw w HA1w Hiwp Hiw a Haxix Haxsub.
+
+           assert (HA1w': In w (get_A1_binded_nodes_in_g_path G (u, v, l))).
+           { apply assigned_true_then_in_list with (A := A1). split. apply HA1w. apply HA1. }
+
+           assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
+                /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
+                /\ exists (unobs: X), get_assigned_value U w = Some unobs
+                /\ find_value G g w U [] = Some (g w (unobs, pa))).
+           { apply find_value_evaluates_to_g. split.
+             - apply HG.
+             - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply Hp.
+               apply HA1w'. }
+           destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
+           rewrite Heqg. unfold g_path''. rewrite Hiw. unfold f_parent_i. simpl.
+
+           f_equal. apply Hi'' with (g := g) (U := U) (a := a) (w := w) (P := Px).
+           * apply parents_in_graph with (u := w). apply HG. apply nth_error_In in Haxix. apply Haxix.
+           * apply HU.
+           * apply Haxix.
+           * split. apply Hparx. apply HPx.
+           * assert (Ha: is_assigned A4 a = true \/ is_assigned A1 a = true).
+             { assert (Ha: In a (l ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [a]) (a := w) (h := u). split. apply Haxsub. left. reflexivity. }
+               apply membership_append_or in Ha. destruct Ha as [Ha | Ha].
+               - destruct Hp as [Hp [_ Hcyc]]. apply intermediate_node_in_path with (x := a) in Hp. apply Hp in Ha.
+                 destruct Ha as [Ha | [Ha | Ha]].
+                 + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA1. }
+                   apply mediators_in_A1. apply Ha.
+                 + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
+                   apply confounders_in_A4. apply Ha.
+                 + exfalso. apply colliders_vs_edges_in_path in Ha. destruct Ha as [y [z Ha]].
+                   assert (Hwb: y = w).
+                   { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := a).
+                     - apply start_of_sublist_still_sublist with (b := z). apply Ha.
+                     - apply Haxsub.
+                     - apply acyclic_path_count with (x := a) in Hcyc.
+                       apply Hcyc. apply sublist_member with (l1 := [w;a]). split. right. left. reflexivity. apply Haxsub. }
+                   unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
+                   +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                   +++ apply directed_path_is_path. simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
+                       rewrite Haxix. rewrite <- Hwb. destruct Ha as [_ [Ha _]]. rewrite Ha. reflexivity. apply HG'.
+               - destruct Ha as [Ha | Ha]. rewrite <- Ha. apply HvA4. exfalso. apply Ha. }
+
+             destruct Ha as [Ha | Ha].
+             -- apply HA4_const. apply Ha. apply HU. apply HaU. apply Ha.
+             -- (* induction: find node b s.t. b -> a -> w is in path *)
+                apply assigned_is_true in Ha. destruct Ha as [ia Ha]. pose proof Ha as HA1a. apply get_assigned_In in Ha.
+                apply HA1bind in Ha. destruct Ha as [b [Hbaia Hbasub]]. destruct Hbasub as [Hbasub | Hbasub].
+                ++ assert (Hwb: w = b).
+                   { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := a).
+                     - simpl in Haxsub. apply Haxsub.
+                     - simpl in Hbasub. apply Hbasub.
+                     - destruct Hp as [_ [_ Hp]]. apply acyclic_path_count with (x := a) in Hp.
+                       apply Hp. apply sublist_member with (l1 := [b;a]). split. right. left. reflexivity. apply Hbasub. }
+                   unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
+                   +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+                   +++ apply directed_path_is_path. simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
+                       rewrite Hbaia. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite Haxix. reflexivity.
+                       apply HG'. apply HG'.
+                ++ apply IH with (a := b) (iw := ia). apply assigned_is_true. exists ia. apply HA1a.
+                   ** assert (Hsub: sublist [w; a] (u :: l ++ [v]) = true).
+                      { apply Haxsub. }
+                      apply index_of_sublist with (a := w).
+                      { unfold nodes in *. unfold node in *. rewrite reverse_list_twice with (l := [a; w]). apply sublist_rev. apply Hsub. }
+                      { rewrite count_reverse. rewrite <- reverse_list_twice. apply acyclic_path_count with (l := l).
+                        * apply sublist_member with (l1 := [w; a]). split. left. reflexivity. apply Hsub.
+                        * apply Hp. }
+                      { rewrite count_reverse. rewrite <- reverse_list_twice. apply acyclic_path_count with (l := l).
+                        * apply sublist_member with (l1 := [w; a]). split. right. left. reflexivity. apply Hsub.
+                        * apply Hp. }
+                      apply Hiwp.
+                   ** apply HA1a.
+                   ** apply Hbaia.
+                   ** apply Hbasub. }
+
+    intros [Hwp Hwcol]. rewrite node_in_path_equiv in Hwp. apply member_In_equiv in Hwp. destruct Hwp as [Hwu | Hwhtv].
+    - assert (Hu: is_assigned A4 u = true \/ is_assigned A1 u = true). { apply HuA4. }
+      destruct Hu as [Hu | Hu]. apply HA4_const. rewrite <- Hwu. apply Hu. apply HU. apply HaU. rewrite <- Hwu. apply Hu.
+      apply HA1_const. rewrite <- Hwu. apply Hu.
+    - apply membership_append_or in Hwhtv. destruct Hwhtv as [Hwt | Hwv].
+      + assert (Hp': is_path_in_graph (u, v, l) G = true). { apply Hp. }
+        apply intermediate_node_in_path with (x := w') in Hp'. apply Hp' in Hwt. destruct Hwt as [Hwt | [Hwt | Hwt]].
+        * apply HA1_const. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)).
+          split. apply mediators_in_A1. apply Hwt. apply Hexist.
+        * assert (Hw: is_assigned A4 w' = true). { apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split.
+            apply confounders_in_A4. apply Hwt. apply HA4. }
+          apply HA4_const. apply Hw. apply HU. apply HaU. apply Hw.
+        * exfalso. apply Hwcol. apply Hwt.
+      + assert (Hv: is_assigned A1 v = true \/ is_assigned A4 v = true). { rewrite or_comm. apply HvA4. }
+        destruct Hwv as [Hwv | F]. destruct Hv as [Hv | Hv].
+        * apply HA1_const. rewrite <- Hwv. apply Hv.
+        * apply HA4_const. rewrite <- Hwv. apply Hv. apply HU. apply HaU. rewrite <- Hwv. apply Hv.
+        * exfalso. apply F. }
+
+  assert (HA2_equate: forall (U: assignments X) (w: node) (Px: assignments X) (pax: list X) (unobsx: X) (iw jw: nat) (xw yw: X) (x: X),
+                          is_assignment_for U (nodes_in_graph G) = true
+                          -> (forall u4 : node, is_assigned A4 u4 = true -> get_assigned_value U u4 = Some x)
+                          -> find_values G g (find_parents w G) U [] = Some Px
+                          -> Some pax = get_parent_assignments Px (find_parents w G)
+                          -> get_assigned_value U w = Some unobsx
+                          -> find_value G g w U [] = Some (g w (unobsx, pax))
+                          -> get_assigned_value A2 w = Some (iw, jw, xw, yw)
+                          -> f_equate_ij X iw jw xw yw (unobsx, pax) = xw).
+  { destruct Hexist as [HA1 [HA1' [HA1'' [HA2 [HA2' [HA2D HA3]]]]]].
+    intros U w Px pax unobsx iw jw xw yw x HU Hu4 HPx Hparx HxU Hx HA2w. unfold A2_nodes_colliders_in_graph in HA2'.
+    specialize HA2' with (c := w) (i := iw) (j := jw) (x := xw) (y := yw). pose proof HA2w as HA2w'.
+    apply get_assigned_In in HA2w'. apply HA2' in HA2w'. destruct HA2w' as [a [b Hvalw]].
+
+    (* since a and b are in the path and not colliders, they must be in A1 or A4 -> use HA4_const or HA1_const *)
+    assert (Ha: find_value G g a U [] = Some x).
+    { apply Hw. apply HU. apply Hu4. split.
+      - rewrite node_in_path_equiv. apply member_In_equiv. apply sublist_member with (l1 := [a; w; b]). split. left. reflexivity. simpl in Hvalw. apply Hvalw.
+      - intros Hacol.
+        (* contradiction: since a -> w is an edge, a is not a collider *)
+        apply colliders_vs_edges_in_path in Hacol. destruct Hacol as [a1 [a2 [Hasub Haedge]]]. destruct Hvalw as [_ [_ [Hawbsub Hawbcol]]].
+        assert (Ha2w: (w =? a2) = false).
+        { unfold is_collider_bool in Hawbcol. destruct (w =? a2) as [|] eqn:Hwa2.
+          - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
+            + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+            + apply directed_path_is_path. simpl. destruct Haedge as [_ Ha2a]. apply eqb_eq in Hwa2. rewrite <- Hwa2 in Ha2a. rewrite Ha2a.
+              apply split_and_true in Hawbcol. destruct Hawbcol as [Haw _]. rewrite Haw. reflexivity.
+          - reflexivity. }
+        assert (Ha2w': w = a2).
+        { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := a).
+          - apply start_of_sublist_still_sublist in Hawbsub. apply Hawbsub.
+          - apply end_of_sublist_still_sublist_2 in Hasub. apply Hasub.
+          - apply acyclic_path_count with (l := l).
+            * apply sublist_member with (l1 := [a; w; b]). split. left. reflexivity. apply Hawbsub.
+            * apply Hp. }
+        rewrite Ha2w' in Ha2w. rewrite eqb_refl in Ha2w. discriminate Ha2w. }
+
+    assert (Hb: find_value G g b U [] = Some x).
+    { apply Hw. apply HU. apply Hu4. split.
+      - rewrite node_in_path_equiv. apply member_In_equiv. apply sublist_member with (l1 := [a; w; b]). split. right. right. left. reflexivity. simpl in Hvalw. apply Hvalw.
+      - intros Hbcol.
+        (* contradiction: since w <- b is an edge, b is not a collider *)
+        apply colliders_vs_edges_in_path in Hbcol. destruct Hbcol as [b1 [b2 [Hbsub Hbedge]]]. destruct Hvalw as [_ [_ [Hawbsub Hawbcol]]]. 
+        assert (Hb1w: (w =? b1) = false).
+        { unfold is_collider_bool in Hawbcol. destruct (w =? b1) as [|] eqn:Hwb1.
+          - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (b, b, [w])) in HG.
+            + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+            + apply directed_path_is_path. simpl. destruct Hbedge as [Hb1w _]. apply eqb_eq in Hwb1. rewrite <- Hwb1 in Hb1w. rewrite Hb1w.
+              apply split_and_true in Hawbcol. destruct Hawbcol as [_ Hwb]. rewrite Hwb. reflexivity.
+          - reflexivity. }
+        assert (Hb1w': w = b1).
+        { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := b).
+          - apply end_of_sublist_still_sublist_2 in Hawbsub. apply Hawbsub.
+          - apply start_of_sublist_still_sublist in Hbsub. apply Hbsub.
+          - apply acyclic_path_count with (u := u) (v := v) (l := l).
+            * apply sublist_member with (l1 := [b1; b; b2]). split. right. left. reflexivity. apply Hbsub.
+            * apply Hp. }
+        rewrite Hb1w' in Hb1w. rewrite eqb_refl in Hb1w. discriminate Hb1w. }
+
+    unfold f_equate_ij. simpl.
+    assert (Hiw: nth_default unobsx pax iw = x).
+    { apply Hi'' with (g := g) (U := U) (a := a) (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. destruct Hvalw as [Hvalw _]. apply nth_error_In in Hvalw. apply Hvalw. apply HU.
+      apply Hvalw. split. apply Hparx. apply HPx. apply Ha. }
+    assert (Hjw: nth_default unobsx pax jw = x).
+    { apply Hi'' with (g := g) (U := U) (a := b) (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. destruct Hvalw as [_ [Hvalw _]]. apply nth_error_In in Hvalw. apply Hvalw. apply HU.
+      apply Hvalw. split. apply Hparx. apply HPx. apply Hb. }
+    rewrite Hiw. rewrite Hjw. rewrite eqb_refl'. reflexivity. }
+
+  assert (HcondU: forall (U: assignments X) (x: X),
+                    is_assignment_for U (nodes_in_graph G) = true
+                    -> (forall (u4: node), is_assigned A4 u4 = true -> get_assigned_value U u4 = Some x)
+                    -> unobs_conditions_on_Z G g U AZ Z).
+  { destruct Hexist as [HA1 [HA1' [HA1'' [HA2 [HA2' [HA2D HA3]]]]]].
+    intros U x HU Hu4. unfold unobs_conditions_on_Z. intros w [HwZ HwG].
+    (* either w is in A2, A3, or not in the path *)
+    assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
+                /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
+                /\ exists (unobs: X), get_assigned_value U w = Some unobs
+                /\ find_value G g w U [] = Some (g w (unobs, pa))).
+    { apply find_value_evaluates_to_g. split.
+      - apply HG.
+      - split. apply HU. apply HwG. }
+    destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
+    rewrite Heqg. unfold g_path''.
+    assert (HA1w: is_assigned A1 w = false).
+    { destruct (is_assigned A1 w) as [|] eqn:HA1w.
+      - assert (HA1w': In w (get_A1_binded_nodes_in_g_path G (u, v, l))).
+        { destruct (member w (get_A1_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
+          - apply member_In_equiv. apply Hmem.
+          - apply HA1 in Hmem. rewrite HA1w in Hmem. discriminate Hmem. }
+        exfalso. apply A1_mediators_or_endpoints in HA1w'. destruct HA1w' as [HA1w' | [HA1w' | HA1w']].
+        + apply HuZ. rewrite <- HA1w'. apply HwZ.
+        + destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := w) in Hconn. apply Hconn. apply HwZ. apply HA1w'.
+        + apply HvZ. rewrite <- HA1w'. apply HwZ.
+      - reflexivity. }
+    apply assigned_is_false in HA1w. rewrite HA1w.
+
+    destruct (get_assigned_value A2 w) as [vA2 |] eqn:HA2w.
+    - destruct vA2 as [[[iw jw] xw] yw].
+      assert (Hvalw: f_equate_ij X iw jw xw yw (unobsx, pax) = xw).
+      { apply HA2_equate with (w := w) (Px := Px) (U := U) (x := x). apply HU. apply Hu4. apply HPx. apply Hparx. apply HxU. apply Hx. apply HA2w. }
+      rewrite Hvalw.
+      unfold A2_consistent_with_D in HA2D. pose proof HA2w as HA2w'. apply HA2D in HA2w. unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [_ Hdesc].
+      assert (Hwcol: In w (find_colliders_in_path (u, v, path_int (u, v, l)) G)).
+      { apply assigned_true_then_in_list with (A := A2). split. apply assigned_is_true. exists (iw, jw, xw, yw). apply HA2w'. apply HA2. }
+      apply Hdesc in Hwcol. destruct Hwcol as [[Hwcol _] | Hwcol].
+      + destruct HA2w as [pw [dw Hpdw]]. destruct Hpdw as [Hpdw Hpdw']. rewrite Hpdw in Hwcol. inversion Hwcol. rewrite H2 in Hpdw'. symmetry. apply Hpdw'.
+      + (* contradiction: w is in Z *) destruct Hwcol as [pw [dw [_ [_ [_ [_ [Hover _]]]]]]]. apply member_In_equiv in HwZ. simpl in Hover. rewrite HwZ in Hover. discriminate Hover.
+    - destruct (get_assigned_value A3 w) as [iw |] eqn:HA3w.
+      + assert (HA3w': is_assigned A3 w = true). { apply assigned_is_true. exists iw. apply HA3w. }
+        apply A3_nodes_belong_to_collider with (D := D) (G := G) (u := u) (v := v) (l := l) in HA3w'. 2: { apply HA3. }
+        destruct HA3w' as [cw [dw [pw [Hcw [HDw [Hdcw Hwpd]]]]]].
+        unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [Hdesc' Hdesc].
+        pose proof Hcw as Hccol. apply Hdesc in Hcw.
+        destruct Hcw as [Hcw | Hcw].
+        * (* contradiction, w is not in A2 *) destruct Hcw as [Hcw _]. rewrite HDw in Hcw. inversion Hcw.
+          assert (HA2cw: is_assigned A2 cw = true). { apply assigned_is_true. apply assigned_has_value with (L := get_A2_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA2. }
+            apply Hccol. }
+          rewrite <- H2 in HA2cw. assert (Hdww: w = dw). { rewrite H1 in Hwpd. simpl in Hwpd. destruct Hwpd as [Hwpd | Hwpd]. symmetry. apply Hwpd. exfalso. apply Hwpd. }
+          rewrite <- Hdww in HA2cw. apply assigned_is_false in HA2w. rewrite HA2w in HA2cw. discriminate HA2cw.
+        * destruct Hcw as [pw' [dw' [Hpdw' Hcw]]]. rewrite Hpdw' in HDw. inversion HDw. rewrite H1 in *. rewrite H2 in *. clear H1. clear H2.
+          assert (Hdww: w = dw).
+          { apply membership_append_or in Hwpd. destruct Hwpd as [Hwpd | Hwpd].
+            - destruct Hcw as [_ [_ [_ [Hcw _]]]]. apply no_overlap_non_member with (x := w) in Hcw. exfalso. apply Hcw. right. apply Hwpd. apply HwZ.
+            - destruct Hwpd as [Hwpd | Hwpd]. symmetry. apply Hwpd. exfalso. apply Hwpd. }
+
+          assert (Hnodecw: node_in_graph cw G = true).
+          { apply colliders_vs_edges_in_path in Hccol.  destruct Hccol as [y [_ [_ [Hccol _]]]]. apply is_edge_then_node_in_graph with (v := y). right. apply Hccol. }
+
+          assert (Hdw: Some (f_parent_i X iw (unobsx, pax)) = find_value G g cw U []).
+          { assert (Hmap: get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, l) G) = Some A3).
+            { apply HA3. }
+            pose proof Hmap as HA3_const. apply A3_nodes_map_to_parent with (w := w) (Z := Z) in Hmap.
+            2: { split. apply Hdesc'. apply Hdesc. } 2: { apply assigned_is_true. exists iw. apply HA3w. }
+            destruct Hmap as [cw' [dw'' [pw'' [ipd [Hcw' [Hpdw'' Hmap]]]]]].
+            assert (Hcweq: cw = cw').
+            { destruct (cw =? cw') as [|] eqn:Hcweq.
+              - apply eqb_eq. apply Hcweq.
+              - exfalso. assert (Hover: overlap (cw :: pw ++ [dw]) (cw' :: pw'' ++ [dw'']) = false).
+                { apply Hcw. split. apply Hcweq. apply Hpdw''. }
+                apply no_overlap_non_member with (x := w) in Hover. apply Hover. right. apply Hwpd.
+                apply index_exists. exists (S ipd). symmetry. apply Hmap. }
+            rewrite <- Hcweq in *. clear Hcweq. unfold nodes in *. rewrite Hpdw' in Hpdw''. inversion Hpdw''. rewrite <- H1 in *. rewrite <- H2 in *. clear H1. clear H2.
+            clear Hpdw''. destruct Hmap as [_ [Hipd Hmap]]. clear HwZ. clear HwG. clear Hdww. clear HDw. clear HA1w. clear HA2w.
+
+            destruct Hmap as [w' [iw' [Hiw' [Hw' Hparw]]]]. rewrite HA3w in Hiw'. inversion Hiw'. rewrite <- H1 in *. clear H1. clear Hiw'.
+
+            assert (Hcwf: exists (xcw: X), find_value G g cw U [] = Some xcw). { apply find_value_existence. apply HG. split. apply HU. apply Hnodecw. }
+            destruct Hcwf as [xcw Hcwf].
+
+            generalize dependent w. generalize dependent pax. generalize dependent unobsx. generalize dependent iw. generalize dependent w'. generalize dependent Px.
+            induction ipd as [| ipd' IH].
+            - intros Px w' Hw' iw unobsx pax w HPx Hparx HxU Hx HA3w Hwpd Hipd Hparw.
+              assert (Hcweq: cw =? w' = true). { simpl in Hw'. destruct (cw =? w') as [|] eqn:Hcweq. reflexivity. destruct (index (pw ++ [dw]) w') as [ind|]. discriminate Hw'. discriminate Hw'. }
+              clear Hw'. apply eqb_eq in Hcweq. rewrite <- Hcweq in *. clear Hcweq. unfold f_parent_i. simpl.
+              assert (Hxcw: nth_default unobsx pax iw = xcw).
+              { apply Hi'' with (g := g) (U := U) (a := cw) (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. apply index_exists. exists iw. symmetry. apply Hparw.
+                apply HU. apply index_correct. symmetry. apply Hparw. split. apply Hparx. apply HPx. apply Hcwf. }
+              rewrite Hxcw. rewrite Hcwf. reflexivity.
+            - intros Px w' Hw' iw unobsx pax w HPx Hparx HxU Hx HA3w Hwpd Hipd Hparw.
+               unfold f_parent_i. simpl.
+               assert (Hwf': exists (xw': X), find_value G g w' U [] = Some xw'). { apply find_value_existence. apply HG. split. apply HU.
+                 destruct Hcw as [_ [Hcw _]]. apply directed_path_is_path in Hcw. apply directed_path_has_edge with (w := w') in Hcw. destruct Hcw as [w'' Hcw].
+                 apply is_edge_then_node_in_graph with (v := w''). rewrite or_comm. apply Hcw. rewrite node_in_path_equiv. apply member_In_equiv. apply index_exists. exists (S ipd'). symmetry. apply Hw'. }
+               destruct Hwf' as [xw' Hwf'].
+               assert (Hxw': nth_default unobsx pax iw = xw').
+               { apply Hi'' with (g := g) (U := U) (a := w') (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. apply index_exists. exists iw. symmetry. apply Hparw.
+                 apply HU. apply index_correct. symmetry. apply Hparw. split. apply Hparx. apply HPx. apply Hwf'. }
+               rewrite Hxw'. rewrite <- Hwf'. (* induction on w' *) rewrite Hcwf.
+
+               assert (Hmemw': In w' (pw ++ [dw])).
+               { apply index_exists. exists ipd'. simpl in Hw'. destruct (cw =? w') as [|]. discriminate Hw'.
+                 destruct (index (pw ++ [dw]) w') as [ipd'' |]. inversion Hw'. reflexivity. discriminate Hw'. }
+
+               assert (HA3w': is_assigned A3 w' = true).
+               { apply desc_path_nodes_in_A3 with (d := dw) (c := cw) (p := pw) (x := w') in HA3_const.
+                 - apply HA3_const.
+                 - split. apply Hpdw'. apply Hdcw.
+                 - apply Hcw'.
+                 - apply Hmemw'. }
+
+               assert (Hfw': exists (P: assignments X), find_values G g (find_parents w' G) U [] = Some P
+                    /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w' G)
+                    /\ exists (unobs: X), get_assigned_value U w' = Some unobs
+                    /\ find_value G g w' U [] = Some (g w' (unobs, pa))).
+               { apply find_value_evaluates_to_g. split.
+                 - apply HG.
+                 - split. apply HU. apply parents_in_graph with (u := w). apply HG. apply index_exists. exists iw. symmetry. apply Hparw. }
+               destruct Hfw' as [Pw' [HPw' [paw' [Hparw' [unobsw' [HwU' Hfw']]]]]]. rewrite Hfw'.
+               rewrite Heqg. unfold g_path''.
+
+               assert (HA1w': is_assigned A1 w' = false).
+               { apply HA1. apply member_In_equiv_F. intros HA1w'.
+                 apply descendant_paths_disjoint_with_A1 with (Z := Z) (x := w') in HA3_const.
+                 - apply assigned_is_false in HA3_const. rewrite HA3_const in HA3w'. discriminate HA3w'.
+                 - split. apply Hdesc'. apply Hdesc.
+                 - apply HA1w'. } apply assigned_is_false in HA1w'. rewrite HA1w'.
+               assert (HA2w': is_assigned A2 w' = false).
+               { apply HA2. apply member_In_equiv_F. intros HA2w'.
+                 apply descendant_paths_disjoint_with_A2 with (Z := Z) (x := w') in HA3_const.
+                 - apply assigned_is_false in HA3_const. rewrite HA3_const in HA3w'. discriminate HA3w'.
+                 - split. apply Hdesc'. apply Hdesc.
+                 - apply HA2w'. } apply assigned_is_false in HA2w'. rewrite HA2w'.
+               apply assigned_is_true in HA3w'. destruct HA3w' as [_iw' HA3w']. rewrite HA3w'.
+               rewrite <- Hcwf.
+
+               apply A3_nodes_map_to_parent with (w := w') (Z := Z) in HA3_const as Hmapw'.
+               2: { split. apply Hdesc'. apply Hdesc. } 2: { apply assigned_is_true. exists _iw'. apply HA3w'. }
+               destruct Hmapw' as [cw'' [dw''' [pw''' [ipd'' [Hcw'' [Hpdw''' Hmapw']]]]]].
+               assert (Hcweq: cw = cw'').
+               { destruct (cw =? cw'') as [|] eqn:Hcweq. apply eqb_eq. apply Hcweq.
+                 assert (Hover: overlap (cw :: pw ++ [dw]) (cw'' :: pw''' ++ [dw''']) = false).
+                 { apply Hcw. split. apply Hcweq. apply Hpdw'''. }
+                 exfalso. apply no_overlap_non_member with (x := w') in Hover. apply Hover. apply index_exists. exists (S ipd'). symmetry. apply Hw'.
+                 apply index_exists. exists (S ipd''). symmetry. apply Hmapw'. }
+               rewrite <- Hcweq in *. clear Hcweq. clear Hcw''. unfold nodes in *. rewrite Hpdw' in Hpdw'''. inversion Hpdw'''. rewrite <- H1 in *. rewrite <- H2 in *. clear H1. clear H2.
+               clear Hpdw'''. destruct Hmapw' as [_ [Hipd'' Hmapw']]. rewrite Hw' in Hipd''. inversion Hipd''. rewrite <- H1 in *. clear H1. clear Hipd''.
+               destruct Hmapw' as [w'' [_iw'' [Hiw'' Hmapw']]]. rewrite HA3w' in Hiw''. inversion Hiw''. rewrite <- H1 in *. clear H1. clear Hiw''.
+               apply IH with (w := w') (w' := w'') (Px := Pw'). apply Hmapw'. apply HPw'. apply Hparw'. apply HwU'. apply Hfw'. apply HA3w'.
+               apply Hmemw'. apply Hw'. apply Hmapw'. }
+
+          rewrite Hdw.
+          assert (Hcwf: exists (P: assignments X), find_values G g (find_parents cw G) U [] = Some P
+               /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents cw G)
+               /\ exists (unobs: X), get_assigned_value U cw = Some unobs
+               /\ find_value G g cw U [] = Some (g cw (unobs, pa))).
+          { apply find_value_evaluates_to_g. split.
+            - apply HG.
+            - split. apply HU. apply Hnodecw. }
+          destruct Hcwf as [Pcw [HPcw [pacw [Hparcw [unobscw [HcwU Hcwf]]]]]]. rewrite Hcwf.
+          rewrite Heqg. unfold g_path''.
+
+          assert (HA1cw: is_assigned A1 cw = false).
+          { apply HA1. apply member_In_equiv_F. intros HA1cw.
+            apply A2_nodes_not_in_A1 in HA1cw. apply HA1cw. apply HG. apply Hp. apply Hp. unfold get_A2_binded_nodes_in_g_path. apply Hccol. }
+          apply assigned_is_false in HA1cw. rewrite HA1cw.
+
+          assert (HA2cw: exists (valcw: nat * nat * X * X), get_assigned_value A2 cw = Some valcw).
+          { apply assigned_has_value with (L := find_colliders_in_path (u, v, l) G). split. apply Hccol. apply HA2. }
+          destruct HA2cw as [[[[icw jcw] xcw] ycw] HA2cw]. rewrite HA2cw.
+          assert (Hfcw: f_equate_ij X icw jcw xcw ycw (unobscw, pacw) = xcw).
+          { apply HA2_equate with (w := cw) (Px := Pcw) (U := U) (x := x). apply HU. apply Hu4. apply HPcw. apply Hparcw. apply HcwU. apply Hcwf. apply HA2cw. }
+          rewrite Hfcw.
+
+          unfold A2_consistent_with_D in HA2D. pose proof HA2cw as HA2cw'. apply HA2D in HA2cw. destruct HA2cw as [pw'' [dw'' [Hpd' [Hxcw Hycw]]]].
+          unfold nodes in *. rewrite Hpdw' in Hpd'. inversion Hpd'. rewrite <- H1 in *. rewrite <- H2 in *. clear H1. clear H2. clear Hpd'.
+          rewrite Hdww. rewrite Hxcw. reflexivity.
+
+      + assert (HA4w: is_assigned A4 w = false).
+        { destruct (is_assigned A4 w) as [|] eqn:HA4w.
+          - assert (HA4w': In w (get_A4_binded_nodes_in_g_path G (u, v, l))).
+            { destruct (member w (get_A4_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
+              - apply member_In_equiv. apply Hmem.
+              - apply HA4 in Hmem. rewrite HA4w in Hmem. discriminate Hmem. }
+            exfalso. apply A4_confounders_or_endpoints in HA4w'. destruct HA4w' as [HA4w' | [HA4w' | HA4w']].
+            + apply HuZ. rewrite <- HA4w'. apply HwZ.
+            + destruct Hconn as [_ [Hconn _]]. apply no_overlap_non_member with (x := w) in Hconn. apply Hconn. apply HwZ. apply HA4w'.
+            + apply HvZ. rewrite <- HA4w'. apply HwZ.
+          - reflexivity. }
+        apply assigned_is_false in HA4w. rewrite HA4w.
+        assert (HAZw: exists (wz: X), get_assigned_value AZ w = Some wz).
+        { apply assigned_has_value with (L := Z). split. apply HwZ. apply HAZ. }
+        destruct HAZw as [wz HAZw]. rewrite HAZw. unfold f_constant. reflexivity. }
+
+  pose proof HG as HX. destruct HX as [HX _]. destruct HX as [X1 [X2 HX]]. intros x.
+  assert (Hx: exists (y: X), x <> y). { destruct (eqb X1 x) as [|] eqn:Hx. exists X2. intros Hx'. rewrite Hx' in Hx. apply HX. apply eqb_eq'. apply Hx.
+    exists X1. intros Hx'. rewrite Hx' in Hx. rewrite eqb_refl' in Hx. discriminate Hx. }
+  destruct Hx as [xX Hx]. clear HX.
+
+  remember (get_assignment_for (nodes_in_graph G) xX) as U'. exists U'. exists xX.
+  assert (HUA: is_assignment_for U' (nodes_in_graph G) = true). { rewrite HeqU'. apply nodes_map_to_assignment. }
+  split. apply HUA.
+
+  assert (HUA1': forall u4 : node, is_assigned A4 u4 = true -> get_assigned_value U' u4 = Some xX).
+  { intros u4 Hu4. rewrite HeqU'. apply node_maps_to_assigned_value.
+    assert (HA4w': In u4 (get_A4_binded_nodes_in_g_path G (u, v, l))).
+    { destruct (member u4 (get_A4_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
+      - apply member_In_equiv. apply Hmem.
+      - apply HA4 in Hmem. rewrite Hu4 in Hmem. discriminate Hmem. }
+    apply A4_nodes_in_graph in HA4w'. destruct G as [V E]. simpl in HA4w'. apply member_In_equiv. simpl. apply HA4w'. apply HG. apply Hp. }
+
+  assert (Hcond: unobs_conditions_on_Z G g U' AZ Z).
+  { apply HcondU with (x := xX). apply HUA. apply HUA1'. }
+
+  split. apply Hcond.
+
+  split. intros w Hw'. apply Hw. apply HUA. apply HUA1'. apply Hw'.
+
+  split. symmetry. apply Hx.
+
+  intros Ux LUx HeqUx. destruct HeqUx as [HeqUx HeqLUx].
+
+  assert (Hrx: forall w : node,
+                 In w (get_A4_binded_nodes_in_g_path G (u, v, path_int (u, v, l))) ->
+                 exists r : X, get_assigned_value U' w = Some r /\ eqb r x = false).
+  { intros w Hw4. exists xX. split. rewrite HeqU'. apply node_maps_to_assigned_value. apply A4_nodes_in_graph in Hw4. destruct G as [V E]. apply member_In_equiv. simpl. simpl in Hw4. apply Hw4.
+    apply HG. apply Hp. destruct (eqb xX x) as [|] eqn:Hyx. exfalso. apply Hx. apply eqb_eq'. rewrite eqb_sym'. apply Hyx. reflexivity. }
+
+  assert (HUxA: is_assignment_for Ux (nodes_in_graph G) = true).
+  { apply equiv_assignment_still_assignment with (U := (hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), x) :: U'). apply HeqUx. apply is_assignment_for_cat. apply HUA. }
 
   split.
   { destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
@@ -13838,8 +14608,8 @@ Proof.
 
       assert (HA1u: is_assigned A1 u = true). { apply assigned_is_true. apply assigned_has_value with (L := u :: t1). split. left. reflexivity. rewrite <- H1. apply Hexist. }
 
-      clear Hrx. clear HeqLUx. clear H1. destruct Hexist as [HA1 [HA1' [HA1'' [HA2 [_ HA3]]]]]. destruct HA1 as [HA1 _].
-      apply paths_start_to_end_correct in Hp. destruct Hp as [Hp [_ Hcyc]].
+      clear Hrx. clear HeqLUx. clear H1. destruct Hexist as [HA1 [HA1' [HA1'' [HA2 [_ [_ HA3]]]]]]. destruct HA1 as [HA1 _].
+      destruct Hp as [Hp [_ Hcyc]]. clear Hw.
 
       generalize dependent u. generalize dependent A1. generalize dependent A5. induction l as [| h t IH].
       * intros A5 A1 HA1'' Heqg u Hp Hcyc HuZ Hdesc Hconn HA1 HA1' HA2 HA3 HA4 HeqUx Hin HA1u.
@@ -14011,7 +14781,7 @@ Proof.
                    left. apply Hin. apply Hp.
                 ** apply descendant_paths_disjoint_cat with (u := u). apply Hdesc. intros Hhcol.
                    assert (HA2h: In h (get_A2_binded_nodes_in_g_path G (u, v, h :: t))). { unfold get_A2_binded_nodes_in_g_path. apply Hhcol. }
-                   apply A2_nodes_not_in_A1 in HA2h. apply HA2h. apply HA1h.
+                   apply A2_nodes_not_in_A1 in HA2h. apply HA2h. apply HA1h. apply HG. apply Hcyc. apply Hp.
                 ** apply subpath_still_d_connected with (u := u). apply Hconn.
                 ** apply forallb_true_iff_mem. intros w Hw.
                    apply assigned_is_true. rewrite remove_assignment_preserves_other_nodes. apply assigned_is_true.
@@ -14071,7 +14841,7 @@ Proof.
                   (get_assignment_sequence_from_A4
                      (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x))). 2: { apply HeqLUx. }
         assert (Hlen: length (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x) <= path_length (u, v, l)).
-        { apply assignment_sequence_len_shorter_than_path with (G := G) (x := x) (U := U'). apply paths_start_to_end_correct in Hp. apply Hp. apply HG.
+        { apply assignment_sequence_len_shorter_than_path with (G := G) (x := x) (U := U'). apply Hp. apply HG.
           reflexivity. }
         assert (Hlen': length (tl (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x)) <= length (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x)).
         { destruct (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x) as [| h' t']. simpl. lia. simpl. lia. } unfold nodes in *.
@@ -14085,17 +14855,17 @@ Proof.
             rewrite Hass. apply is_assigned_iff_cat. apply assigned_is_true. apply assigned_has_value with (L := nodes_in_graph G).
             split.
             destruct (get_A4_binded_nodes_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4. apply A4_has_nodes in H4. exfalso. apply H4.
-            apply paths_start_to_end_correct in Hp. apply Hp. simpl.
-            assert (Hh4: node_in_graph h4 G = true). { apply A4_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
+            apply Hp. simpl.
+            assert (Hh4: node_in_graph h4 G = true). { apply A4_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply Hp.
               unfold nodes in *. rewrite H4. left. reflexivity. }
             destruct G as [V E]. simpl. apply member_In_equiv. simpl in Hh4. apply Hh4. apply HUA.
           + intros Hwmem. destruct (hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)) =? w) as [|] eqn:Huw.
             * apply eqb_eq in Huw. exfalso. apply Hwmem. apply intersect_in_both_lists. split.
               -- destruct (get_A4_binded_nodes_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4. apply A4_has_nodes in H4. exfalso. apply H4.
-                 apply paths_start_to_end_correct in Hp. apply Hp. simpl in Huw. apply member_In_equiv. rewrite <- node_in_path_equiv with (l := l).
+                 apply Hp. simpl in Huw. apply member_In_equiv. rewrite <- node_in_path_equiv with (l := l).
                  apply A4_nodes_in_path with (G := G). unfold nodes in *. rewrite H4. left. apply Huw.
-              -- rewrite <- Huw. apply next_A4_node_is_unblocked_ancestor_2. apply paths_start_to_end_correct in Hp. apply Hp. apply HG.
-                 apply paths_start_to_end_correct in Hp. apply Hp. apply Hconn. apply HvZ.
+              -- rewrite <- Huw. apply next_A4_node_is_unblocked_ancestor_2. apply Hp. apply HG.
+                 apply Hp. apply Hconn. apply HvZ.
             * unfold assignments_equiv in HeqUx. specialize HeqUx with (u := w).
               remember (hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l))) as x4. simpl in HeqUx. rewrite Huw in HeqUx.
               symmetry. apply HeqUx.
@@ -14103,14 +14873,14 @@ Proof.
          assert (HA4bind: get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x = ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)),
             x) :: U') :: Lt).
          { destruct (get_A4_binded_nodes_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4. apply A4_has_nodes in H4. exfalso. apply H4.
-           apply paths_start_to_end_correct in Hp. apply Hp. simpl. rewrite HeqLt. simpl. reflexivity. }
+           apply Hp. simpl. rewrite HeqLt. simpl. reflexivity. }
          split.
          + apply equiv_assignments_preserve_anc with (L := U' :: ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)),
             x) :: U') :: Lt).
            * simpl. split. unfold assignments_equiv. intros u'. reflexivity. split. apply assignments_equiv_symmetry. apply HeqUx.
              apply list_assignments_equiv_symmetry. apply HeqLUx.
            * apply assignments_change_A4 with (x := x) (p := (u, v, l)). apply HG. apply HG. simpl. split. apply HuZ. apply HvZ.
-             apply paths_start_to_end_correct in Hp. apply Hp. apply paths_start_to_end_correct in Hp. apply Hp. apply Hconn. apply HAZ.
+             apply Hp. apply Hp. apply Hconn. apply HAZ.
              apply Hrx. apply HA4bind. apply HUA.
          + intros U HUmem.
            destruct HUmem as [HUmem | [HUmem | HUmem]].
@@ -14129,2373 +14899,78 @@ Proof.
          assert (HA4bind: get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U' x = ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)),
             x) :: U') :: Lt).
          { destruct (get_A4_binded_nodes_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4. apply A4_has_nodes in H4. exfalso. apply H4.
-           apply paths_start_to_end_correct in Hp. apply Hp. simpl. rewrite HeqLt. simpl. reflexivity. }
+           apply Hp. simpl. rewrite HeqLt. simpl. reflexivity. }
          apply list_equiv_assignment_still_assignment with (L := U1 :: LUx') (L' := Lt). apply HeqLUx.
              intros Ut HUt. apply assignment_sequence_U with (A4 := get_A4_binded_nodes_in_g_path G (u, v, l)) (U := U') (L := ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)),
             x) :: U') :: Lt) (x := x).
              apply HA4bind. apply HUA. right. apply HUt. rewrite HeqU. apply last_mem. }
 
-      assert (Hw: (forall w : node, node_in_path w (u, v, l) = true /\ ~ In w (find_colliders_in_path (u, v, l) G)
+      assert (HUA4: forall u4 : node, is_assigned A4 u4 = true -> get_assigned_value U u4 = Some x).
+      { intros a Ha. rewrite HeqU. apply assignments_seq_nodes_map_to_x with (U := U') (A := get_A4_binded_nodes_in_g_path G (u, v, l)).
+        + destruct (get_A4_binded_nodes_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4.
+          ** apply A4_has_nodes in H4. exfalso. apply H4. apply Hp.
+          ** simpl. split. simpl in HeqUx. apply HeqUx. simpl in HeqLUx. apply HeqLUx.
+        + destruct (member a (get_A4_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
+          ** apply member_In_equiv. apply Hmem.
+          ** apply HA4 in Hmem. rewrite Ha in Hmem. discriminate Hmem. }
+
+      assert (Hw_last_U: (forall w : node, node_in_path w (u, v, l) = true /\ ~ In w (find_colliders_in_path (u, v, l) G)
                     -> find_value G g w (last (Ux :: LUx) Ux) [] = Some x)).
       { (* show that all nodes in A1 evaluate to x (since they are tied to their parents, which becomes a chain that
            must eventually end at a node in A4) *)
+        rewrite <- HeqU. intros w Hw'. apply Hw. apply HU.
+        apply HUA4. apply Hw'. }
 
-        assert (HaU: forall (a: node), is_assigned A4 a = true -> get_assigned_value U a = Some x).
-        { intros a Ha. rewrite HeqU. apply assignments_seq_nodes_map_to_x with (U := U') (A := get_A4_binded_nodes_in_g_path G (u, v, l)).
-          + destruct (get_A4_binded_nodes_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4.
-            ** apply A4_has_nodes in H4. exfalso. apply H4. apply paths_start_to_end_correct in Hp. apply Hp.
-            ** simpl. split. simpl in HeqUx. apply HeqUx. simpl in HeqLUx. apply HeqLUx.
-          + destruct (member a (get_A4_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
-            ** apply member_In_equiv. apply Hmem.
-            ** apply HA4 in Hmem. rewrite Ha in Hmem. discriminate Hmem. }
+      split. 2: { rewrite HeqU. apply Hw_last_U. }
 
-        assert (HuA4: is_assigned A4 u = true \/ is_assigned A1 u = true).
-        { destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-          + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply Hexist. }
-            unfold get_A1_binded_nodes_in_g_path. rewrite Hin. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-            left. reflexivity. left. reflexivity. apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-          + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
-            unfold get_A4_binded_nodes_in_g_path. rewrite Hin. destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-            left. reflexivity. left. reflexivity. apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
-
-        assert (HvA4: is_assigned A4 v = true \/ is_assigned A1 v = true).
-        { destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
-          + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
-            unfold get_A4_binded_nodes_in_g_path. rewrite Hout. destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-            apply membership_append_r. left. reflexivity. right. apply membership_append_r. left. reflexivity.
-          + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply Hexist. }
-            unfold get_A1_binded_nodes_in_g_path. rewrite Hout. destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-            right. apply membership_append_r. left. reflexivity. apply membership_append_r. left. reflexivity.
-          + apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
-
-        assert (HA1_const: forall (w: node), is_assigned A1 w = true -> find_value G g w U [] = Some x).
-        { intros w HA1w. destruct Hexist as [HA1 [HA1' [HA2 [HA2' HA3]]]].
-
-           assert (Hwmem: In w (u :: l ++ [v])). { apply member_In_equiv. rewrite <- node_in_path_equiv. apply A1_nodes_in_path with (G := G).
-           apply member_In_equiv. destruct (member w (get_A1_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hwmem.
-           - reflexivity.
-           - apply HA1 in Hwmem. rewrite HA1w in Hwmem. discriminate Hwmem. }
-
-           pose proof HA1w as HA1w'.
-           apply assigned_is_true in HA1w'. destruct HA1w' as [iw HA1w']. pose proof HA1w' as Hiw. apply get_assigned_In in HA1w'.
-           unfold A1_nodes_binded_to_parent_in_path in HA1'. pose proof HA1' as HA1bind. specialize HA1' with (m := w) (i := iw).
-           apply HA1' in HA1w'. destruct HA1w' as [a [Haxix Haxsub]]. destruct Haxsub as [Haxsub | Haxsub].
-           - apply index_exists in Hwmem. destruct Hwmem as [iwp Hiwp].
-             clear Hconn. clear HA2'. clear HA1'.
-             generalize dependent a. generalize dependent w. generalize dependent iw. induction iwp as [| iwp' IH].
-             + intros iw w HA1w Hiwp Hiw a Haxix Haxsub.
-               assert (Huw: u = w). { apply index_correct in Hiwp. simpl in Hiwp. inversion Hiwp. reflexivity. } rewrite <- Huw in *.
-
-               assert (Hu: In u (l ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [u]) (a := a) (h := u). split. apply Haxsub. left. reflexivity. }
-               exfalso. apply membership_append_or in Hu. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hcyc]].
-               destruct Hu as [Hu | Hu]. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. apply Hu.
-               destruct Hu as [Hu | Hu]. destruct Hcyc as [Hcyc _]. apply Hcyc. symmetry. apply Hu. apply Hu.
-             + intros iw w HA1w Hiwp Hiw a Haxix Haxsub.
-
-               assert (HA1w': In w (get_A1_binded_nodes_in_g_path G (u, v, l))).
-               { apply assigned_true_then_in_list with (A := A1). split. apply HA1w. apply HA1. }
-
-               assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                    /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                    /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                    /\ find_value G g w U [] = Some (g w (unobs, pa))).
-               { apply find_value_evaluates_to_g. split.
-                 - apply HG.
-                 - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                   apply HA1w'. }
-               destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
-               rewrite Heqg. unfold g_path''. rewrite Hiw. unfold f_parent_i. simpl.
-
-               f_equal. apply Hi'' with (g := g) (U := U) (a := a) (w := w) (P := Px).
-               * apply parents_in_graph with (u := w). apply HG. apply nth_error_In in Haxix. apply Haxix.
-               * apply HU.
-               * apply Haxix.
-               * split. apply Hparx. apply HPx.
-               * assert (Ha: is_assigned A4 a = true \/ is_assigned A1 a = true).
-                 { assert (Ha: In a (u :: l)). { apply first_elt_of_sublist_not_last_elt_gen with (t := []) (b := w) (v := v). apply Haxsub. }
-                   destruct Ha as [Ha | Ha].
-                   - rewrite <- Ha. apply HuA4.
-                   - apply paths_start_to_end_correct in Hp. destruct Hp as [Hp [_ Hcyc]]. apply intermediate_node_in_path with (x := a) in Hp. apply Hp in Ha.
-                     destruct Ha as [Ha | [Ha | Ha]].
-                     + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA1. }
-                       apply mediators_in_A1. apply Ha.
-                     + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
-                       apply confounders_in_A4. apply Ha.
-                     + exfalso. apply colliders_vs_edges_in_path in Ha. destruct Ha as [y [z Ha]].
-                       assert (Hwb: z = w).
-                       { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := a).
-                         - apply end_of_sublist_still_sublist_2 with (a1 := y). apply Ha.
-                         - apply Haxsub.
-                         - apply acyclic_path_count with (x := a) in Hcyc.
-                           apply Hcyc. apply sublist_member with (l1 := [a;w]). split. left. reflexivity. apply Haxsub. }
-                       unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
-                       +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                       +++ apply directed_path_is_path. simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
-                           rewrite Haxix. rewrite <- Hwb. destruct Ha as [_ [_ Ha]]. rewrite Ha. reflexivity. apply HG'. }
-
-                 destruct Ha as [Ha | Ha].
-                 -- apply HA4_const. apply Ha. apply HU. apply HaU. apply Ha.
-                 -- (* induction: find node b s.t. b -> a -> w is in path *)
-                    apply assigned_is_true in Ha. destruct Ha as [ia Ha]. pose proof Ha as HA1a. apply get_assigned_In in Ha.
-                    apply HA1bind in Ha. destruct Ha as [b [Hbaia Hbasub]]. destruct Hbasub as [Hbasub | Hbasub].
-                    ++ apply IH with (a := b) (iw := ia). apply assigned_is_true. exists ia. apply HA1a.
-                       ** assert (Hsub: sublist [a; w] (u :: l ++ [v]) = true).
-                          { simpl. simpl in Haxsub. apply Haxsub. }
-                          apply index_of_sublist with (a := w).
-                          { apply Hsub. }
-                          { apply acyclic_path_count with (l := l).
-                            * apply sublist_member with (l1 := [a; w]). split. right. left. reflexivity. apply Hsub.
-                            * apply paths_start_to_end_correct in Hp. apply Hp. }
-                          { apply acyclic_path_count with (l := l).
-                            * apply sublist_member with (l1 := [a; w]). split. left. reflexivity. apply Hsub.
-                            * apply paths_start_to_end_correct in Hp. apply Hp. }
-                          apply Hiwp.
-                       ** apply HA1a.
-                       ** apply Hbaia.
-                       ** apply Hbasub.
-                    ++ assert (Hwb: w = b).
-                       { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := a).
-                         - simpl in Haxsub. apply Haxsub.
-                         - simpl in Hbasub. apply Hbasub.
-                         - apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. apply acyclic_path_count with (x := a) in Hp.
-                           apply Hp. apply sublist_member with (l1 := [a;b]). split. left. reflexivity. apply Hbasub. }
-                       unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
-                       +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                       +++ apply directed_path_is_path. simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
-                           rewrite Hbaia. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite Haxix. reflexivity.
-                           apply HG'. apply HG'.
-           - apply membership_rev in Hwmem. apply index_exists in Hwmem. destruct Hwmem as [iwp Hiwp].
-             clear Hconn. clear HA2'. clear HA1'.
-             generalize dependent a. generalize dependent w. generalize dependent iw. induction iwp as [| iwp' IH].
-             + intros iw w HA1w Hiwp Hiw a Haxix Haxsub. (* w = v, but [w;a] is sublist, contradicts acyclic *)
-               apply index_correct in Hiwp. simpl in Hiwp. rewrite reverse_list_append in Hiwp. simpl in Hiwp. inversion Hiwp.
-               assert (Hwmem': In w (u :: l)). { apply first_elt_of_sublist_not_last_elt_gen with (t := []) (b := a) (v := v). simpl in Haxsub. apply Haxsub. }
-               apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. exfalso. destruct Hwmem' as [Hwmem' | Hwmem']. destruct Hp as [Hp _]. apply Hp. rewrite H1. apply Hwmem'.
-               destruct Hp as [_ [_ [Hp _]]]. apply Hp. rewrite H1. apply Hwmem'.
-             + intros iw w HA1w Hiwp Hiw a Haxix Haxsub.
-
-               assert (HA1w': In w (get_A1_binded_nodes_in_g_path G (u, v, l))).
-               { apply assigned_true_then_in_list with (A := A1). split. apply HA1w. apply HA1. }
-
-               assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                    /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                    /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                    /\ find_value G g w U [] = Some (g w (unobs, pa))).
-               { apply find_value_evaluates_to_g. split.
-                 - apply HG.
-                 - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := l). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                   apply HA1w'. }
-               destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
-               rewrite Heqg. unfold g_path''. rewrite Hiw. unfold f_parent_i. simpl.
-
-               f_equal. apply Hi'' with (g := g) (U := U) (a := a) (w := w) (P := Px).
-               * apply parents_in_graph with (u := w). apply HG. apply nth_error_In in Haxix. apply Haxix.
-               * apply HU.
-               * apply Haxix.
-               * split. apply Hparx. apply HPx.
-               * assert (Ha: is_assigned A4 a = true \/ is_assigned A1 a = true).
-                 { assert (Ha: In a (l ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [a]) (a := w) (h := u). split. apply Haxsub. left. reflexivity. }
-                   apply membership_append_or in Ha. destruct Ha as [Ha | Ha].
-                   - apply paths_start_to_end_correct in Hp. destruct Hp as [Hp [_ Hcyc]]. apply intermediate_node_in_path with (x := a) in Hp. apply Hp in Ha.
-                     destruct Ha as [Ha | [Ha | Ha]].
-                     + right. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA1. }
-                       apply mediators_in_A1. apply Ha.
-                     + left. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA4. }
-                       apply confounders_in_A4. apply Ha.
-                     + exfalso. apply colliders_vs_edges_in_path in Ha. destruct Ha as [y [z Ha]].
-                       assert (Hwb: y = w).
-                       { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := a).
-                         - apply start_of_sublist_still_sublist with (b := z). apply Ha.
-                         - apply Haxsub.
-                         - apply acyclic_path_count with (x := a) in Hcyc.
-                           apply Hcyc. apply sublist_member with (l1 := [w;a]). split. right. left. reflexivity. apply Haxsub. }
-                       unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
-                       +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                       +++ apply directed_path_is_path. simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
-                           rewrite Haxix. rewrite <- Hwb. destruct Ha as [_ [Ha _]]. rewrite Ha. reflexivity. apply HG'.
-                   - destruct Ha as [Ha | Ha]. rewrite <- Ha. apply HvA4. exfalso. apply Ha. }
-
-                 destruct Ha as [Ha | Ha].
-                 -- apply HA4_const. apply Ha. apply HU. apply HaU. apply Ha.
-                 -- (* induction: find node b s.t. b -> a -> w is in path *)
-                    apply assigned_is_true in Ha. destruct Ha as [ia Ha]. pose proof Ha as HA1a. apply get_assigned_In in Ha.
-                    apply HA1bind in Ha. destruct Ha as [b [Hbaia Hbasub]]. destruct Hbasub as [Hbasub | Hbasub].
-                    ++ assert (Hwb: w = b).
-                       { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := a).
-                         - simpl in Haxsub. apply Haxsub.
-                         - simpl in Hbasub. apply Hbasub.
-                         - apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. apply acyclic_path_count with (x := a) in Hp.
-                           apply Hp. apply sublist_member with (l1 := [b;a]). split. right. left. reflexivity. apply Hbasub. }
-                       unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
-                       +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                       +++ apply directed_path_is_path. simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
-                           rewrite Hbaia. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite Haxix. reflexivity.
-                           apply HG'. apply HG'.
-                    ++ apply IH with (a := b) (iw := ia). apply assigned_is_true. exists ia. apply HA1a.
-                       ** assert (Hsub: sublist [w; a] (u :: l ++ [v]) = true).
-                          { apply Haxsub. }
-                          apply index_of_sublist with (a := w).
-                          { unfold nodes in *. unfold node in *. rewrite reverse_list_twice with (l := [a; w]). apply sublist_rev. apply Hsub. }
-                          { rewrite count_reverse. rewrite <- reverse_list_twice. apply acyclic_path_count with (l := l).
-                            * apply sublist_member with (l1 := [w; a]). split. left. reflexivity. apply Hsub.
-                            * apply paths_start_to_end_correct in Hp. apply Hp. }
-                          { rewrite count_reverse. rewrite <- reverse_list_twice. apply acyclic_path_count with (l := l).
-                            * apply sublist_member with (l1 := [w; a]). split. right. left. reflexivity. apply Hsub.
-                            * apply paths_start_to_end_correct in Hp. apply Hp. }
-                          apply Hiwp.
-                       ** apply HA1a.
-                       ** apply Hbaia.
-                       ** apply Hbasub. }
-
-        intros w [Hwp Hwcol]. rewrite <- HeqU. rewrite node_in_path_equiv in Hwp. apply member_In_equiv in Hwp. destruct Hwp as [Hwu | Hwhtv].
-        - assert (Hu: is_assigned A4 u = true \/ is_assigned A1 u = true). { apply HuA4. }
-          destruct Hu as [Hu | Hu]. apply HA4_const. rewrite <- Hwu. apply Hu. apply HU. apply HaU. rewrite <- Hwu. apply Hu.
-          apply HA1_const. rewrite <- Hwu. apply Hu.
-        - apply membership_append_or in Hwhtv. destruct Hwhtv as [Hwt | Hwv].
-          + assert (Hp': is_path_in_graph (u, v, l) G = true). { apply paths_start_to_end_correct in Hp. apply Hp. }
-            apply intermediate_node_in_path with (x := w) in Hp'. apply Hp' in Hwt. destruct Hwt as [Hwt | [Hwt | Hwt]].
-            * apply HA1_const. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (u, v, l)).
-              split. apply mediators_in_A1. apply Hwt. apply Hexist.
-            * assert (Hw: is_assigned A4 w = true). { apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, l)). split.
-                apply confounders_in_A4. apply Hwt. apply HA4. }
-              apply HA4_const. apply Hw. apply HU. apply HaU. apply Hw.
-            * exfalso. apply Hwcol. apply Hwt.
-          + assert (Hv: is_assigned A1 v = true \/ is_assigned A4 v = true). { rewrite or_comm. apply HvA4. }
-            destruct Hwv as [Hwv | F]. destruct Hv as [Hv | Hv].
-            * apply HA1_const. rewrite <- Hwv. apply Hv.
-            * apply HA4_const. rewrite <- Hwv. apply Hv. apply HU. apply HaU. rewrite <- Hwv. apply Hv.
-            * exfalso. apply F. }
-
-      split. 2: { rewrite HeqU. apply Hw. }
-
-      destruct Hexist as [HA1 [HA1' [HA1'' [HA2 [HA2' HA3]]]]].
-      assert (HA2_equate: forall (w: node) (Px: assignments X) (pax: list X) (unobsx: X) (iw jw: nat) (xw yw: X),
-                              find_values G g (find_parents w G) U [] = Some Px
-                              -> Some pax = get_parent_assignments Px (find_parents w G)
-                              -> get_assigned_value U w = Some unobsx
-                              -> find_value G g w U [] = Some (g w (unobsx, pax))
-                              -> get_assigned_value A2 w = Some (iw, jw, xw, yw)
-                              -> f_equate_ij X iw jw xw yw (unobsx, pax) = xw).
-      { intros w Px pax unobsx iw jw xw yw HPx Hparx HxU Hx HA2w. unfold A2_nodes_colliders_in_graph in HA2'.
-        specialize HA2' with (c := w) (i := iw) (j := jw) (x := xw) (y := yw). pose proof HA2w as HA2w'.
-        apply get_assigned_In in HA2w'. apply HA2' in HA2w'. destruct HA2w' as [a [b Hvalw]].
-
-        (* since a and b are in the path and not colliders, they must be in A1 or A4 -> use HA4_const or HA1_const *)
-        assert (Ha: find_value G g a U [] = Some x).
-        { rewrite HeqU. apply Hw. split.
-          - rewrite node_in_path_equiv. apply member_In_equiv. apply sublist_member with (l1 := [a; w; b]). split. left. reflexivity. simpl in Hvalw. apply Hvalw.
-          - intros Hacol.
-            (* contradiction: since a -> w is an edge, a is not a collider *)
-            apply colliders_vs_edges_in_path in Hacol. destruct Hacol as [a1 [a2 [Hasub Haedge]]]. destruct Hvalw as [_ [_ [Hawbsub Hawbcol]]].
-            assert (Ha2w: (w =? a2) = false).
-            { unfold is_collider_bool in Hawbcol. destruct (w =? a2) as [|] eqn:Hwa2.
-              - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
-                + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                + apply directed_path_is_path. simpl. destruct Haedge as [_ Ha2a]. apply eqb_eq in Hwa2. rewrite <- Hwa2 in Ha2a. rewrite Ha2a.
-                  apply split_and_true in Hawbcol. destruct Hawbcol as [Haw _]. rewrite Haw. reflexivity.
-              - reflexivity. }
-            assert (Ha2w': w = a2).
-            { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := a).
-              - apply start_of_sublist_still_sublist in Hawbsub. apply Hawbsub.
-              - apply end_of_sublist_still_sublist_2 in Hasub. apply Hasub.
-              - apply acyclic_path_count with (l := l).
-                * apply sublist_member with (l1 := [a; w; b]). split. left. reflexivity. apply Hawbsub.
-                * apply paths_start_to_end_correct in Hp. apply Hp. }
-            rewrite Ha2w' in Ha2w. rewrite eqb_refl in Ha2w. discriminate Ha2w. }
-
-        assert (Hb: find_value G g b U [] = Some x).
-        { rewrite HeqU. apply Hw. split.
-          - rewrite node_in_path_equiv. apply member_In_equiv. apply sublist_member with (l1 := [a; w; b]). split. right. right. left. reflexivity. simpl in Hvalw. apply Hvalw.
-          - intros Hbcol.
-            (* contradiction: since w <- b is an edge, b is not a collider *)
-            apply colliders_vs_edges_in_path in Hbcol. destruct Hbcol as [b1 [b2 [Hbsub Hbedge]]]. destruct Hvalw as [_ [_ [Hawbsub Hawbcol]]]. 
-            assert (Hb1w: (w =? b1) = false).
-            { unfold is_collider_bool in Hawbcol. destruct (w =? b1) as [|] eqn:Hwb1.
-              - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (b, b, [w])) in HG.
-                + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                + apply directed_path_is_path. simpl. destruct Hbedge as [Hb1w _]. apply eqb_eq in Hwb1. rewrite <- Hwb1 in Hb1w. rewrite Hb1w.
-                  apply split_and_true in Hawbcol. destruct Hawbcol as [_ Hwb]. rewrite Hwb. reflexivity.
-              - reflexivity. }
-            assert (Hb1w': w = b1).
-            { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := b).
-              - apply end_of_sublist_still_sublist_2 in Hawbsub. apply Hawbsub.
-              - apply start_of_sublist_still_sublist in Hbsub. apply Hbsub.
-              - apply acyclic_path_count with (u := u) (v := v) (l := l).
-                * apply sublist_member with (l1 := [b1; b; b2]). split. right. left. reflexivity. apply Hbsub.
-                * apply paths_start_to_end_correct in Hp. apply Hp. }
-            rewrite Hb1w' in Hb1w. rewrite eqb_refl in Hb1w. discriminate Hb1w. }
-
-        unfold f_equate_ij. simpl.
-        assert (Hiw: nth_default unobsx pax iw = x).
-        { apply Hi'' with (g := g) (U := U) (a := a) (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. destruct Hvalw as [Hvalw _]. apply nth_error_In in Hvalw. apply Hvalw. apply HU.
-          apply Hvalw. split. apply Hparx. apply HPx. apply Ha. }
-        assert (Hjw: nth_default unobsx pax jw = x).
-        { apply Hi'' with (g := g) (U := U) (a := b) (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. destruct Hvalw as [_ [Hvalw _]]. apply nth_error_In in Hvalw. apply Hvalw. apply HU.
-          apply Hvalw. split. apply Hparx. apply HPx. apply Hb. }
-        rewrite Hiw. rewrite Hjw. rewrite eqb_refl'. reflexivity. }
-
-
-      unfold unobs_conditions_on_Z. intros w [HwZ HwG].
-      (* either w is in A2, A3, or not in the path *)
-      assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                  /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                  /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                  /\ find_value G g w U [] = Some (g w (unobs, pa))).
-      { apply find_value_evaluates_to_g. split.
-        - apply HG.
-        - split. apply HU. apply HwG. }
-      destruct Hw' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
-      rewrite Heqg. unfold g_path''.
-      assert (HA1w: is_assigned A1 w = false).
-      { destruct (is_assigned A1 w) as [|] eqn:HA1w.
-        - assert (HA1w': In w (get_A1_binded_nodes_in_g_path G (u, v, l))).
-          { destruct (member w (get_A1_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
-            - apply member_In_equiv. apply Hmem.
-            - apply HA1 in Hmem. rewrite HA1w in Hmem. discriminate Hmem. }
-          exfalso. apply A1_mediators_or_endpoints in HA1w'. destruct HA1w' as [HA1w' | [HA1w' | HA1w']].
-          + apply HuZ. rewrite <- HA1w'. apply HwZ.
-          + destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := w) in Hconn. apply Hconn. apply HwZ. apply HA1w'.
-          + apply HvZ. rewrite <- HA1w'. apply HwZ.
-        - reflexivity. }
-      apply assigned_is_false in HA1w. rewrite HA1w.
-
-      destruct (get_assigned_value A2 w) as [vA2 |] eqn:HA2w.
-      - destruct vA2 as [[[iw jw] xw] yw].
-        assert (Hvalw: f_equate_ij X iw jw xw yw (unobsx, pax) = xw).
-        { apply HA2_equate with (w := w) (Px := Px). apply HPx. apply Hparx. apply HxU. apply Hx. apply HA2w. }
-        rewrite Hvalw.
-        unfold A2_consistent_with_D in HA2D. pose proof HA2w as HA2w'. apply HA2D in HA2w. unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [_ Hdesc].
-        assert (Hwcol: In w (find_colliders_in_path (u, v, path_int (u, v, l)) G)).
-        { apply assigned_true_then_in_list with (A := A2). split. apply assigned_is_true. exists (iw, jw, xw, yw). apply HA2w'. apply HA2. }
-        apply Hdesc in Hwcol. destruct Hwcol as [[Hwcol _] | Hwcol].
-        + destruct HA2w as [pw [dw Hpdw]]. destruct Hpdw as [Hpdw Hpdw']. rewrite Hpdw in Hwcol. inversion Hwcol. rewrite H2 in Hpdw'. symmetry. apply Hpdw'.
-        + (* contradiction: w is in Z *) destruct Hwcol as [pw [dw [_ [_ [_ [_ [Hover _]]]]]]]. apply member_In_equiv in HwZ. simpl in Hover. rewrite HwZ in Hover. discriminate Hover.
-      - destruct (get_assigned_value A3 w) as [iw |] eqn:HA3w.
-        + assert (HA3w': is_assigned A3 w = true). { apply assigned_is_true. exists iw. apply HA3w. }
-          apply A3_nodes_belong_to_collider with (D := D) (G := G) (u := u) (v := v) (l := l) in HA3w'. 2: { apply HA3. }
-          destruct HA3w' as [cw [dw [pw [Hcw [HDw [Hdcw Hwpd]]]]]].
-          unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [Hdesc' Hdesc].
-          pose proof Hcw as Hccol. apply Hdesc in Hcw.
-          destruct Hcw as [Hcw | Hcw].
-          * (* contradiction, w is not in A2 *) destruct Hcw as [Hcw _]. rewrite HDw in Hcw. inversion Hcw.
-            assert (HA2cw: is_assigned A2 cw = true). { apply assigned_is_true. apply assigned_has_value with (L := get_A2_binded_nodes_in_g_path G (u, v, l)). split. 2: { apply HA2. }
-              apply Hccol. }
-            rewrite <- H2 in HA2cw. assert (Hdww: w = dw). { rewrite H1 in Hwpd. simpl in Hwpd. destruct Hwpd as [Hwpd | Hwpd]. symmetry. apply Hwpd. exfalso. apply Hwpd. }
-            rewrite <- Hdww in HA2cw. apply assigned_is_false in HA2w. rewrite HA2w in HA2cw. discriminate HA2cw.
-          * destruct Hcw as [pw' [dw' [Hpdw' Hcw]]]. rewrite Hpdw' in HDw. inversion HDw. rewrite H1 in *. rewrite H2 in *. clear H1. clear H2.
-            assert (Hdww: w = dw).
-            { apply membership_append_or in Hwpd. destruct Hwpd as [Hwpd | Hwpd].
-              - destruct Hcw as [_ [_ [_ [Hcw _]]]]. apply no_overlap_non_member with (x := w) in Hcw. exfalso. apply Hcw. right. apply Hwpd. apply HwZ.
-              - destruct Hwpd as [Hwpd | Hwpd]. symmetry. apply Hwpd. exfalso. apply Hwpd. }
-
-            assert (Hnodecw: node_in_graph cw G = true).
-            { apply colliders_vs_edges_in_path in Hccol.  destruct Hccol as [y [_ [_ [Hccol _]]]]. apply is_edge_then_node_in_graph with (v := y). right. apply Hccol. }
-
-            assert (Hdw: Some (f_parent_i X iw (unobsx, pax)) = find_value G g cw U []).
-            { assert (Hmap: get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, l) G) = Some A3).
-              { apply HA3. }
-              pose proof Hmap as HA3_const. apply A3_nodes_map_to_parent with (w := w) (Z := Z) in Hmap.
-              2: { split. apply Hdesc'. apply Hdesc. } 2: { apply assigned_is_true. exists iw. apply HA3w. }
-              destruct Hmap as [cw' [dw'' [pw'' [ipd [Hcw' [Hpdw'' Hmap]]]]]].
-              assert (Hcweq: cw = cw').
-              { destruct (cw =? cw') as [|] eqn:Hcweq.
-                - apply eqb_eq. apply Hcweq.
-                - exfalso. assert (Hover: overlap (cw :: pw ++ [dw]) (cw' :: pw'' ++ [dw'']) = false).
-                  { apply Hcw. split. apply Hcweq. apply Hpdw''. }
-                  apply no_overlap_non_member with (x := w) in Hover. apply Hover. right. apply Hwpd.
-                  apply index_exists. exists (S ipd). symmetry. apply Hmap. }
-              rewrite <- Hcweq in *. clear Hcweq. unfold nodes in *. rewrite Hpdw' in Hpdw''. inversion Hpdw''. rewrite <- H1 in *. rewrite <- H2 in *. clear H1. clear H2.
-              clear Hpdw''. destruct Hmap as [_ [Hipd Hmap]]. clear HwZ. clear HwG. clear Hdww. clear HDw. clear HA1w. clear HA2w.
-
-              destruct Hmap as [w' [iw' [Hiw' [Hw' Hparw]]]]. rewrite HA3w in Hiw'. inversion Hiw'. rewrite <- H1 in *. clear H1. clear Hiw'.
-
-              assert (Hcwf: exists (xcw: X), find_value G g cw U [] = Some xcw). { apply find_value_existence. apply HG. split. apply HU. apply Hnodecw. }
-              destruct Hcwf as [xcw Hcwf].
-
-              generalize dependent w. generalize dependent pax. generalize dependent unobsx. generalize dependent iw. generalize dependent w'. generalize dependent Px.
-              induction ipd as [| ipd' IH].
-              - intros Px w' Hw' iw unobsx pax w HPx Hparx HxU Hx HA3w Hwpd Hipd Hparw.
-                assert (Hcweq: cw =? w' = true). { simpl in Hw'. destruct (cw =? w') as [|] eqn:Hcweq. reflexivity. destruct (index (pw ++ [dw]) w') as [ind|]. discriminate Hw'. discriminate Hw'. }
-                clear Hw'. apply eqb_eq in Hcweq. rewrite <- Hcweq in *. clear Hcweq. unfold f_parent_i. simpl.
-                assert (Hxcw: nth_default unobsx pax iw = xcw).
-                { apply Hi'' with (g := g) (U := U) (a := cw) (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. apply index_exists. exists iw. symmetry. apply Hparw.
-                  apply HU. apply index_correct. symmetry. apply Hparw. split. apply Hparx. apply HPx. apply Hcwf. }
-                rewrite Hxcw. rewrite Hcwf. reflexivity.
-              - intros Px w' Hw' iw unobsx pax w HPx Hparx HxU Hx HA3w Hwpd Hipd Hparw.
-                 unfold f_parent_i. simpl.
-                 assert (Hwf': exists (xw': X), find_value G g w' U [] = Some xw'). { apply find_value_existence. apply HG. split. apply HU.
-                   destruct Hcw as [_ [Hcw _]]. apply directed_path_is_path in Hcw. apply directed_path_has_edge with (w := w') in Hcw. destruct Hcw as [w'' Hcw].
-                   apply is_edge_then_node_in_graph with (v := w''). rewrite or_comm. apply Hcw. rewrite node_in_path_equiv. apply member_In_equiv. apply index_exists. exists (S ipd'). symmetry. apply Hw'. }
-                 destruct Hwf' as [xw' Hwf'].
-                 assert (Hxw': nth_default unobsx pax iw = xw').
-                 { apply Hi'' with (g := g) (U := U) (a := w') (w := w) (P := Px). apply parents_in_graph with (u := w). apply HG. apply index_exists. exists iw. symmetry. apply Hparw.
-                   apply HU. apply index_correct. symmetry. apply Hparw. split. apply Hparx. apply HPx. apply Hwf'. }
-                 rewrite Hxw'. rewrite <- Hwf'. (* induction on w' *) rewrite Hcwf.
-
-                 assert (Hmemw': In w' (pw ++ [dw])).
-                 { apply index_exists. exists ipd'. simpl in Hw'. destruct (cw =? w') as [|]. discriminate Hw'.
-                   destruct (index (pw ++ [dw]) w') as [ipd'' |]. inversion Hw'. reflexivity. discriminate Hw'. }
-
-                 assert (HA3w': is_assigned A3 w' = true).
-                 { apply desc_path_nodes_in_A3 with (d := dw) (c := cw) (p := pw) (x := w') in HA3_const.
-                   - apply HA3_const.
-                   - split. apply Hpdw'. apply Hdcw.
-                   - apply Hcw'.
-                   - apply Hmemw'. }
-
-                 assert (Hfw': exists (P: assignments X), find_values G g (find_parents w' G) U [] = Some P
-                      /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w' G)
-                      /\ exists (unobs: X), get_assigned_value U w' = Some unobs
-                      /\ find_value G g w' U [] = Some (g w' (unobs, pa))).
-                 { apply find_value_evaluates_to_g. split.
-                   - apply HG.
-                   - split. apply HU. apply parents_in_graph with (u := w). apply HG. apply index_exists. exists iw. symmetry. apply Hparw. }
-                 destruct Hfw' as [Pw' [HPw' [paw' [Hparw' [unobsw' [HwU' Hfw']]]]]]. rewrite Hfw'.
-                 rewrite Heqg. unfold g_path''.
-
-                 assert (HA1w': is_assigned A1 w' = false).
-                 { apply HA1. apply member_In_equiv_F. intros HA1w'.
-                   apply descendant_paths_disjoint_with_A1 with (Z := Z) (x := w') in HA3_const.
-                   - apply assigned_is_false in HA3_const. rewrite HA3_const in HA3w'. discriminate HA3w'.
-                   - split. apply Hdesc'. apply Hdesc.
-                   - apply HA1w'. } apply assigned_is_false in HA1w'. rewrite HA1w'.
-                 assert (HA2w': is_assigned A2 w' = false).
-                 { apply HA2. apply member_In_equiv_F. intros HA2w'.
-                   apply descendant_paths_disjoint_with_A2 with (Z := Z) (x := w') in HA3_const.
-                   - apply assigned_is_false in HA3_const. rewrite HA3_const in HA3w'. discriminate HA3w'.
-                   - split. apply Hdesc'. apply Hdesc.
-                   - apply HA2w'. } apply assigned_is_false in HA2w'. rewrite HA2w'.
-                 apply assigned_is_true in HA3w'. destruct HA3w' as [_iw' HA3w']. rewrite HA3w'.
-                 rewrite <- Hcwf.
-
-                 apply A3_nodes_map_to_parent with (w := w') (Z := Z) in HA3_const as Hmapw'.
-                 2: { split. apply Hdesc'. apply Hdesc. } 2: { apply assigned_is_true. exists _iw'. apply HA3w'. }
-                 destruct Hmapw' as [cw'' [dw''' [pw''' [ipd'' [Hcw'' [Hpdw''' Hmapw']]]]]].
-                 assert (Hcweq: cw = cw'').
-                 { destruct (cw =? cw'') as [|] eqn:Hcweq. apply eqb_eq. apply Hcweq.
-                   assert (Hover: overlap (cw :: pw ++ [dw]) (cw'' :: pw''' ++ [dw''']) = false).
-                   { apply Hcw. split. apply Hcweq. apply Hpdw'''. }
-                   exfalso. apply no_overlap_non_member with (x := w') in Hover. apply Hover. apply index_exists. exists (S ipd'). symmetry. apply Hw'.
-                   apply index_exists. exists (S ipd''). symmetry. apply Hmapw'. }
-                 rewrite <- Hcweq in *. clear Hcweq. clear Hcw''. unfold nodes in *. rewrite Hpdw' in Hpdw'''. inversion Hpdw'''. rewrite <- H1 in *. rewrite <- H2 in *. clear H1. clear H2.
-                 clear Hpdw'''. destruct Hmapw' as [_ [Hipd'' Hmapw']]. rewrite Hw' in Hipd''. inversion Hipd''. rewrite <- H1 in *. clear H1. clear Hipd''.
-                 destruct Hmapw' as [w'' [_iw'' [Hiw'' Hmapw']]]. rewrite HA3w' in Hiw''. inversion Hiw''. rewrite <- H1 in *. clear H1. clear Hiw''.
-                 apply IH with (w := w') (w' := w'') (Px := Pw'). apply Hmapw'. apply HPw'. apply Hparw'. apply HwU'. apply Hfw'. apply HA3w'.
-                 apply Hmemw'. apply Hw'. apply Hmapw'. }
-
-            rewrite Hdw.
-            assert (Hcwf: exists (P: assignments X), find_values G g (find_parents cw G) U [] = Some P
-                 /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents cw G)
-                 /\ exists (unobs: X), get_assigned_value U cw = Some unobs
-                 /\ find_value G g cw U [] = Some (g cw (unobs, pa))).
-            { apply find_value_evaluates_to_g. split.
-              - apply HG.
-              - split. apply HU. apply Hnodecw. }
-            destruct Hcwf as [Pcw [HPcw [pacw [Hparcw [unobscw [HcwU Hcwf]]]]]]. rewrite Hcwf.
-            rewrite Heqg. unfold g_path''.
-
-            assert (HA1cw: is_assigned A1 cw = false).
-            { apply HA1. apply member_In_equiv_F. intros HA1cw.
-              apply A2_nodes_not_in_A1 in HA1cw. apply HA1cw. unfold get_A2_binded_nodes_in_g_path. apply Hccol. }
-            apply assigned_is_false in HA1cw. rewrite HA1cw.
-
-            assert (HA2cw: exists (valcw: nat * nat * X * X), get_assigned_value A2 cw = Some valcw).
-            { apply assigned_has_value with (L := find_colliders_in_path (u, v, l) G). split. apply Hccol. apply HA2. }
-            destruct HA2cw as [[[[icw jcw] xcw] ycw] HA2cw]. rewrite HA2cw.
-            assert (Hfcw: f_equate_ij X icw jcw xcw ycw (unobscw, pacw) = xcw).
-            { apply HA2_equate with (w := cw) (Px := Pcw). apply HPcw. apply Hparcw. apply HcwU. apply Hcwf. apply HA2cw. }
-            rewrite Hfcw.
-
-            unfold A2_consistent_with_D in HA2D. pose proof HA2cw as HA2cw'. apply HA2D in HA2cw. destruct HA2cw as [pw'' [dw'' [Hpd' [Hxcw Hycw]]]].
-            unfold nodes in *. rewrite Hpdw' in Hpd'. inversion Hpd'. rewrite <- H1 in *. rewrite <- H2 in *. clear H1. clear H2. clear Hpd'.
-            rewrite Hdww. rewrite Hxcw. reflexivity.
-
-        + assert (HA4w: is_assigned A4 w = false).
-          { destruct (is_assigned A4 w) as [|] eqn:HA4w.
-            - assert (HA4w': In w (get_A4_binded_nodes_in_g_path G (u, v, l))).
-              { destruct (member w (get_A4_binded_nodes_in_g_path G (u, v, l))) as [|] eqn:Hmem.
-                - apply member_In_equiv. apply Hmem.
-                - apply HA4 in Hmem. rewrite HA4w in Hmem. discriminate Hmem. }
-              exfalso. apply A4_confounders_or_endpoints in HA4w'. destruct HA4w' as [HA4w' | [HA4w' | HA4w']].
-              + apply HuZ. rewrite <- HA4w'. apply HwZ.
-              + destruct Hconn as [_ [Hconn _]]. apply no_overlap_non_member with (x := w) in Hconn. apply Hconn. apply HwZ. apply HA4w'.
-              + apply HvZ. rewrite <- HA4w'. apply HwZ.
-            - reflexivity. }
-          apply assigned_is_false in HA4w. rewrite HA4w.
-          assert (HAZw: exists (wz: X), get_assigned_value AZ w = Some wz).
-          { apply assigned_has_value with (L := Z). split. apply HwZ. apply HAZ. }
-          destruct HAZw as [wz HAZw]. rewrite HAZw. unfold f_constant. reflexivity.
+      apply HcondU with (x := x). apply HU. apply HUA4.
 Qed.
 
 
-(* using g_path and specific values for A1, A2, A3, A4, A5, for a d-connected path betw u and v, provide a graphfun
-   that requires all non-collider node values along the path (and importantly, f(v) and f(u)), to be equal *)
-Lemma path_d_connected_then_can_equate_values' {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path)
-  (D: assignments (nodes * node)),
-  generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G) ->
-  forall (Z: nodes), ~(In u Z) -> descendant_paths_disjoint D u v (path_int p) G Z -> d_connected_2 p G Z
-  -> forall (AZ: assignments X), is_assignment_for AZ Z = true
-  -> exists (A1: assignments nat) (A2: assignments (nat * nat * X * X)) (A3: assignments nat),
-     is_exact_assignment_for A1 (get_A1_binded_nodes_in_g_path G p) /\ A1_nodes_binded_to_parent_in_path G p A1
-     /\ is_exact_assignment_for A2 (get_A2_binded_nodes_in_g_path G p) /\ A2_nodes_colliders_in_graph G p A2
-     /\ get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, path_int p) G) = Some A3
-     /\ forall (A4: assignments X) (A5: assignments (nodefun X)) (default: nodefun X) (U: assignments X),
-        is_exact_assignment_for A4 (get_A4_binded_nodes_in_g_path G p)
-        -> is_assignment_for U (nodes_in_graph G) = true ->
-           (* the colliders that are given a nodefun, but will still evaluate to conditioned value *)
-           (forall (w: node), In w Z /\ is_assigned A2 w = true -> find_value G (g_path' X A1 A2 A3 A4 A5 default) w U [] = get_assigned_value AZ w)
-           /\ (unobs_conditions_on_Z G (g_path' X A1 A2 A3 A4 A5 default) U AZ Z
-              -> exists (x: X), forall (w: node), node_in_path w p = true /\ ~(In w (find_colliders_in_path p G))
-                 -> find_value G (g_path' X A1 A2 A3 A4 A5 default) w U [] = Some x).
+Lemma path_length_acyclic_graph: forall (G: graph) (u v: node) (l: nodes),
+  is_path_in_graph (u, v, l) G = true
+  -> acyclic_path_2 (u, v, l)
+  -> path_length (u, v, l) <= num_nodes G.
 Proof.
-  intros G u v p D [HG Hp]. intros Z HuZ Hdesc Hconn. intros AZ HAZ.
-  assert (Hpath: exists (l: nodes), p = (u, v, l)).
-  { destruct p as [[u' v'] l]. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [Hp _]].
-    apply path_start_end_equal in Hp. destruct Hp as [Huu' Hvv']. exists l. rewrite Huu'. rewrite Hvv'. reflexivity. }
-  destruct Hpath as [l Hpath]. rewrite Hpath in *. clear Hpath.
-
-  remember (u :: l ++ [v]) as n.
-  assert (Hl: exists (l': nodes), l' =  u :: l ++ [v] /\ sublist l' n = true).
-  { exists n. split.
-    - apply Heqn.
-    - apply sublist_breaks_down_list. exists []. exists []. simpl. rewrite append_identity. reflexivity. }
-  clear Heqn.
-  generalize dependent u. generalize dependent l. generalize dependent D. induction n as [| hn tn IH].
-  - intros D l u Hp HuZ Hdesc Hconn Hl. destruct Hl as [l' [Hl' Hsub]]. destruct l' as [| hl tl]. discriminate Hl'. simpl in Hsub. discriminate Hsub.
-  - intros D l u Hp HuZ Hdesc Hconn Hl. destruct l as [| h t].
-
-    (* base case: path consists of only u and v *)
-    { destruct (path_out_of_start (u, v, []) G) as [|] eqn:Hout.
-      + (* u -> v: A1 = {v: i}, where i is the index of u in pa(v). A2 = {} *)
-        assert (Hin: path_into_start (u, v, []) G = false).
-        { apply acyclic_path_one_direction in Hout.
-          -- apply Hout.
-          -- split. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-             unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply HG. }
-        assert (Hi: exists i: nat, index (find_parents v G) u = Some i).
-        { assert (Hu: In u (find_parents v G)).
-          { apply edge_from_parent_to_child. simpl in Hout. destruct G as [V E]. simpl. simpl in Hout. apply split_and_true in Hout.
-            destruct Hout as [_ Hout]. apply Hout. }
-          apply index_exists in Hu. destruct Hu as [i Hi]. exists i. rewrite Hi. reflexivity. }
-        destruct Hi as [i Hi].
-        exists [(v, i)]. exists []. exists []. repeat split.
-        * simpl. simpl in Hin. rewrite Hin. simpl. rewrite eqb_refl. simpl. reflexivity.
-        * intros w Hmem. simpl in Hmem. simpl in Hin. rewrite Hin in Hmem. simpl in Hmem.
-          simpl. destruct (v =? w) as [|] eqn:Hvw.
-          -- discriminate Hmem.
-          -- rewrite eqb_sym. rewrite Hvw. reflexivity.
-        * unfold A1_nodes_binded_to_parent_in_path. intros m i' Hmem. simpl in Hmem. destruct Hmem as [Hmem | F]. inversion Hmem. rewrite H1 in *. rewrite H2 in *. exists u. repeat split.
-          -- apply index_correct. symmetry. apply Hi.
-          -- left. simpl. repeat rewrite eqb_refl. reflexivity.
-          -- exfalso. apply F.
-        * unfold A2_nodes_colliders_in_graph. intros c i' j' x y F. exfalso. apply F.
-        (* * unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [Hdesc _]. simpl in Hdesc. unfold is_exact_assignment_for in Hdesc.
-          destruct D as [| [uhD pdhD] tD]. simpl. reflexivity. destruct Hdesc as [_ Hdesc]. specialize Hdesc with (u := uhD). simpl in Hdesc. rewrite eqb_refl in Hdesc.
-          assert (false = false). { reflexivity. } apply Hdesc in H0. discriminate H0. *)
-        * intros w Hw. simpl in Hw. destruct Hw as [_ F]. discriminate F.
-        * pose proof H1 as HU. clear H1. pose proof H0 as HA4. clear H0. intros Hcond. remember (g_path' X [(v, i)] [] [] A4 A5 default) as g.
-          (* u and v are the only two nodes in the path, and both will have value f(u) *)
-          assert (Hgu: exists (x: X), find_value G g u U [] = Some x).
-          { apply find_value_existence. 
-            - destruct HG as [_ HG]. apply HG.
-            - split.
-              + apply HU.
-              + apply nodes_in_graph_in_V with (p := (u, v, [])). split.
-                * unfold node_in_path. simpl. rewrite eqb_refl. simpl. reflexivity.
-                * apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp. }
-          destruct Hgu as [x Hgu].
-          exists x. intros w [Hwuv Hcol].
-          unfold node_in_path in Hwuv. apply split_orb_true in Hwuv. destruct Hwuv as [Hwuv | F].
-          ** simpl in Hwuv. apply split_orb_true in Hwuv. destruct Hwuv as [Hwu | Hwv].
-             +++ apply eqb_eq in Hwu. rewrite Hwu. apply Hgu.
-             +++ (* by definition of g_path and i, f(v) = f(u) *)
-                 apply eqb_eq in Hwv. rewrite Hwv.
-                 assert (Huv: find_value G g v U [] = find_value G g u U []).
-                 { apply find_value_child_equals_parent with (i := i). split.
-                   - destruct HG as [_ HG]. apply HG.
-                   - apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. repeat split.
-                     + apply HU.
-                     + apply nodes_in_graph_in_V with (p := (u, v, [])). split.
-                       * unfold node_in_path. simpl. rewrite eqb_refl. rewrite orb_comm. simpl. rewrite orb_comm. reflexivity.
-                       * apply Hp.
-                     + apply nodes_in_graph_in_V with (p := (u, v, [])). split.
-                       * unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-                       * apply Hp.
-                   - split.
-                     + apply Hi.
-                     + rewrite Heqg. unfold g_path'. simpl. rewrite eqb_refl. reflexivity. }
-                 rewrite Huv. apply Hgu.
-            ** simpl in F. discriminate F.
-      + (* u <- v: A1 = {u: i}, where i is the index of v in pa(u). A2 = {} *)
-        assert (Hin: path_into_start (u, v, []) G = true).
-        { apply acyclic_path_one_direction_2 in Hout.
-          -- apply Hout.
-          -- split. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-             unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply HG. }
-        assert (Hi: exists i: nat, index (find_parents u G) v = Some i).
-        { assert (Hu: In v (find_parents u G)).
-          { apply edge_from_parent_to_child. simpl in Hout. destruct G as [V E]. simpl. simpl in Hin. apply split_and_true in Hin.
-            destruct Hin as [_ Hin]. apply Hin. }
-        apply index_exists in Hu. destruct Hu as [i Hi]. exists i. rewrite Hi. reflexivity. }
-        destruct Hi as [i Hi].
-        exists [(u, i)]. exists []. exists []. repeat split.
-        * simpl. simpl in Hin. rewrite Hin. simpl. rewrite eqb_refl. simpl. reflexivity.
-        * intros w Hmem. simpl in Hmem. simpl in Hin. rewrite Hin in Hmem. simpl in Hmem.
-          simpl. destruct (u =? w) as [|] eqn:Huw.
-          -- discriminate Hmem.
-          -- rewrite eqb_sym. rewrite Huw. reflexivity.
-        * unfold A1_nodes_binded_to_parent_in_path. intros m i' Hmem. simpl in Hmem. destruct Hmem as [Hmem | F]. inversion Hmem. rewrite H1 in *. rewrite H2 in *. exists v. repeat split.
-          -- apply index_correct. symmetry. apply Hi.
-          -- right. simpl. repeat rewrite eqb_refl. reflexivity.
-          -- exfalso. apply F.
-        * unfold A2_nodes_colliders_in_graph. intros c i' j' x y F. exfalso. apply F.
-        (* * unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [Hdesc _]. simpl in Hdesc. unfold is_exact_assignment_for in Hdesc.
-          destruct D as [| [uhD pdhD] tD]. simpl. reflexivity. destruct Hdesc as [_ Hdesc]. specialize Hdesc with (u := uhD). simpl in Hdesc. rewrite eqb_refl in Hdesc.
-          assert (false = false). { reflexivity. } apply Hdesc in H0. discriminate H0. *)
-        * intros w Hw. simpl in Hw. destruct Hw as [_ F]. discriminate F.
-        * pose proof H1 as HU. clear H1. pose proof H0 as HA4. clear H0. intros Hcond. remember (g_path' X [(u, i)] [] [] A4 A5 default) as g.
-          assert (Hgv: exists (x: X), find_value G g v U []  = Some x).
-          { apply find_value_existence. 
-            - destruct HG as [_ HG]. apply HG.
-            - split.
-              + apply HU.
-              + apply nodes_in_graph_in_V with (p := (u, v, [])). split.
-                * unfold node_in_path. simpl. rewrite eqb_refl. rewrite orb_comm. simpl. rewrite orb_comm. reflexivity.
-                * apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp. }
-          destruct Hgv as [x Hgv].
-          exists x. intros w [Hwuv Hcol].
-          unfold node_in_path in Hwuv. apply split_orb_true in Hwuv. destruct Hwuv as [Hwuv | F].
-          -- simpl in Hwuv. apply split_orb_true in Hwuv. destruct Hwuv as [Hwu | Hwv].
-             +++ (* by definition of g_path and i, f(u) = f(v) *)
-                 assert (Huv: find_value G g u U [] = find_value G g v U []).
-                 { apply find_value_child_equals_parent with (i := i). split.
-                   - destruct HG as [_ HG]. apply HG.
-                   - apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. repeat split.
-                     + apply HU.
-                     + apply nodes_in_graph_in_V with (p := (u, v, [])). split.
-                       * unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-                       * apply Hp.
-                     + apply nodes_in_graph_in_V with (p := (u, v, [])). split.
-                       * unfold node_in_path. simpl. rewrite eqb_refl. rewrite orb_comm. simpl. rewrite orb_comm. reflexivity.
-                       * apply Hp.
-                   - split.
-                     + apply Hi.
-                     + rewrite Heqg. unfold g_path'. simpl. rewrite eqb_refl. reflexivity. }
-                 apply eqb_eq in Hwu. rewrite Hwu. rewrite Huv. apply Hgv.
-             +++ apply eqb_eq in Hwv. rewrite Hwv. apply Hgv.
-          -- simpl in F. discriminate F. }
-
-    (* induction step: assume true for path (h, v, t). Show true for (u, v, h :: t) *)
-    { destruct (path_out_of_h G u v h t) as [|] eqn:Houth.
-      { (* out of h: u <-> h -> ... v *)
-        specialize IH with (u := h) (l := t) (D := D).
-        assert (Hp': In (h, v, t) (find_all_paths_from_start_to_end h v G)).
-        { apply paths_start_to_end_correct in Hp. apply paths_start_to_end_correct. split.
-          - apply is_path_in_graph_induction with (u := u). apply Hp.
-          - split. apply path_start_end_refl. apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity. apply Hp. }
-        pose proof Hp' as Hpind. apply IH in Hp'. clear IH.
-        + destruct Hp' as [A1' [A2' [A3' HA12]]]. destruct HA12 as [HA1' [HA1'' [HA2' [HA2'' [HA3' HA12]]]]].
-          (* u <-> h -> ... <-> v *)
-          assert (HA2ind: get_A2_binded_nodes_in_g_path G (u, v, h :: t) = get_A2_binded_nodes_in_g_path G (h, v, t)).
-          { apply A2_induction_case.
-            - destruct HG as [_ [_ HG]]. apply HG.
-            - right. apply Houth. }
-          assert (HindA2: is_exact_assignment_for A2' (get_A2_binded_nodes_in_g_path G (u, v, h :: t)) /\ A2_nodes_colliders_in_graph G (u, v, h :: t) A2').
-          { repeat split.
-            -- unfold nodes. rewrite HA2ind. unfold is_exact_assignment_for in HA2'. destruct HA2' as [HA2' _]. apply HA2'.
-            -- (* since h is not a collider, nothing changes from induction case *)
-               unfold nodes. rewrite HA2ind. unfold is_exact_assignment_for in HA2'. destruct HA2' as [_ HA2']. apply HA2'.
-            -- unfold A2_nodes_colliders_in_graph. intros c i' j' x y Hc. unfold A2_nodes_colliders_in_graph in HA2''.
-               specialize HA2'' with (c := c) (i := i') (j := j') (x := x) (y := y). apply HA2'' in Hc. destruct Hc as [a [b Hc]].
-               exists a. exists b. repeat split.
-               ++ apply Hc.
-               ++ apply Hc.
-               ++ destruct Hc as [_ [_ [Hc _]]]. apply sublist_breaks_down_list in Hc. simpl in Hc. destruct Hc as [l2 [l3 Hc]].
-                  apply sublist_breaks_down_list. exists (u :: l2). exists l3. simpl. rewrite Hc. reflexivity.
-               ++ apply Hc. }
-
-          assert (Hi'': forall (g: graphfun) (iw: nat) (a w: node) (unobs' xa: X) (pa: list X) (P U: assignments X),
-                        node_in_graph a G = true
-                        -> is_assignment_for U (nodes_in_graph G) = true
-                        -> nth_error (find_parents w G) iw = Some a
-                        -> Some pa = get_parent_assignments P (find_parents w G) /\ find_values G g (find_parents w G) U [] = Some P
-                        -> find_value G g a U [] = Some xa
-                        -> nth_default unobs' pa iw = xa).
-          { intros g i' a w' un xa Pa P1 U Hnodea HU Hi' Hpa Ha.
-            assert (Hxa': get_assigned_value P1 a = Some xa).
-             { apply find_values_get_assigned with (G := G) (g := g) (P := find_parents w' G) (U := U) (A := []). repeat split.
-               - apply Hpa.
-               - apply nth_error_In with (n := i'). apply Hi'.
-               - apply Ha. }
-             assert (Hiw: nth_error Pa i' = get_assigned_value P1 a).
-             { rewrite Hxa'. apply parent_assignments_preserves_index with (P := P1) (V := find_parents w' G) (m := a). repeat split.
-               - symmetry. apply Hpa.
-               - symmetry. apply index_correct_appears_once.
-                 + apply each_parent_appears_once. apply HG. apply nth_error_In with (n := i'). apply Hi'.
-                 + apply Hi'.
-               - apply Hxa'. }
-             unfold nth_default. rewrite Hiw. rewrite Hxa'. reflexivity. }
-
-          assert (Hi': forall (g g': graphfun) (iw: nat) (a w: node) (unobs': X) (pa pa': list X) (P P' U: assignments X),
-                        node_in_graph a G = true
-                        -> is_assignment_for U (nodes_in_graph G) = true
-                        -> nth_error (find_parents w G) iw = Some a
-                        -> Some pa = get_parent_assignments P (find_parents w G) /\ find_values G g (find_parents w G) U [] = Some P
-                        -> Some pa' = get_parent_assignments P' (find_parents w G) /\ find_values G g' (find_parents w G) U [] = Some P'
-                        -> find_value G g a U [] = find_value G g' a U []
-                        -> nth_default unobs' pa iw = nth_default unobs' pa' iw).
-           { intros g g' i' a w' un Pa Pa' P1 P1' U Hnodea HU Hi' Hpa Hpa' Ha.
-             assert (Hxa: exists (xa: X), find_value G g a U [] = Some xa).
-             { apply find_value_existence. apply HG. split. apply HU. apply Hnodea. }
-             destruct Hxa as [xa Hxa].
-             assert (Hxa': nth_default un Pa i' = xa). { apply Hi'' with (g := g) (a := a) (w := w') (P := P1) (U := U). easy. easy. easy. easy. easy. }
-             rewrite Hxa'. clear Hxa'.
-
-             assert (Hxa': exists (xa': X), find_value G g' a U [] = Some xa').
-             { apply find_value_existence. apply HG. split. apply HU. apply Hnodea. }
-             destruct Hxa' as [xa' Hxa'].
-             assert (Hxa'': nth_default un Pa' i' = xa'). { apply Hi'' with (g := g') (a := a) (w := w') (P := P1') (U := U). easy. easy. easy. easy. easy.  }
-             rewrite Hxa''. rewrite Hxa in Ha. rewrite Hxa' in Ha. inversion Ha. reflexivity. }
-
-          assert (HhA4: In h (get_A4_binded_nodes_in_g_path G (h, v, t))).
-          { unfold get_A4_binded_nodes_in_g_path. rewrite path_out_of_h_same in Houth. apply acyclic_path_one_direction in Houth.
-            - destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-              + unfold nodes in *. rewrite Houth. left. reflexivity.
-              + unfold nodes in *. rewrite Houth. left. reflexivity.
-              + apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-            - split.
-              + apply paths_start_to_end_correct in Hp. apply is_path_in_graph_induction with (u := u). apply Hp.
-              + apply HG. }
-
-          assert (Hfv: forall (g g': graphfun) (U A4: assignments X) (a: node), In a (find_mediators_in_path (h, v, t) G) \/
-                                                In a (find_confounders_in_path (h, v, t) G)
-                              -> (forall (x: node), is_assigned A4 x = true -> find_value G g x U [] = find_value G g' x U []) (* HA4_const *)
-                              -> is_assignment_for A4 (get_A4_binded_nodes_in_g_path G (u, v, h :: t)) = true
-                              -> (forall (x: node), is_assigned A1' x = true -> find_value G g x U [] = find_value G g' x U []) (* HA1_const *)
-                              -> find_value G g a U [] = find_value G g' a U []).
-         { intros g g' U A4 a Hat HA4_const HA4 HA1_const. destruct Hat as [Hamed | Hacon].
-           + assert (HaA1: In a (get_A1_binded_nodes_in_g_path G (h, v, t))).
-             { unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-               - destruct (path_into_start (h, v, t) G) as [|]. right. apply Hamed. apply Hamed.
-               - destruct (path_into_start (h, v, t) G) as [|]. right. apply membership_append. apply Hamed. apply membership_append. apply Hamed.
-               - apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
-             apply HA1_const. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (h, v, t)). split.
-             * apply HaA1.
-             * unfold is_exact_assignment_for in HA1'. apply HA1'.
-           + assert (HaA4: In a (get_A4_binded_nodes_in_g_path G (u, v, h :: t))).
-             { unfold get_A4_binded_nodes_in_g_path. destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
-               - destruct (path_into_start (u, v, h :: t) G) as [|].
-                 + apply membership_append. apply add_node_preserves_confounders. apply Hacon.
-                 + right. apply membership_append. apply add_node_preserves_confounders. apply Hacon.
-               - destruct (path_into_start (u, v, h :: t) G) as [|]. apply add_node_preserves_confounders. apply Hacon. right. apply add_node_preserves_confounders. apply Hacon.
-               - apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
-             apply HA4_const. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, h :: t)). split.
-             * apply HaA4.
-             * apply HA4. }
-
-          destruct (path_into_start (u, v, h :: t) G) as [|] eqn:Hin.
-          * (* u <- h -> ... *) (* ANNA *)
-            assert (Hi: exists i: nat, index (find_parents u G) h = Some i).
-            { assert (Hh: In h (find_parents u G)).
-              { apply edge_from_parent_to_child. simpl in Hin. destruct G as [V E]. simpl. simpl in Hin. apply split_and_true in Hin.
-                destruct Hin as [_ Hin]. apply Hin. }
-              apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-            destruct Hi as [i Hi].
-            exists ((u, i) :: A1'). exists A2'. exists A3'.
-            assert (HA1ind: get_A1_binded_nodes_in_g_path G (u, v, h :: t) = u :: get_A1_binded_nodes_in_g_path G (h, v, t)).
-            { apply A1_induction_into_start.
-              - split.
-                ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-                ** destruct HG as [_ [_ HG]]. apply HG.
-              - apply Hin. }
-            assert (HA4ind: get_A4_binded_nodes_in_g_path G (u, v, h :: t) = get_A4_binded_nodes_in_g_path G (h, v, t)).
-            { apply A4_induction_case.
-              - split.
-                ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-                ** destruct HG as [_ [_ HG]]. apply HG.
-              - apply Hin. }
-            repeat split.
-            -- (* since arrow into u, u is in A1 *)
-               unfold nodes. rewrite HA1ind. simpl. rewrite eqb_refl. simpl. apply is_assignment_for_cat.
-               unfold is_exact_assignment_for in HA1'. destruct HA1' as [HA1' _]. apply HA1'.
-            -- intros u' Hmemu'. unfold is_exact_assignment_for in HA1'. destruct HA1' as [_ HA1']. simpl.
-               assert (Hmemu: In u (get_A1_binded_nodes_in_g_path G (u, v, h :: t))).
-               { rewrite HA1ind. left. reflexivity. }
-               destruct (u' =? u) as [|] eqn:Huu'.
-               ++ apply eqb_eq in Huu'. apply member_In_equiv in Hmemu. rewrite Huu' in Hmemu'. unfold nodes in Hmemu'. rewrite Hmemu in Hmemu'. discriminate Hmemu'.
-               ++ simpl. apply HA1'. unfold nodes in Hmemu'. rewrite HA1ind in Hmemu'. unfold member in Hmemu'. rewrite eqb_sym in Hmemu'. rewrite Huu' in Hmemu'. apply Hmemu'.
-            -- unfold A1_nodes_binded_to_parent_in_path. intros c i' Hmi'. simpl in Hmi'. destruct Hmi' as [Hmi' | Hmi'].
-               ++ inversion Hmi'. rewrite <- H1 in *. rewrite <- H2 in *. exists h. repeat split.
-                  ** apply index_correct. symmetry. apply Hi.
-                  ** right. simpl. repeat rewrite eqb_refl. reflexivity.
-               ++ unfold A1_nodes_binded_to_parent_in_path in HA1''. specialize HA1'' with (m := c) (i := i'). apply HA1'' in Hmi'.
-                  destruct Hmi' as [a [Ha Hsub]]. exists a. split.
-                  ** apply Ha.
-                  ** destruct Hsub as [Hsub | Hsub].
-                     --- left. simpl. simpl in Hsub. rewrite Hsub. rewrite orb_comm. reflexivity.
-                     --- right. simpl. simpl in Hsub. rewrite Hsub. rewrite orb_comm. reflexivity.
-            -- apply HindA2.
-            -- apply HindA2.
-            -- apply HindA2.
-            -- unfold get_A2_binded_nodes_in_g_path in HA2ind. simpl. simpl in HA2ind. rewrite HA2ind. apply HA3'.
-            -- (* only change from induction is u, but since w is in A2', it is not in A1, so w != u *)
-               specialize HA12 with (A4 := A4) (A5 := A5) (default := default) (U := U). pose proof H0 as HA4. pose proof H1 as HU. clear H0.
-               apply HA12 in H1.
-               { destruct H1 as [H1 _].
-                 intros w Hw.
-                 assert (Hnodew: node_in_graph w G = true).
-                 { destruct Hw as [_ Hw].
-                   assert (Hcolw: is_assigned A2' w = true /\ is_exact_assignment_for A2' (get_A2_binded_nodes_in_g_path G (h, v, t))). { split. apply Hw. apply HA2'. }
-                   apply assigned_true_then_in_list in Hcolw. unfold get_A2_binded_nodes_in_g_path in Hcolw. apply colliders_vs_edges_in_path in Hcolw.
-                   destruct Hcolw as [w1 [w2 Hcolw]]. destruct Hcolw as [_ [Hcolw _]]. unfold is_edge in Hcolw. destruct G as [V E]. apply split_and_true in Hcolw.
-                   destruct Hcolw as [Hcolw _]. apply split_and_true in Hcolw. simpl. apply Hcolw. }
-                 remember (g_path' X ((u, i) :: A1') A2' A3' A4 A5 default) as g.
-                 assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                      /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                      /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                      /\ find_value G g w U [] = Some (g w (unobs, pa))).
-                 { apply find_value_evaluates_to_g. split.
-                   - destruct HG as [_ HG]. apply HG.
-                   - split. apply HU. apply Hnodew. }
-                 destruct Hw' as [P [HP [pa [Hpar [unobs [HwU Hw']]]]]].
-                 rewrite Hw'. rewrite Heqg. unfold g_path'.
-                 assert (HA1w: get_assigned_value ((u, i) :: A1') w = None).
-                 { destruct Hw as [_ Hw]. assert (HA2w: In w (get_A2_binded_nodes_in_g_path G (h, v, t))).
-                   { apply assigned_true_then_in_list with (A := A2'). split. apply Hw. apply HA2'. }
-                   simpl. rewrite <- HA2ind in HA2w.
-                   apply A2_nodes_not_in_A1 in HA2w. rewrite HA1ind in HA2w. destruct (u =? w) as [|] eqn:Huw.
-                   - exfalso. apply HA2w. left. apply eqb_eq in Huw. apply Huw.
-                   - destruct HA1' as [_ HA1']. apply assigned_is_false. specialize HA1' with (u := w). apply HA1'.
-                     destruct (member w (get_A1_binded_nodes_in_g_path G (h, v, t))) as [|] eqn:Hmem.
-                     + exfalso. apply HA2w. right. apply member_In_equiv. apply Hmem.
-                     + apply Hmem. }
-                 rewrite HA1w. specialize H1 with (w := w). apply H1 in Hw as HAZw. clear H1.
-                 destruct Hw as [_ Hw]. apply assigned_is_true in Hw. destruct Hw as [[[[iw jw] xw] yw] Hvalw]. rewrite Hvalw.
-                 rewrite <- HAZw. remember (g_path' X A1' A2' A3' A4 A5 default) as g'.
-                 (* show that the induction case evaluates to the same thing *)
-                 assert (Hw'': exists (P: assignments X), find_values G g' (find_parents w G) U [] = Some P
-                      /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                      /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                      /\ find_value G g' w U [] = Some (g' w (unobs, pa))).
-                 { apply find_value_evaluates_to_g. split.
-                   - destruct HG as [_ HG]. apply HG.
-                   - split. apply HU. apply Hnodew. }
-                 destruct Hw'' as [P' [HP' [pa' [Hpar' [unobs' [HwU' Hw'']]]]]].
-                 rewrite Hw''. rewrite Heqg'. unfold g_path'. simpl in HA1w. destruct (u =? w). discriminate HA1w.
-                 rewrite HA1w. rewrite Hvalw.
-                 unfold f_equate_ij. simpl.
-                 rewrite HwU in HwU'. inversion HwU'. f_equal.
-
-                 (* show that all nodes in A4 don't change value (since they have constant functions) *)
-                 assert (HA4_const: forall (x: node), is_assigned A4 x = true -> find_value G g x U [] = find_value G g' x U []).
-                 { intros x HxA4.
-                   assert (Hx': exists (P: assignments X), find_values G g (find_parents x G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents x G)
-                        /\ exists (unobs: X), get_assigned_value U x = Some unobs
-                        /\ find_value G g x U [] = Some (g x (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A4_nodes_in_graph with (u := u) (v := v) (l := h :: t). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                       apply assigned_true_then_in_list with (A := A4). split. apply HxA4. apply HA4. }
-                   destruct Hx' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
-                   assert (Hx': exists (P: assignments X), find_values G g' (find_parents x G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents x G)
-                        /\ exists (unobs: X), get_assigned_value U x = Some unobs
-                        /\ find_value G g' x U [] = Some (g' x (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A4_nodes_in_graph with (u := u) (v := v) (l := h :: t). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                       apply assigned_true_then_in_list with (A := A4). split. apply HxA4. apply HA4. }
-                   destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                   rewrite Heqg. rewrite Heqg'. unfold g_path'.
-
-                   assert (HA4x: In x (get_A4_binded_nodes_in_g_path G (h, v, t))).
-                   { apply assigned_true_then_in_list with (A := A4). split. apply HxA4. rewrite <- HA4ind. apply HA4. }
-                   rewrite <- HA4ind in HA4x.
-                   assert (HA1x: get_assigned_value ((u, i) :: A1') x = None).
-                   { apply A4_nodes_not_in_A1 in HA4x. rewrite HA1ind in HA4x. destruct (u =? x) as [|] eqn:Hux.
-                     - exfalso. apply HA4x. left. apply eqb_eq in Hux. apply Hux.
-                     - destruct HA1' as [_ HA1']. apply assigned_is_false. specialize HA1' with (u := x). simpl. rewrite eqb_sym. rewrite Hux. simpl. apply HA1'.
-                       destruct (member x (get_A1_binded_nodes_in_g_path G (h, v, t))) as [|] eqn:Hmem.
-                       + exfalso. apply HA4x. right. apply member_In_equiv. apply Hmem.
-                       + apply Hmem. }
-                   rewrite HA1x. simpl in HA1x. destruct (u =? x) as [|]. discriminate HA1x. rewrite HA1x.
-                   assert (HA2x: get_assigned_value A2' x = None).
-                   { apply A4_nodes_not_in_A2 in HA4x. rewrite HA2ind in HA4x. destruct HA2' as [_ HA2']. apply assigned_is_false.
-                     specialize HA2' with (u := x). apply HA2'.
-                     destruct (member x (get_A2_binded_nodes_in_g_path G (h, v, t))) as [|] eqn:Hmem.
-                     + exfalso. apply HA4x. apply member_In_equiv. apply Hmem.
-                     + apply Hmem. }
-                   rewrite HA2x.
-                   assert (HA3x: get_assigned_value A3' x = None).
-                   { apply descendant_paths_disjoint_with_A4 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                     unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. apply HA4x. }
-
-                   rewrite HA3x.
-                   assert (HA4x': exists (xA4: X), get_assigned_value A4 x = Some xA4).
-                   { apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (u, v, h :: t)). split. apply HA4x. apply HA4. }
-                   destruct HA4x' as [xA4 HA4x']. rewrite HA4x'. unfold f_constant. reflexivity. }
-
-                 (* show that all nodes in A1 don't change value (since they are tied to their parents, which becomes a chain that
-                    must eventually end at a node in A4) *)
-                 assert (HA1_const: forall (x: node), is_assigned A1' x = true -> find_value G g x U [] = find_value G g' x U []).
-                 { intros x HxA1'.
-                   assert (Hx': exists (P: assignments X), find_values G g (find_parents x G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents x G)
-                        /\ exists (unobs: X), get_assigned_value U x = Some unobs
-                        /\ find_value G g x U [] = Some (g x (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A1_nodes_in_graph with (u := h) (v := v) (l := t). apply HG. apply paths_start_to_end_correct in Hp. apply is_path_in_graph_induction with (u := u). apply Hp.
-                       apply assigned_true_then_in_list with (A := A1'). split. apply HxA1'. apply HA1'. }
-                   destruct Hx' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
-                   assert (Hx': exists (P: assignments X), find_values G g' (find_parents x G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents x G)
-                        /\ exists (unobs: X), get_assigned_value U x = Some unobs
-                        /\ find_value G g' x U [] = Some (g' x (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A1_nodes_in_graph with (u := h) (v := v) (l := t). apply HG. apply paths_start_to_end_correct in Hp. apply is_path_in_graph_induction with (u := u). apply Hp.
-                       apply assigned_true_then_in_list with (A := A1'). split. apply HxA1'. apply HA1'. }
-                   destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                   rewrite Heqg. rewrite Heqg'. unfold g_path'.
-
-                   assert (Hxu: u =? x = false).
-                   { assert (Hpathx: node_in_path x (h, v, t) = true). { apply A1_nodes_in_path with (G := G). apply assigned_true_then_in_list with (A := A1').
-                     split. apply HxA1'. apply HA1'. }
-                     apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]].
-                     destruct (u =? x) as [|] eqn:Hux.
-                     - apply eqb_eq in Hux. unfold acyclic_path_2 in Hp. unfold node_in_path in Hpathx. simpl in Hpathx.
-                       apply split_orb_true in Hpathx. destruct Hpathx as [Hxhv | Hxt].
-                       + apply split_orb_true in Hxhv. destruct Hxhv as [Hxh | Hxv].
-                         * destruct Hp as [_ [Hp _]]. exfalso. apply Hp. left. rewrite Hux. apply eqb_eq in Hxh. rewrite Hxh. reflexivity.
-                         * destruct Hp as [Hp _]. exfalso. apply Hp. rewrite Hux. apply eqb_eq in Hxv. apply Hxv.
-                       + destruct Hp as [_ [Hp _]]. exfalso. apply Hp. right. rewrite Hux. apply member_In_equiv. apply Hxt.
-                     - reflexivity. }
-                   simpl. rewrite Hxu.
-                   apply assigned_is_true in HxA1'. destruct HxA1' as [ix HxA1']. rewrite HxA1'. unfold f_parent_i. simpl.
-                   unfold A1_nodes_binded_to_parent_in_path in HA1''. pose proof HA1'' as HA1bind. specialize HA1'' with (m := x) (i := ix). apply get_assigned_In in HxA1'.
-                   apply HA1'' in HxA1'. destruct HxA1' as [a [Haxix Haxsub]]. f_equal. rewrite HxU' in HxU. inversion HxU. apply Hi' with (g := g) (g' := g') (U := U) (a := a) (w := x) (P := Px) (P' := Px').
-                   - apply parents_in_graph with (u := x). apply HG. apply nth_error_In in Haxix. apply Haxix.
-                   - apply HU.
-                   - apply Haxix.
-                   - split. apply Hparx. apply HPx.
-                   - split. apply Hparx'. apply HPx'.
-                   - destruct Haxsub as [Haxsub | Haxsub].
-                     + (* a -> x is in the path. *)
-                       assert (Hamem: In a (h :: t ++ [v])). { apply sublist_member with (l1 := [a; x]). split. left. reflexivity. apply Haxsub. }
-                       apply index_exists in Hamem. destruct Hamem as [ia Hia].
-                       clear HA1''. clear HPx. clear Hparx. clear Hx. clear HPx'. clear HxU. clear Hparx'. clear HxU'. clear Hx'. clear Hxu.
-                       clear Hconn. clear HA2''. clear HA12. clear Hi. clear HA1ind. clear HA2ind. clear HA1w.
-                       generalize dependent a. generalize dependent ix. generalize dependent x. induction ia as [| ia' IH].
-                       * intros x ix a Haxix Haxsub Hia. (* a = h, and h is in A4, so true by HA4_const *)
-                         apply index_correct in Hia. simpl in Hia. inversion Hia.
-                         apply HA4_const. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (h, v, t)). split.
-                         -- rewrite <- H3. apply HhA4.
-                         -- rewrite <- HA4ind. apply HA4.
-                       * intros x ix a Haxix Haxsub Hia. (* induct on node at index ia' *)
-                         assert (Hnodex: node_in_graph x G = true).
-                         { assert (Hnodex: node_in_graph a G = true /\ node_in_graph x G = true).
-                           { apply edge_corresponds_to_nodes_in_well_formed. split. apply HG. simpl.
-                             apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply Haxix. }
-                           apply Hnodex. }
-                         simpl in Haxsub. destruct (a =? h) as [|] eqn:Hha.
-                         -- apply eqb_eq in Hha. rewrite Hha in Hia. simpl in Hia. rewrite eqb_refl in Hia. inversion Hia.
-                         -- simpl in Haxsub.
-                            assert (Hb: exists (b: node), sublist [b; a] (h :: t ++ [v]) = true).
-                            { apply not_first_node_has_sublist. split. apply Hha. apply sublist_member with (l1 := [a; x]). split.
-                              left. reflexivity. apply Haxsub. }
-                            destruct Hb as [b Hb].
-                            assert (Hba: (edge_in_graph (b, a) G = true \/ edge_in_graph (a, b) G = true)
-                                          /\ (node_in_graph b G = true /\ node_in_graph a G = true)).
-                            { assert (Hedge: is_edge (b, a) G = true \/ is_edge (a, b) G = true).
-                              { apply sublist_of_path_has_edge with (h := h) (v := v) (t := t). apply Hb.
-                                apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply is_path_in_graph_induction with (u := u). apply Hp. }
-                              destruct Hedge as [Hba | Hab].
-                              - split.
-                                + left. unfold is_edge in Hba. destruct G as [V E]. apply split_and_true in Hba. simpl. apply Hba.
-                                + unfold is_edge in Hba. destruct G as [V E]. apply split_and_true in Hba. simpl. apply split_and_true. apply Hba.
-                              - split.
-                                + right. unfold is_edge in Hab. destruct G as [V E]. apply split_and_true in Hab. simpl. apply Hab.
-                                + unfold is_edge in Hab. destruct G as [V E]. apply split_and_true in Hab. simpl. apply split_and_true. rewrite andb_comm. apply Hab. }
-
-                            assert (Ha: exists (P: assignments X), find_values G g (find_parents a G) U [] = Some P
-                                     /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents a G)
-                                     /\ exists (unobs: X), get_assigned_value U a = Some unobs
-                                     /\ find_value G g a U [] = Some (g a (unobs, pa))).
-                            { apply find_value_evaluates_to_g. split.
-                              - destruct HG as [_ HG]. apply HG.
-                              - split. apply HU. apply Hba. }
-                            destruct Ha as [Pa [HPa [paa [Hpara [unobsa [HaU Ha]]]]]]. rewrite Ha.
-                            assert (Ha2: exists (P: assignments X), find_values G g' (find_parents a G) U [] = Some P
-                                 /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents a G)
-                                 /\ exists (unobs: X), get_assigned_value U a = Some unobs
-                                 /\ find_value G g' a U [] = Some (g' a (unobs, pa))).
-                            { apply find_value_evaluates_to_g. split.
-                              - destruct HG as [_ HG]. apply HG.
-                              - split. apply HU. apply Hba. }
-                            destruct Ha2 as [Pa' [HPa' [paa' [Hpara' [unobsa' [HaU' Ha2]]]]]]. rewrite Ha2.
-                            rewrite Heqg. rewrite Heqg'. unfold g_path'.
-                            assert (Hau: u =? a = false). (* a is in path not including u. since path acyclic, cannot equal u *)
-                            { apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]].
-                              destruct (u =? a) as [|] eqn:Hua.
-                              - apply eqb_eq in Hua. rewrite Hua in Hp. unfold acyclic_path_2 in Hp.
-                                assert (Hmema: In a ((h :: t) ++ [v])). { apply sublist_member with (l1 := [b; a]). split. right. left. reflexivity. apply Hb. }
-                                apply membership_append_or in Hmema. destruct Hmema as [Hmema | Hmema].
-                                + destruct Hp as [_ [Hp _]]. exfalso. apply Hp. apply Hmema.
-                                + simpl in Hmema. destruct Hp as [Hp _]. exfalso. apply Hp. destruct Hmema as [Hmema | Hmema]. rewrite Hmema. reflexivity. exfalso. apply Hmema.
-                              - reflexivity. }
-                            simpl. rewrite Hau.
-                            destruct Hba as [Hba Hnodeba]. destruct Hba as [Hba | Hab].
-                            ++ assert (Hib: exists (ib: nat), Some ib = index (find_parents a G) b).
-                               { apply index_exists. apply edge_from_parent_to_child. apply Hba. }
-                               destruct Hib as [ib Hib].
-                               assert (Hca: count a (h :: t ++ [v]) = 1).
-                               { apply acyclic_path_count.
-                                 * apply sublist_member with (l1 := [b; a]). split. right. left. reflexivity. apply Hb.
-                                 * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                                   apply paths_start_to_end_correct in Hp. apply Hp. }
-                               specialize IH with (x := a) (ix := ib) (a := b).
-                               assert (Hind: find_value G g b U [] = find_value G g' b U []).
-                               { apply IH.
-                                 - apply index_correct. apply Hib.
-                                 - apply Hb.
-                                 - apply index_of_sublist with (a := a).
-                                   + apply Hb.
-                                   + apply Hca.
-                                   + apply acyclic_path_count.
-                                     * apply sublist_member with (l1 := [b; a]). split. left. reflexivity. apply Hb.
-                                     * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                                       apply paths_start_to_end_correct in Hp. apply Hp.
-                                   + apply Hia. }
-
-                               assert (HaA1': exists (ia: nat), get_assigned_value A1' a = Some ia).
-                               { apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (h, v, t)). split.
-                                 - assert (Hamed: In a (find_mediators_in_path (h, v, t) G)).
-                                   { apply mediators_vs_edges_in_path. exists b. exists x. repeat split.
-                                     - apply merge_two_sublists.
-                                       + simpl. apply split_orb_true. right. apply Haxsub.
-                                       + apply Hb.
-                                       + apply Hca.
-                                     - left. split. unfold is_edge. destruct G as [V E]. simpl in Hnodeba. destruct Hnodeba as [Hnodeb Hnodea].
-                                       rewrite Hnodeb. rewrite Hnodea. simpl in Hba. rewrite Hba. reflexivity.
-                                       apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. unfold is_edge. destruct G as [V E].
-                                       simpl in Hnodeba. destruct Hnodeba as [_ Hnodea]. rewrite Hnodea. simpl in Haxix. rewrite Haxix.
-                                       simpl in Hnodex. rewrite Hnodex. reflexivity. }
-                                   unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. right. apply Hamed. apply Hamed.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. right. apply membership_append. apply Hamed. apply membership_append. apply Hamed.
-                                   + apply path_out_of_end_Some in Hout. apply Hout.
-                                 - unfold is_exact_assignment_for in HA1'. apply HA1'. }
-                               destruct HaA1' as [ia HaA1']. rewrite HaA1'. unfold f_parent_i. simpl. f_equal.
-
-                               unfold A1_nodes_binded_to_parent_in_path in HA1bind. specialize HA1bind with (m := a) (i := ia). apply get_assigned_In in HaA1'.
-                               apply HA1bind in HaA1'. destruct HaA1' as [b' [Hia' Hba']]. rewrite HaU' in HaU. inversion HaU. apply Hi' with (g := g) (g' := g') (U := U) (a := b') (w := a) (P := Pa) (P' := Pa').
-                               ** apply parents_in_graph with (u := a). apply HG. apply nth_error_In in Hia'. apply Hia'.
-                               ** apply HU.
-                               ** apply Hia'.
-                               ** split. apply Hpara. apply HPa.
-                               ** split. apply Hpara'. apply HPa'.
-                               ** destruct Hba' as [Hba' | Hab'].
-                                  --- assert (Hbb': b = b').
-                                      { apply two_sublists_the_same_2 with (l := h :: t ++ [v]) (a := a).
-                                        - apply Hb.
-                                        - apply Hba'.
-                                        - apply Hca. }
-                                      rewrite <- Hbb'. apply Hind.
-                                  --- assert (Hbb': x = b').
-                                      { apply two_sublists_the_same with (l := h :: t ++ [v]) (a := a).
-                                        - simpl. apply split_orb_true. right. apply Haxsub.
-                                        - apply Hab'.
-                                        - apply Hca. }
-                                      unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (a, a, [x])) in HG.
-                                      +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                                      +++ apply directed_path_is_path. simpl. unfold is_edge. destruct G as [V E].
-                                          rewrite <- Hbb' in Hia'. apply nth_error_In in Hia'. apply edge_from_parent_to_child in Hia'. simpl in Hia'. rewrite Hia'.
-                                          apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. simpl in Haxix. rewrite Haxix.
-                                          destruct Hnodeba as [_ Hnodea]. simpl in Hnodea. rewrite Hnodea. simpl in Hnodex. rewrite Hnodex. reflexivity.
-
-                            ++ assert (HaA4': exists (xa: X), get_assigned_value A4 a = Some xa).
-                               { apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (h, v, t)). split.
-                                 - assert (Hacon: In a (find_confounders_in_path (h, v, t) G)).
-                                   { apply confounders_vs_edges_in_path. exists b. exists x. repeat split.
-                                     - apply merge_two_sublists.
-                                       + simpl. apply split_orb_true. right. apply Haxsub.
-                                       + apply Hb.
-                                       + apply acyclic_path_count.
-                                         * apply sublist_member with (l1 := [b; a]). split. right. left. reflexivity. apply Hb.
-                                         * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                                           apply paths_start_to_end_correct in Hp. apply Hp.
-                                     - unfold is_edge. destruct G as [V E]. simpl in Hnodeba. destruct Hnodeba as [Hnodeb Hnodea].
-                                       rewrite Hnodeb. rewrite Hnodea. simpl in Hab. rewrite Hab. reflexivity.
-                                     - apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. unfold is_edge. destruct G as [V E].
-                                       simpl in Hnodeba. destruct Hnodeba as [_ Hnodea]. rewrite Hnodea. simpl in Haxix. rewrite Haxix. simpl in Hnodex. rewrite Hnodex. reflexivity. }
-                                   unfold get_A4_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. apply membership_append. apply Hacon. right. apply membership_append. apply Hacon.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. apply Hacon. right. apply Hacon.
-                                   + apply path_out_of_end_Some in Hout. apply Hout.
-                                 - unfold is_exact_assignment_for in HA4. rewrite <- HA4ind. apply HA4. }
-                               simpl.
-                               assert (HaA4: In a (get_A4_binded_nodes_in_g_path G (h, v, t))).
-                               { apply assigned_true_then_in_list with (A := A4). split. apply assigned_is_true. apply HaA4'. rewrite <- HA4ind. apply HA4. }
-                               assert (HaA1': get_assigned_value A1' a = None).
-                               { apply A4_nodes_not_in_A1 in HaA4. destruct HA1' as [_ HA1']. apply assigned_is_false. specialize HA1' with (u := a). apply HA1'.
-                                 apply member_In_equiv_F. apply HaA4. }
-                               rewrite HaA1'.
-                               assert (HaA2: get_assigned_value A2' a = None).
-                               { apply A4_nodes_not_in_A2 in HaA4. destruct HA2' as [_ HA2']. apply assigned_is_false. apply HA2'. apply member_In_equiv_F. apply HaA4. }
-                               rewrite HaA2.
-                               assert (HaA3: get_assigned_value A3' a = None).
-                               { apply descendant_paths_disjoint_with_A4 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                                 assert (HA2ind: get_A2_binded_nodes_in_g_path G (u, v, h :: t) = get_A2_binded_nodes_in_g_path G (h, v, t)).
-                                 { apply A2_induction_case.
-                                   - destruct HG as [_ [_ HG]]. apply HG.
-                                   - right. apply Houth. }
-                                 unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. unfold nodes in *. rewrite HA4ind. apply HaA4. }
-                               rewrite HaA3.
-                               destruct HaA4' as [xa HaA4']. rewrite HaA4'. unfold f_constant. reflexivity.
-
-                     + (* x <- a is in the path. *)
-                       assert (Hamem: In a (rev (h :: t ++ [v]))). { apply membership_rev. apply sublist_member with (l1 := [x; a]). split. right. left. reflexivity. apply Haxsub. }
-                       apply index_exists in Hamem. destruct Hamem as [ia Hia].
-                       clear HA1''. clear HPx. clear Hparx. clear Hx. clear HPx'. clear HxU. clear Hparx'. clear HxU'. clear Hx'. clear Hxu.
-                       clear Hconn. clear HA2''. clear HA12. clear Hi. clear HA1ind. clear HA2ind. clear HA1w.
-                       generalize dependent a. generalize dependent ix. generalize dependent x. induction ia as [| ia' IH].
-                       * intros x ix a Haxix Haxsub Hia. (* a = v, so path_out_of_end, so v is in A4, so true by HA4_const *)
-                         apply index_correct in Hia. simpl in Hia. rewrite reverse_list_append in Hia. simpl in Hia. inversion Hia.
-                         apply HA4_const. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (h, v, t)). split.
-                         -- rewrite <- H3. unfold get_A4_binded_nodes_in_g_path.
-                            assert (Hout: path_out_of_end (h, v, t) G = Some true).
-                            { rewrite <- H3 in Haxsub. rewrite <- H3 in Haxix. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply sublist_path_out_of_end with (x := x).
-                              - unfold is_edge.
-                                assert (Hnodevx: node_in_graph v G = true /\ node_in_graph x G = true).
-                                { apply edge_corresponds_to_nodes_in_well_formed. split. apply HG. apply Haxix. }
-                                destruct G as [V E]. simpl in Haxix. rewrite Haxix. simpl in Hnodevx. destruct Hnodevx as [Hnodev Hnodex]. rewrite Hnodev. rewrite Hnodex. reflexivity.
-                              - apply Haxsub.
-                              - apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. unfold acyclic_path_2 in Hp. destruct Hp as [_ [_ [Hp _]]]. apply Hp. }
-                            rewrite Hout. destruct (path_into_start (h, v, t) G) as [|]. apply membership_append_r. left. reflexivity. right. apply membership_append_r. left. reflexivity.
-                         -- rewrite <- HA4ind. apply HA4.
-                       * intros x ix a Haxix Haxsub Hia. (* induct on node at index ia' of reverse path (after a in original path) *)
-                         assert (Hnodex: node_in_graph x G = true).
-                         { assert (Hnodex: node_in_graph a G = true /\ node_in_graph x G = true).
-                           { apply edge_corresponds_to_nodes_in_well_formed. split. apply HG. simpl.
-                             apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply Haxix. }
-                           apply Hnodex. }
-                         simpl in Haxsub. destruct (a =? v) as [|] eqn:Hva.
-                         -- simpl in Hia. rewrite reverse_list_append in Hia. simpl in Hia. rewrite eqb_sym in Hva. rewrite Hva in Hia. inversion Hia.
-                         -- assert (Hb: exists (b: node), sublist [a; b] (h :: t ++ [v]) = true).
-                            { assert (Hb: exists b : nat, sublist [b; a] (v :: rev t ++ [h]) = true).
-                              { apply not_first_node_has_sublist. split. apply Hva.
-                                assert (Hmem: In a (rev (h :: t ++ [v]))). { apply index_exists. exists (S ia'). apply Hia. }
-                                simpl in Hmem. rewrite reverse_list_append in Hmem. simpl in Hmem. destruct Hmem as [Hmem | Hmem].
-                                - rewrite Hmem in Hva. rewrite eqb_refl in Hva. discriminate Hva.
-                                - apply Hmem. }
-                              destruct Hb as [b Hb]. exists b. rewrite reverse_list_twice with (l := h :: t ++ [v]). rewrite reverse_list_twice with (l := (@cons node a (@cons node b (@nil node)))).
-                              apply sublist_rev. simpl. rewrite reverse_list_append. simpl. apply Hb. }
-                            destruct Hb as [b Hb].
-
-                            assert (Hba: (edge_in_graph (b, a) G = true \/ edge_in_graph (a, b) G = true)
-                                          /\ (node_in_graph b G = true /\ node_in_graph a G = true)).
-                            { assert (Hedge: is_edge (b, a) G = true \/ is_edge (a, b) G = true).
-                              { apply or_comm. apply sublist_of_path_has_edge with (h := h) (v := v) (t := t). apply Hb.
-                                apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply is_path_in_graph_induction with (u := u). apply Hp. }
-                              destruct Hedge as [Hba | Hab].
-                              - split.
-                                + left. unfold is_edge in Hba. destruct G as [V E]. apply split_and_true in Hba. simpl. apply Hba.
-                                + unfold is_edge in Hba. destruct G as [V E]. apply split_and_true in Hba. simpl. apply split_and_true. apply Hba.
-                              - split.
-                                + right. unfold is_edge in Hab. destruct G as [V E]. apply split_and_true in Hab. simpl. apply Hab.
-                                + unfold is_edge in Hab. destruct G as [V E]. apply split_and_true in Hab. simpl. apply split_and_true. rewrite andb_comm. apply Hab. }
-
-                            assert (Ha: exists (P: assignments X), find_values G g (find_parents a G) U [] = Some P
-                                     /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents a G)
-                                     /\ exists (unobs: X), get_assigned_value U a = Some unobs
-                                     /\ find_value G g a U [] = Some (g a (unobs, pa))).
-                            { apply find_value_evaluates_to_g. split.
-                              - destruct HG as [_ HG]. apply HG.
-                              - split. apply HU. apply Hba. }
-                            destruct Ha as [Pa [HPa [paa [Hpara [unobsa [HaU Ha]]]]]]. rewrite Ha.
-                            assert (Ha2: exists (P: assignments X), find_values G g' (find_parents a G) U [] = Some P
-                                 /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents a G)
-                                 /\ exists (unobs: X), get_assigned_value U a = Some unobs
-                                 /\ find_value G g' a U [] = Some (g' a (unobs, pa))).
-                            { apply find_value_evaluates_to_g. split.
-                              - destruct HG as [_ HG]. apply HG.
-                              - split. apply HU. apply Hba. }
-                            destruct Ha2 as [Pa' [HPa' [paa' [Hpara' [unobsa' [HaU' Ha2]]]]]]. rewrite Ha2.
-                            rewrite Heqg. rewrite Heqg'. unfold g_path'.
-
-                            assert (Hau: u =? a = false). (* a is in path not including u. since path acyclic, cannot equal u *)
-                            { apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]].
-                              destruct (u =? a) as [|] eqn:Hua.
-                              - apply eqb_eq in Hua. rewrite Hua in Hp. unfold acyclic_path_2 in Hp.
-                                assert (Hmema: In a ((h :: t) ++ [v])). { apply sublist_member with (l1 := [a; b]). split. left. reflexivity. apply Hb. }
-                                apply membership_append_or in Hmema. destruct Hmema as [Hmema | Hmema].
-                                + destruct Hp as [_ [Hp _]]. exfalso. apply Hp. apply Hmema.
-                                + simpl in Hmema. destruct Hp as [Hp _]. exfalso. apply Hp. destruct Hmema as [Hmema | Hmema]. rewrite Hmema. reflexivity. exfalso. apply Hmema.
-                              - reflexivity. } (* TODO can generalize above using generalized l1 for sublist_member *)
-                            simpl. rewrite Hau.
-
-                            assert (Hca: count a (h :: t ++ [v]) = 1).
-                            { apply acyclic_path_count.
-                              * apply sublist_member with (l1 := [a; b]). split. left. reflexivity. apply Hb.
-                              * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                                apply paths_start_to_end_correct in Hp. apply Hp. }
-                            destruct Hba as [Hba Hnodeba]. destruct Hba as [Hba | Hab].
-
-                            ++ assert (Hib: exists (ib: nat), Some ib = index (find_parents a G) b).
-                               { apply index_exists. apply edge_from_parent_to_child. apply Hba. }
-                               destruct Hib as [ib Hib].
-
-                               specialize IH with (x := a) (ix := ib) (a := b).
-                               assert (Hind: find_value G g b U [] = find_value G g' b U []).
-                               { apply IH.
-                                 - apply index_correct. apply Hib.
-                                 - apply Hb.
-                                 - apply index_of_sublist with (a := a).
-                                   + rewrite reverse_list_twice with (l := (@cons nat b (@cons nat a (@nil nat)))). apply sublist_rev. simpl. apply Hb.
-                                   + rewrite <- count_reverse. apply Hca.
-                                   + rewrite <- count_reverse. apply acyclic_path_count.
-                                     * apply sublist_member with (l1 := [a; b]). split. right. left. reflexivity. apply Hb.
-                                     * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                                       apply paths_start_to_end_correct in Hp. apply Hp.
-                                   + apply Hia. }
-
-                               assert (HaA1': exists (ia: nat), get_assigned_value A1' a = Some ia).
-                               { apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (h, v, t)). split.
-                                 - assert (Hamed: In a (find_mediators_in_path (h, v, t) G)).
-                                   { apply mediators_vs_edges_in_path. exists x. exists b. repeat split.
-                                     - apply merge_two_sublists.
-                                       + apply Hb.
-                                       + apply Haxsub.
-                                       + apply Hca.
-                                     - right. split. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge. apply HG. apply Haxix.
-                                       apply edge_in_graph_then_is_edge. apply HG. apply Hba. }
-
-                                   unfold get_A1_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. right. apply Hamed. apply Hamed.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. right. apply membership_append. apply Hamed. apply membership_append. apply Hamed.
-                                   + apply path_out_of_end_Some in Hout. apply Hout.
-                                 - unfold is_exact_assignment_for in HA1'. apply HA1'. }
-                               destruct HaA1' as [ia HaA1']. rewrite HaA1'. unfold f_parent_i. simpl. f_equal.
-
-                               unfold A1_nodes_binded_to_parent_in_path in HA1bind. specialize HA1bind with (m := a) (i := ia). apply get_assigned_In in HaA1'.
-                               apply HA1bind in HaA1'. destruct HaA1' as [b' [Hia' Hba']]. rewrite HaU' in HaU. inversion HaU. apply Hi' with (g := g) (g' := g') (U := U) (a := b') (w := a) (P := Pa) (P' := Pa').
-                               ** apply parents_in_graph with (u := a). apply HG. apply nth_error_In in Hia'. apply Hia'.
-                               ** apply HU.
-                               ** apply Hia'.
-                               ** split. apply Hpara. apply HPa.
-                               ** split. apply Hpara'. apply HPa'.
-                               ** destruct Hba' as [Hba' | Hab'].
-                                  --- assert (Hbb': x = b').
-                                      { apply two_sublists_the_same_2 with (l := h :: t ++ [v]) (a := a).
-                                        - apply Haxsub.
-                                        - apply Hba'.
-                                        - apply Hca. }
-                                      unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (a, a, [x])) in HG.
-                                      +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                                      +++ apply directed_path_is_path. simpl. unfold is_edge. destruct G as [V E].
-                                          rewrite <- Hbb' in Hia'. apply nth_error_In in Hia'. apply edge_from_parent_to_child in Hia'. simpl in Hia'. rewrite Hia'.
-                                          apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. simpl in Haxix. rewrite Haxix.
-                                          destruct Hnodeba as [_ Hnodea]. simpl in Hnodea. rewrite Hnodea. simpl in Hnodex. rewrite Hnodex. reflexivity.
-                                  --- assert (Hbb': b = b').
-                                      { apply two_sublists_the_same with (l := h :: t ++ [v]) (a := a).
-                                        - apply Hb.
-                                        - apply Hab'.
-                                        - apply Hca. }
-                                      rewrite <- Hbb'. apply Hind.
-
-                            ++ assert (HaA4': exists (xa: X), get_assigned_value A4 a = Some xa).
-                               { apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (h, v, t)). split.
-                                 - assert (Hacon: In a (find_confounders_in_path (h, v, t) G)).
-                                   { apply confounders_vs_edges_in_path. exists x. exists b. repeat split.
-                                     - apply merge_two_sublists.
-                                       + apply Hb.
-                                       + apply Haxsub.
-                                       + apply acyclic_path_count.
-                                         * apply sublist_member with (l1 := [a; b]). split. left. reflexivity. apply Hb.
-                                         * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                                           apply paths_start_to_end_correct in Hp. apply Hp.
-                                     - apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. unfold is_edge. destruct G as [V E].
-                                       simpl in Hnodeba. destruct Hnodeba as [_ Hnodea]. rewrite Hnodea. simpl in Haxix. rewrite Haxix. simpl in Hnodex. rewrite Hnodex. reflexivity.
-                                     - unfold is_edge. destruct G as [V E]. simpl in Hnodeba. destruct Hnodeba as [Hnodeb Hnodea].
-                                       rewrite Hnodeb. rewrite Hnodea. simpl in Hab. rewrite Hab. reflexivity. }
-                                   unfold get_A4_binded_nodes_in_g_path. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. apply membership_append. apply Hacon. right. apply membership_append. apply Hacon.
-                                   + destruct (path_into_start (h, v, t) G) as [|]. apply Hacon. right. apply Hacon.
-                                   + apply path_out_of_end_Some in Hout. apply Hout.
-                                 - unfold is_exact_assignment_for in HA4. rewrite <- HA4ind. apply HA4. }
-                               simpl.
-                               assert (HaA4: In a (get_A4_binded_nodes_in_g_path G (h, v, t))).
-                               { apply assigned_true_then_in_list with (A := A4). split. apply assigned_is_true. apply HaA4'. rewrite <- HA4ind. apply HA4. }
-                               assert (HaA1': get_assigned_value A1' a = None).
-                               { apply A4_nodes_not_in_A1 in HaA4. destruct HA1' as [_ HA1']. apply assigned_is_false. specialize HA1' with (u := a). apply HA1'.
-                                 apply member_In_equiv_F. apply HaA4. }
-                               rewrite HaA1'.
-                               assert (HaA2: get_assigned_value A2' a = None).
-                               { apply A4_nodes_not_in_A2 in HaA4. destruct HA2' as [_ HA2']. apply assigned_is_false. apply HA2'. apply member_In_equiv_F. apply HaA4. }
-                               rewrite HaA2.
-                               assert (HaA3: get_assigned_value A3' a = None).
-                               { apply descendant_paths_disjoint_with_A4 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                                 assert (HA2ind: get_A2_binded_nodes_in_g_path G (u, v, h :: t) = get_A2_binded_nodes_in_g_path G (h, v, t)).
-                                 { apply A2_induction_case.
-                                   - destruct HG as [_ [_ HG]]. apply HG.
-                                   - right. apply Houth. }
-                                 unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. unfold nodes in *. rewrite HA4ind. apply HaA4. }
-                               rewrite HaA3.
-                               destruct HaA4' as [xa HaA4']. rewrite HaA4'. unfold f_constant. reflexivity. }
-
-                 unfold A2_nodes_colliders_in_graph in HA2''. specialize HA2'' with (c := w) (i := iw) (j := jw) (x := xw) (y := yw).
-                 apply get_assigned_In in Hvalw. apply HA2'' in Hvalw. destruct Hvalw as [a [b Hvalw]].
-
-                 (* since a and b are in the path and not colliders, they must be in A1 or A4 -> use HA4_const or HA1_const *)
-                 assert (Ha: find_value G g a U [] = find_value G g' a U []).
-                 { destruct Hvalw as [_ [_ [Hawbsub Hawbcol]]]. simpl in Hawbsub.
-                   destruct (a =? h) as [|] eqn:Hah. (* since path is h ->, h is in A4 *)
-                   - assert (HaA4: In a (get_A4_binded_nodes_in_g_path G (h, v, t))).
-                     { apply eqb_eq in Hah. rewrite Hah. apply HhA4. }
-                     apply HA4_const. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (h, v, t)). split.
-                     + apply HaA4.
-                     + unfold is_exact_assignment_for in HA4. rewrite <- HA4ind. apply HA4.
-                   - simpl in Hawbsub. assert (Hat: In a t). { apply first_elt_of_sublist_not_last_elt with (b := w) (c := b) (v := v). apply Hawbsub. }
-                     assert (Hpath: is_path_in_graph (h, v, t) G = true). { apply paths_start_to_end_correct in Hp. apply is_path_in_graph_induction with (u := u). apply Hp. }
-                     apply intermediate_node_in_path with (x := a) in Hpath. apply Hpath in Hat. clear Hpath. rewrite <- or_assoc in Hat. destruct Hat as [Hat | Hacol].
-                     + apply Hfv with (g := g) (g' := g') (U := U) (A4 := A4) in Hat. apply Hat. apply HA4_const. apply HA4. apply HA1_const.
-                     + (* contradiction: since a -> w is an edge, a is not a collider *)
-                       apply colliders_vs_edges_in_path in Hacol. destruct Hacol as [a1 [a2 [Hasub Haedge]]].
-                       assert (Ha2w: (w =? a2) = false).
-                       { unfold is_collider_bool in Hawbcol. destruct (w =? a2) as [|] eqn:Hwa2.
-                         - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
-                           + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                           + apply directed_path_is_path. simpl. destruct Haedge as [_ Ha2a]. apply eqb_eq in Hwa2. rewrite <- Hwa2 in Ha2a. rewrite Ha2a.
-                             apply split_and_true in Hawbcol. destruct Hawbcol as [Haw _]. rewrite Haw. reflexivity.
-                         - reflexivity. }
-                       assert (Ha2w': w = a2).
-                       { apply two_sublists_the_same with (l := t ++ [v]) (a := a).
-                         - apply start_of_sublist_still_sublist in Hawbsub. apply Hawbsub.
-                         - apply end_of_sublist_still_sublist in Hasub. apply Hasub.
-                         - assert (Hca: count a (h :: t ++ [v]) = 1).
-                           { apply acyclic_path_count.
-                             * apply sublist_member with (l1 := [a1; a; a2]). split. right. left. reflexivity. apply Hasub.
-                             * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                               apply paths_start_to_end_correct in Hp. apply Hp. }
-                           simpl in Hca. rewrite eqb_sym in Hah. rewrite Hah in Hca. apply Hca. }
-                       rewrite Ha2w' in Ha2w. rewrite eqb_refl in Ha2w. discriminate Ha2w. }
-                 assert (Hb: find_value G g b U [] = find_value G g' b U []).
-                 { destruct Hvalw as [_ [_ [Hawbsub Hawbcol]]]. simpl in Hawbsub.
-                   destruct (b =? v) as [|] eqn:Hbv. (* depending on arrow into v, v is in A4 or A1 *)
-                   - apply eqb_eq in Hbv. rewrite Hbv in *. destruct (path_out_of_end (h, v, t) G) as [[|]|] eqn:Hout.
-                     + assert (HbA4: In v (get_A4_binded_nodes_in_g_path G (h, v, t))).
-                       { unfold get_A4_binded_nodes_in_g_path. rewrite Hout. destruct (path_into_start (h, v, t) G) as [|]. apply membership_append_r. left. reflexivity.
-                         right. apply membership_append_r. left. reflexivity. }
-                       apply HA4_const. apply assigned_is_true. apply assigned_has_value with (L := get_A4_binded_nodes_in_g_path G (h, v, t)). split.
-                       * apply HbA4.
-                       * unfold is_exact_assignment_for in HA4. rewrite <- HA4ind. apply HA4.
-                     + assert (HbA1: In v (get_A1_binded_nodes_in_g_path G (h, v, t))).
-                       { unfold get_A1_binded_nodes_in_g_path. rewrite Hout. destruct (path_into_start (h, v, t) G) as [|]. right. apply membership_append_r. left. reflexivity.
-                         apply membership_append_r. left. reflexivity. }
-                       apply HA1_const. apply assigned_is_true. apply assigned_has_value with (L := get_A1_binded_nodes_in_g_path G (h, v, t)). split.
-                       * apply HbA1.
-                       * unfold is_exact_assignment_for in HA1'. apply HA1'.
-                     + apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-                   - assert (Hatv: In b (t ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [w; b]) (a := a) (h := h). split. apply Hawbsub. right. left. reflexivity. }
-                     assert (Hbt: In b t). { apply membership_append_or in Hatv. destruct Hatv as [Hatv | Hatv]. apply Hatv. destruct Hatv as [Hatv | Hatv]. rewrite Hatv in Hbv. rewrite eqb_refl in Hbv. discriminate Hbv. exfalso. apply Hatv. }
-                     clear Hatv.
-                     assert (Hpath: is_path_in_graph (h, v, t) G = true). { apply paths_start_to_end_correct in Hp. apply is_path_in_graph_induction with (u := u). apply Hp. }
-                     apply intermediate_node_in_path with (x := b) in Hpath. apply Hpath in Hbt. clear Hpath. apply or_assoc in Hbt. destruct Hbt as [Hbt | Hbcol].
-                     + apply Hfv with (g := g) (g' := g') (U := U) (A4 := A4) in Hbt. apply Hbt. apply HA4_const. apply HA4. apply HA1_const.
-                     + (* contradiction: since w <- b is an edge, b is not a collider *)
-                       apply colliders_vs_edges_in_path in Hbcol. destruct Hbcol as [b1 [b2 [Hbsub Hbedge]]].
-                       assert (Hb1w: (w =? b1) = false).
-                       { unfold is_collider_bool in Hawbcol. destruct (w =? b1) as [|] eqn:Hwb1.
-                         - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (b, b, [w])) in HG.
-                           + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                           + apply directed_path_is_path. simpl. destruct Hbedge as [Hb1w _]. apply eqb_eq in Hwb1. rewrite <- Hwb1 in Hb1w. rewrite Hb1w.
-                             apply split_and_true in Hawbcol. destruct Hawbcol as [_ Hwb]. rewrite Hwb. reflexivity.
-                         - reflexivity. }
-                       assert (Hb1w': w = b1).
-                       { apply two_sublists_the_same_2 with (l := h :: t ++ [v]) (a := b).
-                         - apply end_of_sublist_still_sublist_2 in Hawbsub. apply Hawbsub.
-                         - apply start_of_sublist_still_sublist in Hbsub. apply Hbsub.
-                         - assert (Hcb: count b (h :: t ++ [v]) = 1).
-                           { apply acyclic_path_count.
-                             * apply sublist_member with (l1 := [b1; b; b2]). split. right. left. reflexivity. apply Hbsub.
-                             * apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                               apply paths_start_to_end_correct in Hp. apply Hp. }
-                           apply Hcb. }
-                       rewrite Hb1w' in Hb1w. rewrite eqb_refl in Hb1w. discriminate Hb1w. }
-
-                 assert (Hiw: nth_default unobs' pa iw = nth_default unobs' pa' iw).
-                 { apply Hi' with (g := g) (g' := g') (U := U) (a := a) (w := w) (P := P) (P' := P'). apply parents_in_graph with (u := w). apply HG. destruct Hvalw as [Hvalw _]. apply nth_error_In in Hvalw. apply Hvalw. apply HU.
-                   apply Hvalw. easy. easy. apply Ha. }
-                 assert (Hjw: nth_default unobs' pa jw = nth_default unobs' pa' jw).
-                 { apply Hi' with (g := g) (g' := g') (U := U) (a := b) (w := w) (P := P) (P' := P'). apply parents_in_graph with (u := w). apply HG. destruct Hvalw as [_ [Hvalw _]]. apply nth_error_In in Hvalw. apply Hvalw. apply HU.
-                   apply Hvalw. easy. easy. apply Hb. }
-                 rewrite Hiw. rewrite Hjw. reflexivity. }
-               { unfold nodes in *. rewrite HA4ind in HA4. apply HA4. }
-            -- intros Hcond. specialize HA12 with (A4 := A4) (default := default) (U := U) (A5 := (u, f_parent_i X i) :: A5). pose proof H1 as HU. apply HA12 in H1. clear HA12.
-               { destruct H1 as [_ HA12].
-                 remember (g_path' X A1' A2' A3' A4 ((u, f_parent_i X i) :: A5) default) as g. remember (g_path' X ((u, i) :: A1') A2' A3' A4 A5 default) as g'.
-                 assert (Hg: g = g').
-                 { apply functional_extensionality. intros x. rewrite Heqg. rewrite Heqg'. unfold g_path'. simpl.
-                   destruct (u =? x) as [|] eqn:Hux.
-                   - apply eqb_eq in Hux. rewrite <- Hux in *. assert (Humem: node_in_path u (h, v, t) = false).
-                     { apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. unfold acyclic_path_2 in Hp.
-                       unfold node_in_path. simpl. destruct (u =? h) as [|] eqn:Huh.
-                       - exfalso. destruct Hp as [_ [Hp _]]. apply Hp. left. apply eqb_eq in Huh. rewrite Huh. reflexivity.
-                       - simpl. destruct (u =? v) as [|] eqn:Huv.
-                         + exfalso. destruct Hp as [Hp _]. apply Hp. apply eqb_eq in Huv. apply Huv.
-                         + simpl. destruct Hp as [_ [Hp _]]. apply member_In_equiv_F. intros F. apply Hp. right. apply F. }
-                     assert (HxA1': get_assigned_value A1' u = None).
-                     { destruct (is_assigned A1' u) as [|] eqn:HxA1'.
-                       - assert (Hmem: node_in_path u (h, v, t) = true).
-                         { apply A1_nodes_in_path with (G := G). apply assigned_true_then_in_list with (A := A1'). split. apply HxA1'. apply HA1'. }
-                         rewrite Hmem in Humem. discriminate Humem.
-                       - apply assigned_is_false. apply HxA1'. }
-                     rewrite HxA1'.
-                     assert (HxA2': get_assigned_value A2' u = None).
-                     { destruct (is_assigned A2' u) as [|] eqn:HxA2'.
-                       - assert (Hcol: In u (get_A2_binded_nodes_in_g_path G (h, v, t))).
-                         { apply assigned_true_then_in_list with (A := A2'). split. apply HxA2'. apply HA2'. }
-                         unfold get_A2_binded_nodes_in_g_path in Hcol. apply colliders_vs_edges_in_path in Hcol. destruct Hcol as [y [z [Hsub _]]].
-                         assert (Hmem: In u (h :: t ++ [v])). { apply sublist_member with (l1 := [y; u; z]). split. right. left. reflexivity. apply Hsub. }
-                         unfold node_in_path in Humem. simpl in Humem. destruct Hmem as [Hmem | Hmem]. rewrite Hmem in Humem. rewrite eqb_refl in Humem. discriminate Humem.
-                         apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem]. apply member_In_equiv in Hmem. rewrite Hmem in Humem. rewrite orb_comm in Humem. discriminate Humem.
-                         destruct Hmem as [Hmem | Hmem]. rewrite Hmem in Humem. rewrite eqb_refl in Humem. rewrite <- orb_assoc in Humem. rewrite orb_comm in Humem. discriminate Humem. exfalso. apply Hmem.
-                       - apply assigned_is_false. apply HxA2'. }
-                     rewrite HxA2'.
-                     assert (HxA3': get_assigned_value A3' u = None).
-                     { apply descendant_paths_disjoint_with_A1 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                       unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. unfold nodes in *. rewrite HA1ind. left. reflexivity. }
-                     rewrite HxA3'.
-                     assert (HxA4: get_assigned_value A4 u = None).
-                     { destruct (is_assigned A4 u) as [|] eqn:HxA4.
-                       - assert (Hmem: node_in_path u (h, v, t) = true).
-                         { apply A4_nodes_in_path with (G := G). apply assigned_true_then_in_list with (A := A4). split. apply HxA4. unfold nodes. rewrite <- HA4ind.
-                           apply H0. }
-                         rewrite Hmem in Humem. discriminate Humem.
-                       - apply assigned_is_false. apply HxA4. }
-                     rewrite HxA4. reflexivity.
-                   - reflexivity. }
-                 assert (Hcond': unobs_conditions_on_Z G g U AZ Z).
-                 { rewrite Hg. apply Hcond. }
-
-                 apply HA12 in Hcond'. destruct Hcond' as [x Hcond']. exists x. intros w [Hwp Hwcol].
-                 rewrite <- Hg.
-                 unfold node_in_path in Hwp. simpl in Hwp. apply split_orb_true in Hwp. destruct Hwp as [Hwp | Hwp].
-                 - assert (Hh: find_value G g h U [] = Some x).
-                   { apply Hcond'. split.
-                     * unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-                     * intros Hmem. apply colliders_vs_edges_in_path in Hmem. destruct Hmem as [y [z [Hsub _]]].
-                       assert (Hacyc: acyclic_path_2 (h, v, t)).
-                       { apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                         apply paths_start_to_end_correct in Hp. apply Hp. }
-                       unfold acyclic_path_2 in Hacyc.
-                       assert (Hmem: In h (t ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [h; z]) (a := y) (h := h). split. apply Hsub. left. reflexivity. }
-                       apply membership_append_or in Hmem. destruct Hmem as [Hmem | [Hmem | F]]. destruct Hacyc as [_ [Hacyc _]]. apply Hacyc. apply Hmem.
-                       destruct Hacyc as [Hacyc _]. apply Hacyc. rewrite Hmem. reflexivity. apply F. }
-
-                   specialize Hcond' with (w := w). apply split_orb_true in Hwp. destruct Hwp as [Hwp | Hwp].
-                   + assert (Hw: exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                              /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                              /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                              /\ find_value G g w U [] = Some (g w (unobs, pa))).
-                     { apply find_value_evaluates_to_g. split.
-                       - destruct HG as [_ HG]. apply HG.
-                       - split. apply HU. apply eqb_eq in Hwp. rewrite Hwp. unfold path_into_start in Hin. apply is_edge_then_node_in_graph with (v := h). right. apply Hin. }
-                     destruct Hw as [Pw [HPw [paw [Hpaw [unobsw [HwU Hw]]]]]]. rewrite Hw. apply eqb_eq in Hwp. rewrite Hwp in *.
-                     rewrite Hg. rewrite Heqg'. f_equal. unfold g_path'. simpl. rewrite eqb_refl. unfold f_parent_i. simpl.
-
-                     assert (HPwh: get_assigned_value Pw h = Some x).
-                     { apply find_values_get_assigned with (G := G) (g := g) (P := find_parents u G) (U := U) (A := []). repeat split.
-                       - apply HPw.
-                       - apply index_exists. exists i. symmetry. apply Hi.
-                       - apply Hh. }
-                     assert (Hiw: nth_error paw i = get_assigned_value Pw h).
-                     { rewrite HPwh. apply parent_assignments_preserves_index with (P := Pw) (V := find_parents u G) (m := h). repeat split.
-                       - symmetry. apply Hpaw.
-                       - apply Hi.
-                       - apply HPwh. }
-                     unfold nth_default. rewrite Hiw. rewrite HPwh. reflexivity.
-                   + apply Hcond'. split.
-                     * unfold node_in_path. simpl. rewrite Hwp. rewrite <- orb_assoc. rewrite orb_comm. reflexivity.
-                     * unfold get_A2_binded_nodes_in_g_path in HA2ind. intros Hmem. apply Hwcol. unfold node in *. unfold nodes in *. unfold find_colliders_in_path. unfold find_colliders_in_path in HA2ind.
-                       rewrite HA2ind. unfold find_colliders_in_path in Hmem. apply Hmem.
-                 - apply Hcond'. split.
-                   + unfold node_in_path. simpl. destruct (w =? h) as [|] eqn:Hwh. reflexivity. rewrite eqb_sym in Hwh. rewrite Hwh in Hwp. rewrite Hwp.
-                     simpl. rewrite orb_comm. reflexivity.
-                   + unfold get_A2_binded_nodes_in_g_path in HA2ind. intros Hmem. apply Hwcol. unfold node in *. unfold nodes in *. unfold find_colliders_in_path. unfold find_colliders_in_path in HA2ind.
-                     rewrite HA2ind. unfold find_colliders_in_path in Hmem. apply Hmem. }
-               { unfold nodes in *. rewrite HA4ind in H0. apply H0. }
-
-          * (* u -> h -> ... *)
-            assert (Hi: exists i: nat, index (find_parents h G) u = Some i).
-            { assert (Hh: In u (find_parents h G)).
-              { apply edge_from_parent_to_child. simpl in Hin. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _].
-                simpl in Hp. rewrite Hin in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [Hp _]. rewrite orb_comm in Hp.
-                simpl in Hp. simpl. apply split_and_true in Hp. apply Hp. }
-              apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-            destruct Hi as [i Hi].
-            assert (Hnodeu: node_in_graph u G = true).
-            { apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. apply is_edge_then_node_in_graph with (v := h). destruct G as [V E].
-              apply split_and_true in Hp. destruct Hp as [Hp _]. apply split_orb_true. apply Hp. }
-            assert (HA1ind: get_A1_binded_nodes_in_g_path G (u, v, h :: t) = h :: get_A1_binded_nodes_in_g_path G (h, v, t)).
-            { apply A1_induction_out_of_start_out_of_h.
-              - split.
-                ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-                ** destruct HG as [_ [_ HG]]. apply HG.
-              - split.
-                ** apply Hin.
-                ** apply Houth. }
-            assert (HA4ind: exists (A4'': nodes), get_A4_binded_nodes_in_g_path G (u, v, h :: t) = u :: A4'' /\ get_A4_binded_nodes_in_g_path G (h, v, t) = h :: A4'').
-            { apply A4_induction_out_of_start_out_of_h.
-              - split.
-                ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-                ** destruct HG as [_ [_ HG]]. apply HG.
-              - split. apply Hin. apply Houth. }
-            destruct HA4ind as [A4'' HA4ind].
-            exists ((h, i) :: A1'). exists A2'. exists A3'. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. split.
-            repeat split.
-
-            -- (* since arrow into u, u is in A1 *)
-               unfold nodes. rewrite HA1ind. simpl. rewrite eqb_refl. simpl. apply is_assignment_for_cat.
-               unfold is_exact_assignment_for in HA1'. destruct HA1' as [HA1' _]. apply HA1'.
-            -- intros u' Hmemu'. unfold is_exact_assignment_for in HA1'. destruct HA1' as [_ HA1']. simpl.
-               assert (Hmemu: In h (get_A1_binded_nodes_in_g_path G (u, v, h :: t))).
-               { rewrite HA1ind. left. reflexivity. }
-               destruct (u' =? h) as [|] eqn:Huu'.
-               ++ apply eqb_eq in Huu'. apply member_In_equiv in Hmemu. rewrite Huu' in Hmemu'. unfold nodes in Hmemu'. rewrite Hmemu in Hmemu'. discriminate Hmemu'.
-               ++ simpl. apply HA1'. unfold nodes in Hmemu'. rewrite HA1ind in Hmemu'. unfold member in Hmemu'. rewrite eqb_sym in Hmemu'. rewrite Huu' in Hmemu'. apply Hmemu'.
-            -- unfold A1_nodes_binded_to_parent_in_path. intros c i' Hmi'. simpl in Hmi'. destruct Hmi' as [Hmi' | Hmi'].
-               ++ inversion Hmi'. rewrite <- H1 in *. rewrite <- H2 in *. exists u. repeat split.
-                  ** apply index_correct. symmetry. apply Hi.
-                  ** left. simpl. repeat rewrite eqb_refl. reflexivity.
-               ++ unfold A1_nodes_binded_to_parent_in_path in HA1''. specialize HA1'' with (m := c) (i := i'). apply HA1'' in Hmi'.
-                  destruct Hmi' as [a [Ha Hsub]]. exists a. split.
-                  ** apply Ha.
-                  ** destruct Hsub as [Hsub | Hsub].
-                     --- left. simpl. simpl in Hsub. rewrite Hsub. rewrite orb_comm. reflexivity.
-                     --- right. simpl. simpl in Hsub. rewrite Hsub. rewrite orb_comm. reflexivity.
-            -- apply HindA2.
-            -- apply HindA2.
-            -- apply HindA2.
-            -- unfold get_A2_binded_nodes_in_g_path in HA2ind. simpl. simpl in HA2ind. rewrite HA2ind. apply HA3'.
-            -- intros A4 A5 default U HA4 HU.
-               assert (HuA4: exists (cu: X), get_assigned_value A4 u = Some cu).
-               { apply assigned_has_value with (L := (get_A4_binded_nodes_in_g_path G (u, v, h :: t))). split.
-                 - destruct HA4ind as [HA4ind _]. rewrite HA4ind. left. reflexivity.
-                 - apply HA4. }
-               destruct HuA4 as [cu HuA4]. (* u evaluates to the constant cu, which h will also evaluate to *)
-               specialize HA12 with (A4 := (h, cu) :: (remove_assignment_for A4 u)) (A5 := (u, f_constant X cu) :: A5) (default := default) (U := U). pose proof HU as H1.
-               remember (g_path' X ((h, i) :: A1') A2' A3' A4 A5 default) as g.
-               remember (g_path' X A1' A2' A3' ((h, cu) :: (remove_assignment_for A4 u)) ((u, f_constant X cu) :: A5) default) as g'.
-               apply HA12 in H1.
-               { assert (Hu: find_value G g u U [] = find_value G g' u U [] /\ find_value G g u U [] = Some cu).
-                 { assert (Hx': exists (P: assignments X), find_values G g (find_parents u G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents u G)
-                        /\ exists (unobs: X), get_assigned_value U u = Some unobs
-                        /\ find_value G g u U [] = Some (g u (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply Hnodeu. }
-                   destruct Hx' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx.
-                   assert (Hx': exists (P: assignments X), find_values G g' (find_parents u G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents u G)
-                        /\ exists (unobs: X), get_assigned_value U u = Some unobs
-                        /\ find_value G g' u U [] = Some (g' u (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply Hnodeu. }
-                   destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                   rewrite Heqg. rewrite Heqg'. unfold g_path'.
-
-                   assert (HuA4': In u (get_A4_binded_nodes_in_g_path G (u, v, h :: t))). { destruct HA4ind as [HA4ind _]. rewrite HA4ind. left. reflexivity. }
-                   assert (Hhu: h =? u = false).
-                   { destruct (h =? u) as [|] eqn:Hhu.
-                     - exfalso. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. unfold acyclic_path_2 in Hp. destruct Hp as [_ [Hp _]]. apply Hp.
-                       left. apply eqb_eq. apply Hhu.
-                     - reflexivity. }
-                   assert (HA1u: get_assigned_value ((h, i) :: A1') u = None).
-                   { simpl. rewrite Hhu. apply A4_nodes_not_in_A1 in HuA4'.
-                     destruct HA1' as [_ HA1']. apply assigned_is_false. specialize HA1' with (u := u). apply HA1'. apply member_In_equiv_F. intros F.
-                     apply HuA4'. rewrite HA1ind. right. apply F. }
-                   rewrite HA1u. simpl in HA1u. rewrite Hhu in HA1u. rewrite HA1u.
-                   assert (HA2u: get_assigned_value A2' u = None).
-                   { apply A4_nodes_not_in_A2 in HuA4'. destruct HA2' as [_ HA2']. apply assigned_is_false.
-                     specialize HA2' with (u := u). apply HA2'. apply member_In_equiv_F. rewrite HA2ind in HuA4'. apply HuA4'. }
-                   rewrite HA2u.
-                   assert (HA3u: get_assigned_value A3' u = None).
-                   { apply descendant_paths_disjoint_with_A4 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                     unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. unfold nodes in *. apply HuA4'. }
-                   rewrite HA3u. rewrite HuA4. unfold f_constant. f_equal.
-                   simpl. rewrite Hhu. assert (HA4u': get_assigned_value (remove_assignment_for A4 u) u = None). { apply remove_assignment_None. }
-                   rewrite HA4u'. rewrite eqb_refl. split. reflexivity. reflexivity. }
-
-                 assert (HAh: get_assigned_value A1' h = None /\ get_assigned_value A2' h = None /\ get_assigned_value A3' h = None).
-                 { repeat split.
-                   { apply A4_nodes_not_in_A1 in HhA4.
-                     destruct HA1' as [_ HA1']. apply assigned_is_false. specialize HA1' with (u := h). apply HA1'. apply member_In_equiv_F. intros F.
-                     exfalso. apply HhA4. apply F. }
-                   { apply A4_nodes_not_in_A2 in HhA4. destruct HA2' as [_ HA2']. apply assigned_is_false.
-                     specialize HA2' with (u := h). apply HA2'. apply member_In_equiv_F. apply HhA4. }
-                   { apply descendant_paths_disjoint_with_A1 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                     unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. unfold nodes in *. rewrite HA1ind. left. reflexivity. } }
-
-                 assert (Hhu: find_value G g h U [] = find_value G g u U []).
-                 { assert (Hx': exists (P: assignments X), find_values G g (find_parents h G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents h G)
-                        /\ exists (unobs: X), get_assigned_value U h = Some unobs
-                        /\ find_value G g h U [] = Some (g h (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := h :: t). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                       unfold nodes. rewrite HA1ind. left. reflexivity. }
-                   destruct Hx' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. rewrite Hx. destruct Hu as [_ Hu]. rewrite Hu.
-                   rewrite Heqg. unfold g_path'. simpl. rewrite eqb_refl. simpl.
-                   destruct HAh as [HA1h [HA2h HA3h]]. unfold f_parent_i. simpl. f_equal.
-                   apply Hi'' with (g := g) (a := u) (w := h) (P := Px) (U := U). (* TODO probably a few places to use Hi'' *)
-                   + apply Hnodeu.
-                   + apply HU.
-                   + apply index_correct. symmetry. apply Hi.
-                   + split. apply Hparx. apply HPx.
-                   + apply Hu. }
-
-                 assert (Hh: find_value G g h U [] = find_value G g' h U []).
-                 { assert (Hx': exists (P: assignments X), find_values G g (find_parents h G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents h G)
-                        /\ exists (unobs: X), get_assigned_value U h = Some unobs
-                        /\ find_value G g h U [] = Some (g h (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := h :: t). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                       unfold nodes. rewrite HA1ind. left. reflexivity. }
-                   destruct Hx' as [Px [HPx [pax [Hparx [unobsx [HxU Hx]]]]]]. 
-                   assert (Hx': exists (P: assignments X), find_values G g' (find_parents h G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents h G)
-                        /\ exists (unobs: X), get_assigned_value U h = Some unobs
-                        /\ find_value G g' h U [] = Some (g' h (unobs, pa))).
-                   { apply find_value_evaluates_to_g. split.
-                     - destruct HG as [_ HG]. apply HG.
-                     - split. apply HU. apply A1_nodes_in_graph with (u := u) (v := v) (l := h :: t). apply HG. apply paths_start_to_end_correct in Hp. apply Hp.
-                       unfold nodes. rewrite HA1ind. left. reflexivity. }
-                   destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                   rewrite Heqg'. unfold g_path'. simpl. rewrite eqb_refl. simpl.
-
-                   destruct HAh as [HA1h [HA2h HA3h]]. rewrite HA1h. rewrite HA2h. rewrite HA3h. unfold f_constant. f_equal. rewrite Hhu. apply Hu. }
-
-                 assert (Hf: forall (w: node), node_in_graph w G = true -> find_value G g w U [] = find_value G g' w U []).
-                 { intros w Hw.
-                   (* induction on index in topo sort. *)
-
-                   unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ HG]. apply topo_sort_exists_for_acyclic in HG as Hts.
-                   destruct Hts as [ts Hts].
-                   apply topo_sort_contains_nodes with (u := w) in Hts as Hnode. apply Hnode in Hw as Hiw. clear Hnode. apply index_exists in Hiw. destruct Hiw as [j Hiw].
-                   assert (Hj: exists (iw: nat), Some iw = index ts w /\ iw <= j). { exists j. split. apply Hiw. lia. } clear Hiw.
-
-                   generalize dependent w. induction j as [| j' IH].
-                   - intros w Hw Hiw.
-                     destruct (w =? h) as [|] eqn:Hwh. apply eqb_eq in Hwh. rewrite Hwh. apply Hh.
-                     destruct (u =? w) as [|] eqn:Huw. apply eqb_eq in Huw. rewrite <- Huw. apply Hu.
-
-                     assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                        /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                        /\ find_value G g w U [] = Some (g w (unobs, pa))).
-                     { apply find_value_evaluates_to_g. split.
-                       - apply HG.
-                       - split. apply HU. apply Hw. }
-                     destruct Hw' as [P [HP [pa [Hpar [unobs [HwU Hw']]]]]].
-                     rewrite Hw'. rewrite Heqg. unfold g_path'.
-
-                     assert (Hw'': exists (P: assignments X), find_values G g' (find_parents w G) U [] = Some P
-                          /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                          /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                          /\ find_value G g' w U [] = Some (g' w (unobs, pa))).
-                     { apply find_value_evaluates_to_g. split.
-                       - apply HG.
-                       - split. apply HU. apply Hw. }
-                     destruct Hw'' as [P' [HP' [pa' [Hpar' [unobs' [HwU' Hw'']]]]]].
-                     rewrite Hw''. rewrite Heqg'. unfold g_path'. simpl.
-
-                     assert (Hwp: find_parents w G = []).
-                     { destruct Hiw as [iw Hiw]. assert (Hiw0: iw = 0). { lia. } destruct Hiw as [Hiw _].
-                       destruct ts as [| hts tts]. simpl in Hiw. discriminate Hiw.
-                       rewrite Hiw0 in Hiw. simpl in Hiw. destruct (hts =? w) as [|] eqn:Hhts.
-                       - apply topo_sort_first_node_no_parents with (ts := tts). split. apply HG. apply eqb_eq in Hhts. rewrite <- Hhts. apply Hts.
-                       - destruct (index tts w) as [it|]. discriminate Hiw. discriminate Hiw. }
-                     rewrite eqb_sym in Hwh. rewrite Hwh. rewrite Huw. rewrite remove_assignment_preserves_other_nodes.
-                     + rewrite HwU in HwU'. inversion HwU'. rewrite Hwp in *. simpl in HP. inversion HP. rewrite <- H3 in Hpar.
-                       simpl in Hpar. inversion Hpar. simpl in HP'. inversion HP'. rewrite <- H5 in Hpar'. simpl in Hpar'. inversion Hpar'.
-                       reflexivity.
-                     + apply Huw.
-                   - intros w Hw Hiw.
-                     destruct (w =? h) as [|] eqn:Hwh. apply eqb_eq in Hwh. rewrite Hwh. apply Hh.
-                     destruct (u =? w) as [|] eqn:Huw. apply eqb_eq in Huw. rewrite <- Huw. apply Hu.
-
-                     assert (Hw': exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                        /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                        /\ find_value G g w U [] = Some (g w (unobs, pa))).
-                     { apply find_value_evaluates_to_g. split.
-                       - apply HG.
-                       - split. apply HU. apply Hw. }
-                     destruct Hw' as [P [HP [pa [Hpar [unobs [HwU Hw']]]]]].
-                     rewrite Hw'. rewrite Heqg. unfold g_path'.
-
-                     assert (Hw'': exists (P: assignments X), find_values G g' (find_parents w G) U [] = Some P
-                          /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                          /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                          /\ find_value G g' w U [] = Some (g' w (unobs, pa))).
-                     { apply find_value_evaluates_to_g. split.
-                       - apply HG.
-                       - split. apply HU. apply Hw. }
-                     destruct Hw'' as [P' [HP' [pa' [Hpar' [unobs' [HwU' Hw'']]]]]].
-                     rewrite Hw''. rewrite Heqg'. unfold g_path'. simpl. rewrite eqb_sym in Hwh. rewrite Hwh.
-                     rewrite remove_assignment_preserves_other_nodes.
-                     + rewrite HwU in HwU'. inversion HwU'.
-                       assert (HPP': Some P' = Some P).
-                       { rewrite <- HP. rewrite <- HP'. apply find_values_same_if_parents_same. intros pw Hpw.
-                         assert (Hnodepw: node_in_graph pw G = true). { apply parents_in_graph with (u := w). apply HG. apply Hpw. }
-                         apply IH.
-                         - apply Hnodepw.
-                         - assert (Hlem: exists (ip iw': nat), Some ip = index ts pw /\ Some iw' = index ts w /\ ip < iw').
-                           { apply topo_sort_parents with (G := G). split. apply HG. apply Hts. apply Hpw. }
-                           destruct Hlem as [ip [iw' [Hip [Hiw' Hipiw]]]]. exists ip. split.
-                           + apply Hip.
-                           + destruct Hiw as [iw [Hiw Hiwj]]. rewrite <- Hiw in Hiw'. inversion Hiw'. lia. }
-
-                       inversion HPP'. rewrite H3 in Hpar'. rewrite <- Hpar in Hpar'. inversion Hpar'. rewrite Huw. reflexivity.
-                     + apply Huw. }
-
-                 split.
-
-                 { destruct H1 as [H1 _].
-                   intros w Hw.
-                   assert (Hnodew: node_in_graph w G = true).
-                   { destruct Hw as [_ Hw].
-                     assert (Hcolw: is_assigned A2' w = true /\ is_exact_assignment_for A2' (get_A2_binded_nodes_in_g_path G (h, v, t))). { split. apply Hw. apply HA2'. }
-                     apply assigned_true_then_in_list in Hcolw. unfold get_A2_binded_nodes_in_g_path in Hcolw. apply colliders_vs_edges_in_path in Hcolw.
-                     destruct Hcolw as [w1 [w2 Hcolw]]. destruct Hcolw as [_ [Hcolw _]]. unfold is_edge in Hcolw. destruct G as [V E]. apply split_and_true in Hcolw.
-                     destruct Hcolw as [Hcolw _]. apply split_and_true in Hcolw. simpl. apply Hcolw. }
-
-                   rewrite Hf. apply H1. apply Hw. apply Hnodew. }
-
-                 { intros Hcond. clear HA12. destruct H1 as [_ HA12].
-                   unfold unobs_conditions_on_Z in Hcond.
-                   assert (Hcond': unobs_conditions_on_Z G g' U AZ Z).
-                   { unfold unobs_conditions_on_Z. intros w Hw.
-                     rewrite <- Hf. apply Hcond. apply Hw. apply Hw. }
-
-                   apply HA12 in Hcond'. destruct Hcond' as [x Hcond']. exists x. intros w [Hwp Hwcol].
-                   assert (Hnodew: node_in_graph w G = true).
-                   { apply nodes_in_graph_in_V with (p := (u, v, h :: t)). split.
-                     - apply Hwp.
-                     - apply paths_start_to_end_correct in Hp. apply Hp. }
-
-                   unfold node_in_path in Hwp. simpl in Hwp. apply split_orb_true in Hwp. destruct Hwp as [Hwp | Hwp].
-                   - assert (Hhx: find_value G g' h U [] = Some x).
-                     { apply Hcond'. split.
-                       * unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-                       * intros Hmem. apply colliders_vs_edges_in_path in Hmem. destruct Hmem as [y [z [Hsub _]]].
-                         assert (Hacyc: acyclic_path_2 (h, v, t)).
-                         { apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                           apply paths_start_to_end_correct in Hp. apply Hp. }
-                         unfold acyclic_path_2 in Hacyc.
-                         assert (Hmem: In h (t ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [h; z]) (a := y) (h := h). split. apply Hsub. left. reflexivity. }
-                         apply membership_append_or in Hmem. destruct Hmem as [Hmem | [Hmem | F]]. destruct Hacyc as [_ [Hacyc _]]. apply Hacyc. apply Hmem.
-                         destruct Hacyc as [Hacyc _]. apply Hacyc. rewrite Hmem. reflexivity. apply F. }
-
-                     specialize Hcond' with (w := w). apply split_orb_true in Hwp. destruct Hwp as [Hwp | Hwp].
-                     + apply eqb_eq in Hwp. rewrite Hwp. rewrite <- Hhu. rewrite Hh. apply Hhx.
-                     + rewrite Hf. apply Hcond'. split.
-                       * unfold node_in_path. simpl. rewrite Hwp. rewrite <- orb_assoc. rewrite orb_comm. reflexivity.
-                       * unfold get_A2_binded_nodes_in_g_path in HA2ind. intros Hmem. apply Hwcol. unfold node in *. unfold nodes in *. unfold find_colliders_in_path. unfold find_colliders_in_path in HA2ind.
-                         rewrite HA2ind. unfold find_colliders_in_path in Hmem. apply Hmem.
-                       * apply Hnodew.
-                   - rewrite Hf. apply Hcond'. split.
-                     + unfold node_in_path. simpl. destruct (w =? h) as [|] eqn:Hwh. reflexivity. rewrite eqb_sym in Hwh. rewrite Hwh in Hwp. rewrite Hwp.
-                       simpl. rewrite orb_comm. reflexivity.
-                     + unfold get_A2_binded_nodes_in_g_path in HA2ind. intros Hmem. apply Hwcol. unfold node in *. unfold nodes in *. unfold find_colliders_in_path. unfold find_colliders_in_path in HA2ind.
-                       rewrite HA2ind. unfold find_colliders_in_path in Hmem. apply Hmem.
-                     + apply Hnodew. } }
-
-               { destruct HA4ind as [HA4ind1 HA4ind2]. unfold nodes. rewrite HA4ind2. apply remove_assignment_exact_cat.
-                 - rewrite <- HA4ind1. apply HA4.
-                 - intros F. assert (HuA4': In u (get_A4_binded_nodes_in_g_path G (h, v, t))).
-                   { rewrite HA4ind2. right. apply F. }
-                   apply A4_nodes_in_path in HuA4'. apply node_in_subpath_not_acyclic with (u := u) (v := v) (h := h) (t := t). apply HuA4'.
-                   apply paths_start_to_end_correct in Hp. apply Hp. }
-
-        + (* since arrow out of h is ->, h cannot be a collider, so h not in Z *)
-          intros HhZ. unfold d_connected_2 in Hconn.
-          assert (Hh: In h (find_mediators_in_path (u, v, h :: t) G) \/ In h (find_confounders_in_path (u, v, h :: t) G)).
-          { destruct (path_out_of_start (u, v, h :: t) G) as [|] eqn:Hout.
-            - simpl in Hout. left. apply mediators_vs_edges_in_path. destruct t as [| ht tt].
-              + exists u. exists v. repeat split. simpl. repeat rewrite eqb_refl. reflexivity. left. split.
-                apply Hout. simpl in Houth. apply Houth.
-              + exists u. exists ht. repeat split. simpl. repeat rewrite eqb_refl. reflexivity. left. split.
-                apply Hout. simpl in Houth. apply Houth.
-            - simpl in Hout. assert (Hedge: is_edge (h, u) G = true).
-              { apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. rewrite Hout in Hp. simpl in Hp.
-                destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
-              right. apply confounders_vs_edges_in_path. destruct t as [| ht tt].
-              + exists u. exists v. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
-                apply Hedge. simpl in Houth. apply Houth.
-              + exists u. exists ht. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
-                apply Hedge. simpl in Houth. apply Houth. }
-          destruct Hh as [Hh | Hh].
-          * destruct Hconn as [Hmed _]. apply no_overlap_non_member with (x := h) in Hmed.
-            -- apply Hmed. apply HhZ.
-            -- apply Hh.
-          * destruct Hconn as [_ [Hcon _]]. apply no_overlap_non_member with (x := h) in Hcon.
-            -- apply Hcon. apply HhZ.
-            -- apply Hh.
-        + apply descendant_paths_disjoint_cat with (u := u). apply Hdesc. intros Hcolh.
-          simpl in Hcolh. destruct t as [| h' t'].
-          * simpl in Hcolh. unfold is_collider_bool in Hcolh. simpl in Houth. apply acyclic_no_two_cycle in Houth. rewrite Houth in Hcolh.
-            rewrite andb_comm in Hcolh. simpl in Hcolh. apply Hcolh. apply HG.
-          * simpl in Hcolh. unfold is_collider_bool in Hcolh. simpl in Houth. apply acyclic_no_two_cycle in Houth. rewrite Houth in Hcolh.
-            rewrite andb_comm in Hcolh. simpl in Hcolh. apply paths_start_to_end_correct in Hpind. destruct Hpind as [Hpind [_ Hcyc]].
-            destruct Hcyc as [_ [Hcyc _]]. apply intermediate_node_in_path with (x := h) in Hpind. apply Hcyc. apply Hpind.
-            right. right. apply Hcolh. apply HG.
-        + apply subpath_still_d_connected with (u := u). apply Hconn.
-        + destruct Hl as [l' [Hl' Hsub]]. exists (h :: t ++ [v]). split. reflexivity.
-          apply end_of_sublist_still_sublist_gen with (a := u) (h := hn). rewrite Hl' in Hsub. apply Hsub. }
-
-    { destruct (path_into_start (u, v, h :: t) G) as [|] eqn:Hin.
-      - (* u <- h <- ...t... <-> v *)
-        specialize IH with (u := h) (l := t) (D := D).
-        assert (Hp': In (h, v, t) (find_all_paths_from_start_to_end h v G)).
-        { apply paths_start_to_end_correct in Hp. apply paths_start_to_end_correct. split.
-          - apply is_path_in_graph_induction with (u := u). apply Hp.
-          - split. apply path_start_end_refl. apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity. apply Hp. }
-        pose proof Hp' as Hpind. apply IH in Hp'. clear IH.
-
-        + destruct Hp' as [A1' [A2' [A3' HA12]]]. destruct HA12 as [HA1' [HA1'' [HA2' [HA2'' [HA3' HA12]]]]].
-          assert (Hi: exists i: nat, index (find_parents u G) h = Some i).
-          { assert (Hh: In h (find_parents u G)).
-            { simpl in Hin. apply edge_from_parent_to_child. unfold is_edge in Hin. destruct G as [V E]. simpl. apply split_and_true in Hin. apply Hin. }
-            apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-          destruct Hi as [i Hi].
-          assert (Hnodeu: node_in_graph u G = true).
-          { apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. apply is_edge_then_node_in_graph with (v := h). destruct G as [V E].
-            apply split_and_true in Hp. destruct Hp as [Hp _]. apply split_orb_true. apply Hp. }
-
-          assert (HA1ind: get_A1_binded_nodes_in_g_path G (u, v, h :: t) = u :: get_A1_binded_nodes_in_g_path G (h, v, t)).
-          { apply A1_induction_into_start.
-            - split.
-              ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-              ** destruct HG as [_ [_ HG]]. apply HG.
-            - apply Hin. }
-          assert (HA2ind: get_A2_binded_nodes_in_g_path G (u, v, h :: t) = get_A2_binded_nodes_in_g_path G (h, v, t)).
-          { apply A2_induction_case.
-            - destruct HG as [_ [_ HG]]. apply HG.
-            - left. apply Hin. }
-          assert (HindA2: is_exact_assignment_for A2' (get_A2_binded_nodes_in_g_path G (u, v, h :: t)) /\ A2_nodes_colliders_in_graph G (u, v, h :: t) A2').
-          { repeat split.
-            -- unfold nodes. rewrite HA2ind. unfold is_exact_assignment_for in HA2'. destruct HA2' as [HA2' _]. apply HA2'.
-            -- (* since h is not a collider, nothing changes from induction case *)
-               unfold nodes. rewrite HA2ind. unfold is_exact_assignment_for in HA2'. destruct HA2' as [_ HA2']. apply HA2'.
-            -- unfold A2_nodes_colliders_in_graph. intros c i' j' x y Hc. unfold A2_nodes_colliders_in_graph in HA2''.
-               specialize HA2'' with (c := c) (i := i') (j := j') (x := x) (y := y). apply HA2'' in Hc. destruct Hc as [a [b Hc]].
-               exists a. exists b. repeat split.
-               ++ apply Hc.
-               ++ apply Hc.
-               ++ destruct Hc as [_ [_ [Hc _]]]. apply sublist_breaks_down_list in Hc. simpl in Hc. destruct Hc as [l2 [l3 Hc]].
-                  apply sublist_breaks_down_list. exists (u :: l2). exists l3. simpl. rewrite Hc. reflexivity.
-               ++ apply Hc. }
-          assert (HA4ind: get_A4_binded_nodes_in_g_path G (u, v, h :: t) = get_A4_binded_nodes_in_g_path G (h, v, t)).
-          { apply A4_induction_case.
-            - split.
-              ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-              ** destruct HG as [_ [_ HG]]. apply HG.
-            - apply Hin. }
-
-          exists ((u, i) :: A1'). exists A2'. exists A3'. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. split.
-          repeat split.
-          * (* since arrow into u, u is in A1 *)
-            unfold nodes. rewrite HA1ind. simpl. rewrite eqb_refl. simpl. apply is_assignment_for_cat.
-            unfold is_exact_assignment_for in HA1'. destruct HA1' as [HA1' _]. apply HA1'.
-          * intros u' Hmemu'. unfold is_exact_assignment_for in HA1'. destruct HA1' as [_ HA1']. simpl.
-            assert (Hmemu: In u (get_A1_binded_nodes_in_g_path G (u, v, h :: t))).
-            { rewrite HA1ind. left. reflexivity. }
-            destruct (u' =? u) as [|] eqn:Huu'.
-            ++ apply eqb_eq in Huu'. apply member_In_equiv in Hmemu. rewrite Huu' in Hmemu'. unfold nodes in Hmemu'. rewrite Hmemu in Hmemu'. discriminate Hmemu'.
-            ++ simpl. apply HA1'. unfold nodes in Hmemu'. rewrite HA1ind in Hmemu'. unfold member in Hmemu'. rewrite eqb_sym in Hmemu'. rewrite Huu' in Hmemu'. apply Hmemu'.
-          * unfold A1_nodes_binded_to_parent_in_path. intros c i' Hmi'. simpl in Hmi'. destruct Hmi' as [Hmi' | Hmi'].
-            ++ inversion Hmi'. rewrite <- H1 in *. rewrite <- H2 in *. exists h. repeat split.
-               ** apply index_correct. symmetry. apply Hi.
-               ** right. simpl. repeat rewrite eqb_refl. reflexivity.
-            ++ unfold A1_nodes_binded_to_parent_in_path in HA1''. specialize HA1'' with (m := c) (i := i'). apply HA1'' in Hmi'.
-               destruct Hmi' as [a [Ha Hsub]]. exists a. split.
-               ** apply Ha.
-               ** destruct Hsub as [Hsub | Hsub].
-                  --- left. simpl. simpl in Hsub. rewrite Hsub. rewrite orb_comm. reflexivity.
-                  --- right. simpl. simpl in Hsub. rewrite Hsub. rewrite orb_comm. reflexivity.
-          * apply HindA2.
-          * apply HindA2.
-          * apply HindA2.
-          * unfold get_A2_binded_nodes_in_g_path in HA2ind. simpl. simpl in HA2ind. rewrite HA2ind. apply HA3'.
-          * intros A4 A5 default U HA4 HU. pose proof HU as H1.
-
-            specialize HA12 with (A4 := A4) (default := default) (U := U) (A5 := (u, f_parent_i X i) :: A5).
-            remember (g_path' X A1' A2' A3' A4 ((u, f_parent_i X i) :: A5) default) as g. remember (g_path' X ((u, i) :: A1') A2' A3' A4 A5 default) as g'.
-            apply HA12 in H1.
-
-            2: { unfold nodes. rewrite <- HA4ind. apply HA4. }
-
-            assert (Hg: g = g').
-            { apply functional_extensionality. intros x. rewrite Heqg. rewrite Heqg'. unfold g_path'. simpl.
-              destruct (u =? x) as [|] eqn:Hux.
-               - apply eqb_eq in Hux. rewrite <- Hux in *. assert (Humem: node_in_path u (h, v, t) = false).
-                 { apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]]. unfold acyclic_path_2 in Hp.
-                   unfold node_in_path. simpl. destruct (u =? h) as [|] eqn:Huh.
-                   - exfalso. destruct Hp as [_ [Hp _]]. apply Hp. left. apply eqb_eq in Huh. rewrite Huh. reflexivity.
-                   - simpl. destruct (u =? v) as [|] eqn:Huv.
-                     + exfalso. destruct Hp as [Hp _]. apply Hp. apply eqb_eq in Huv. apply Huv.
-                     + simpl. destruct Hp as [_ [Hp _]]. apply member_In_equiv_F. intros F. apply Hp. right. apply F. }
-                 assert (HxA1': get_assigned_value A1' u = None).
-                 { destruct (is_assigned A1' u) as [|] eqn:HxA1'.
-                   - assert (Hmem: node_in_path u (h, v, t) = true).
-                     { apply A1_nodes_in_path with (G := G). apply assigned_true_then_in_list with (A := A1'). split. apply HxA1'. apply HA1'. }
-                     rewrite Hmem in Humem. discriminate Humem.
-                   - apply assigned_is_false. apply HxA1'. }
-                 rewrite HxA1'.
-                 assert (HxA2': get_assigned_value A2' u = None).
-                 { destruct (is_assigned A2' u) as [|] eqn:HxA2'.
-                   - assert (Hcol: In u (get_A2_binded_nodes_in_g_path G (h, v, t))).
-                     { apply assigned_true_then_in_list with (A := A2'). split. apply HxA2'. apply HA2'. }
-                     unfold get_A2_binded_nodes_in_g_path in Hcol. apply colliders_vs_edges_in_path in Hcol. destruct Hcol as [y [z [Hsub _]]].
-                     assert (Hmem: In u (h :: t ++ [v])). { apply sublist_member with (l1 := [y; u; z]). split. right. left. reflexivity. apply Hsub. }
-                     unfold node_in_path in Humem. simpl in Humem. destruct Hmem as [Hmem | Hmem]. rewrite Hmem in Humem. rewrite eqb_refl in Humem. discriminate Humem.
-                     apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem]. apply member_In_equiv in Hmem. rewrite Hmem in Humem. rewrite orb_comm in Humem. discriminate Humem.
-                     destruct Hmem as [Hmem | Hmem]. rewrite Hmem in Humem. rewrite eqb_refl in Humem. rewrite <- orb_assoc in Humem. rewrite orb_comm in Humem. discriminate Humem. exfalso. apply Hmem.
-                   - apply assigned_is_false. apply HxA2'. }
-                 rewrite HxA2'.
-                 assert (HxA3': get_assigned_value A3' u = None).
-                 { apply descendant_paths_disjoint_with_A1 with (D := D) (u := u) (v := v) (l := h :: t) (G := G) (Z := Z). apply Hdesc.
-                   unfold get_A2_binded_nodes_in_g_path in HA2ind. unfold nodes in *. rewrite HA2ind. apply HA3'. unfold nodes in *. rewrite HA1ind. left. reflexivity. }
-                 rewrite HxA3'.
-                 assert (HxA4: get_assigned_value A4 u = None).
-                 { destruct (is_assigned A4 u) as [|] eqn:HxA4.
-                   - assert (Hmem: node_in_path u (h, v, t) = true).
-                     { apply A4_nodes_in_path with (G := G). apply assigned_true_then_in_list with (A := A4). split. apply HxA4. unfold nodes. rewrite <- HA4ind.
-                       apply HA4. }
-                     rewrite Hmem in Humem. discriminate Humem.
-                   - apply assigned_is_false. apply HxA4. }
-                 rewrite HxA4. reflexivity.
-               - reflexivity. }
-
-            split.
-            { intros w Hw. destruct H1 as [H1 _]. rewrite <- Hg. apply H1. apply Hw. }
-
-            { intros Hcond. rewrite <- Hg in Hcond. destruct H1 as [_ H1]. apply H1 in Hcond. destruct Hcond as [x Hcond]. exists x.
-              intros w [Hwp Hwcol]. destruct (u =? w) as [|] eqn:Huw.
-              - apply eqb_eq in Huw.
-                assert (Hh: find_value G g h U [] = Some x).
-                { apply Hcond. split.
-                  * unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-                  * intros Hmem. apply colliders_vs_edges_in_path in Hmem. destruct Hmem as [y [z [Hsub _]]].
-                    assert (Hacyc: acyclic_path_2 (h, v, t)).
-                    { apply subpath_still_acyclic with (w := u) (l1 := []) (l3 := h :: t). split. reflexivity.
-                      apply paths_start_to_end_correct in Hp. apply Hp. }
-                    unfold acyclic_path_2 in Hacyc.
-                    assert (Hmem: In h (t ++ [v])). { apply middle_elt_of_sublist_not_first_elt_gen with (A := [h; z]) (a := y) (h := h). split. apply Hsub. left. reflexivity. }
-                    apply membership_append_or in Hmem. destruct Hmem as [Hmem | [Hmem | F]]. destruct Hacyc as [_ [Hacyc _]]. apply Hacyc. apply Hmem.
-                    destruct Hacyc as [Hacyc _]. apply Hacyc. rewrite Hmem. reflexivity. apply F. }
-
-                assert (Hw: exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                              /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                              /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                              /\ find_value G g w U [] = Some (g w (unobs, pa))).
-                { apply find_value_evaluates_to_g. split.
-                  - destruct HG as [_ HG]. apply HG.
-                  - split. apply HU. unfold path_into_start in Hin. apply is_edge_then_node_in_graph with (v := h). right. rewrite <- Huw. apply Hin. }
-                destruct Hw as [Pw [HPw [paw [Hpaw [unobsw [HwU Hw]]]]]]. rewrite <- Hg. rewrite Hw. rewrite <- Huw in *.
-                rewrite Hg. rewrite Heqg'. f_equal. unfold g_path'. simpl. rewrite eqb_refl. unfold f_parent_i. simpl.
-
-                assert (HPwh: get_assigned_value Pw h = Some x).
-                { apply find_values_get_assigned with (G := G) (g := g) (P := find_parents u G) (U := U) (A := []). repeat split.
-                  - apply HPw.
-                  - apply index_exists. exists i. symmetry. apply Hi.
-                  - apply Hh. }
-                assert (Hiw: nth_error paw i = get_assigned_value Pw h).
-                { rewrite HPwh. apply parent_assignments_preserves_index with (P := Pw) (V := find_parents u G) (m := h). repeat split.
-                  - symmetry. apply Hpaw.
-                  - apply Hi.
-                  - apply HPwh. }
-                unfold nth_default. rewrite Hiw. rewrite HPwh. reflexivity.
-
-              - rewrite <- Hg. apply Hcond. split.
-                + unfold node_in_path. simpl. destruct (w =? h) as [|] eqn:Hwh. reflexivity. rewrite eqb_sym in Hwh. unfold node_in_path in Hwp. simpl in Hwp. rewrite eqb_sym in Huw. rewrite Huw in Hwp.
-                  simpl in Hwp. rewrite Hwh in Hwp. simpl. apply Hwp.
-                + unfold get_A2_binded_nodes_in_g_path in HA2ind. intros Hmem. apply Hwcol. unfold node in *. unfold nodes in *. unfold find_colliders_in_path. unfold find_colliders_in_path in HA2ind.
-                  rewrite HA2ind. unfold find_colliders_in_path in Hmem. apply Hmem. }
-        + (* path is u <- h, so h cannot be a collider. Thus, h not in Z *)
-          intros HhZ. unfold d_connected_2 in Hconn.
-          assert (Hh: In h (find_mediators_in_path (u, v, h :: t) G)).
-          { apply mediators_vs_edges_in_path. destruct t as [| ht tt].
-            - exists u. exists v. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
-              simpl in Hin. simpl in Houth. right. split. apply Hin. apply paths_start_to_end_correct in Hpind. destruct Hpind as [Hpind _].
-              simpl in Hpind. rewrite Houth  in Hpind. simpl in Hpind. destruct G as [V E]. rewrite andb_comm in Hpind. simpl in Hpind. apply Hpind.
-            - exists u. exists ht. repeat split. simpl. repeat rewrite eqb_refl. reflexivity.
-              simpl in Hin. simpl in Houth. right. split. apply Hin. apply paths_start_to_end_correct in Hpind. destruct Hpind as [Hpind _].
-              simpl in Hpind. rewrite Houth  in Hpind. simpl in Hpind. destruct G as [V E]. apply split_and_true in Hpind. apply Hpind. }
-          destruct Hconn as [Hmed _]. apply no_overlap_non_member with (x := h) in Hmed.
-          * apply Hmed. apply HhZ.
-          * apply Hh.
-        + apply descendant_paths_disjoint_cat with (u := u). apply Hdesc. intros Hcolh.
-          simpl in Hcolh. destruct t as [| h' t'].
-          * simpl in Hcolh. unfold is_collider_bool in Hcolh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin in Hcolh.
-            simpl in Hcolh. apply Hcolh. apply HG.
-          * simpl in Hcolh. unfold is_collider_bool in Hcolh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin in Hcolh.
-            simpl in Hcolh. apply paths_start_to_end_correct in Hpind. destruct Hpind as [Hpind [_ Hcyc]].
-            destruct Hcyc as [_ [Hcyc _]]. apply intermediate_node_in_path with (x := h) in Hpind. apply Hcyc. apply Hpind.
-            right. right. apply Hcolh. apply HG.
-        + apply subpath_still_d_connected with (u := u). apply Hconn.
-        + exists (h :: t ++ [v]). split. reflexivity. apply end_of_sublist_still_sublist_gen with (a := u) (h := hn).
-          destruct Hl as [l' [Hl' Hsub]]. rewrite Hl' in Hsub. apply Hsub.
-      - (* u -> h <- ...t... <-> v *) ANNA
-        destruct t as [| h' t'].
-        + (* u -> h <- v *)
-          assert (Huh: is_edge (u, h) G = true).
-          { simpl in Hin. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. rewrite Hin in Hp. rewrite orb_comm in Hp. simpl in Hp.
-            destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
-          assert (Hhv: is_edge (v, h) G = true).
-          { simpl in Houth. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. rewrite Houth in Hp. simpl in Hp.
-            destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. rewrite andb_comm in Hp. simpl in Hp. apply Hp. }
-
-          exists [].
-          assert (Hi: exists i: nat, index (find_parents h G) u = Some i).
-          { assert (Hh: In u (find_parents h G)).
-            { apply edge_from_parent_to_child. unfold is_edge in Huh. destruct G as [V E]. simpl. apply split_and_true in Huh. apply Huh. }
-            apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-          destruct Hi as [iu Hiu].
-          assert (Hi: exists i: nat, index (find_parents h G) v = Some i).
-          { assert (Hh: In v (find_parents h G)).
-            { apply edge_from_parent_to_child. unfold is_edge in Hhv. destruct G as [V E]. simpl. apply split_and_true in Hhv. apply Hhv. }
-            apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-          destruct Hi as [iv Hiv].
-
-          unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [Hdesc' Hdesc]. specialize Hdesc with (c := h).
-          assert (Hcoluv: find_colliders_in_path (u, v, [h]) G = [h]). { simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. reflexivity. }
-          assert (Hcolh: In h (find_colliders_in_path (u, v, [h]) G)). { rewrite Hcoluv. left. reflexivity. }
-          apply Hdesc in Hcolh. clear Hdesc. destruct Hcolh as [Hcolh | Hcolh].
-          { assert (HhAZ: exists (xh: X), get_assigned_value AZ h = Some xh).
-            { apply assigned_has_value with (L := Z). split. apply Hcolh. apply HAZ. }
-            destruct HhAZ as [xh HhAZ].
-            assert (Hxh: exists (y: X), y <> xh).
-            { destruct HG as [HG _]. destruct HG as [xX [yX Hxy]]. destruct (eqb xX xh) as [|] eqn:Hxd.
-              - exists yX. apply eqb_eq' in Hxd. rewrite <- Hxd. intros Hxy'. apply Hxy. symmetry. apply Hxy'.
-              - exists xX. intros Hxy'. rewrite Hxy' in Hxd. rewrite eqb_refl' in Hxd. discriminate Hxd. }
-            destruct Hxh as [y Hxh].
-
-            exists [(h, (iu, iv, xh, y))]. exists [].
-
-            rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. split.
-            repeat split.
-            * simpl. rewrite Hhv. simpl in Hin. rewrite Hin. unfold is_mediator_bool. simpl in Houth. rewrite Houth. rewrite Hin. rewrite andb_comm. simpl.
-              rewrite andb_comm. simpl. reflexivity.
-            * unfold A1_nodes_binded_to_parent_in_path. intros m i F. exfalso. apply F.
-            * simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. rewrite eqb_refl. simpl. reflexivity.
-            * intros w Hw. simpl. rewrite orb_comm. simpl. simpl in Hw. unfold is_collider_bool in Hw. rewrite Huh in Hw. rewrite Hhv in Hw. simpl in Hw.
-              destruct (h =? w) as [|] eqn:Hhw. discriminate Hw. rewrite eqb_sym. apply Hhw.
-            * unfold A2_nodes_colliders_in_graph. intros c i j x' y' Hc. exists u. exists v. simpl in Hc. inversion Hc. inversion H0. repeat split.
-              -- rewrite <- H2. rewrite <- H3. apply index_correct. symmetry. apply Hiu.
-              -- rewrite <- H2. rewrite <- H4. apply index_correct. symmetry. apply Hiv.
-              -- simpl. repeat rewrite eqb_refl. reflexivity.
-              -- unfold is_collider_bool. rewrite <- H2. rewrite Huh. rewrite Hhv. reflexivity.
-              -- exfalso. apply H0.
-            * simpl. simpl in Hcoluv. rewrite Hcoluv. simpl. destruct Hcolh as [Hcolh _]. rewrite Hcolh. rewrite eqb_refl. reflexivity.
-              (* D is just (h, ([], h)) in this case, so not included in get_A3_assignments. *)
-            * intros A4 A5 def U HA4 HU. remember (g_path' X [] [(h, (iu, iv, xh, y))] [] A4 A5 def) as g. split.
-
-(* u -> h <- v
-
-In theorem statement, 
-(exists A1....) \/ ~conditionally_independent... 
-for previous cases, left.
-for this case, right: u and v are both in A4, so they must be defined to be different constants. this is basically the same as saying
-  they're both in Z? which doesn't make sense to consider d-connectedness anymore...
-
- *)
-
-              -- intros w [HwZ Hhw]. simpl in Hhw. rewrite orb_comm in Hhw. simpl in Hhw. apply eqb_eq in Hhw. rewrite Hhw.
-                 assert (Hx': exists (P: assignments X), find_values G g (find_parents h G) U [] = Some P
-                        /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents h G)
-                        /\ exists (unobs: X), get_assigned_value U h = Some unobs
-                        /\ find_value G g h U [] = Some (g h (unobs, pa))).
-                 { apply find_value_evaluates_to_g. split.
-                   - destruct HG as [_ HG]. apply HG.
-                   - split. apply HU. apply is_edge_then_node_in_graph with (v := u). right. apply Huh. }
-                 destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                 rewrite Heqg. unfold g_path'. simpl. rewrite eqb_refl. unfold f_equate_ij. simpl. rewrite HhAZ. f_equal.
-                 (* use Hind, set h' assigned to := xh in A4, u := xh in A5. *) admit.
-              -- intros Hcond.
-                 assert (Hu: exists (xu: X), find_value G g u U [] = Some xu). { apply find_value_existence. apply HG. split. apply HU.
-                   apply is_edge_then_node_in_graph with (v := h). left. apply Huh. } destruct Hu as [xu Hxu].
-                 exists xu. intros w [Hwp Hwcol]. unfold node_in_path in Hwp. simpl in Hwp. apply split_orb_true in Hwp. rewrite split_orb_true in Hwp. destruct Hwp as [[Hwp | Hwp] | Hwp].
-                 ++ apply eqb_eq in Hwp. rewrite Hwp. apply Hxu.
-                 ++ apply eqb_eq in Hwp. rewrite Hwp. admit.
-                 ++ destruct (h =? w) as [|] eqn:Hhw. exfalso. apply Hwcol. simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. left. apply eqb_eq. apply Hhw.
-                    discriminate Hwp. }
-
-          { destruct Hcolh as [ph [dh Hpd]].
-            assert (HhAZ: exists (xd: X), get_assigned_value AZ dh = Some xd).
-            { apply assigned_has_value with (L := Z). split. apply Hpd. apply HAZ. }
-            destruct HhAZ as [xd HhAZ].
-            assert (Hxh: exists (y: X), y <> xd).
-            { destruct HG as [HG _]. destruct HG as [xX [yX Hxy]]. destruct (eqb xX xd) as [|] eqn:Hxd.
-              - exists yX. apply eqb_eq' in Hxd. rewrite <- Hxd. intros Hxy'. apply Hxy. symmetry. apply Hxy'.
-              - exists xX. intros Hxy'. rewrite Hxy' in Hxd. rewrite eqb_refl' in Hxd. discriminate Hxd. }
-            destruct Hxh as [y Hxd].
-
-            exists [(h, (iu, iv, xd, y))].
-            assert (HA3: exists (A3: assignments nat), get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, [h]) G) = Some A3). { admit. }
-            destruct HA3 as [A3 HA3]. exists A3.
-
-            rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. rewrite <- and_assoc. split.
-            repeat split.
-            * simpl. rewrite Hhv. simpl in Hin. rewrite Hin. unfold is_mediator_bool. simpl in Houth. rewrite Houth. rewrite Hin. rewrite andb_comm. simpl.
-              rewrite andb_comm. simpl. reflexivity.
-            * unfold A1_nodes_binded_to_parent_in_path. intros m i F. exfalso. apply F.
-            * simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. rewrite eqb_refl. simpl. reflexivity.
-            * intros w Hw. simpl. rewrite orb_comm. simpl. simpl in Hw. unfold is_collider_bool in Hw. rewrite Huh in Hw. rewrite Hhv in Hw. simpl in Hw.
-              destruct (h =? w) as [|] eqn:Hhw. discriminate Hw. rewrite eqb_sym. apply Hhw.
-            * unfold A2_nodes_colliders_in_graph. intros c i j x' y' Hc. exists u. exists v. simpl in Hc. inversion Hc. inversion H0. repeat split.
-              -- rewrite <- H2. rewrite <- H3. apply index_correct. symmetry. apply Hiu.
-              -- rewrite <- H2. rewrite <- H4. apply index_correct. symmetry. apply Hiv.
-              -- simpl. repeat rewrite eqb_refl. reflexivity.
-              -- unfold is_collider_bool. rewrite <- H2. rewrite Huh. rewrite Hhv. reflexivity.
-              -- exfalso. apply H0.
-            * apply HA3.
-            * intros A4 A5 def U HA4 HU. remember (g_path' X [] [(h, (iu, iv, xd, y))] A3 A4 A5 def) as g. split.
-              -- intros w [HwZ Hhw]. simpl in Hhw. rewrite orb_comm in Hhw. simpl in Hhw. apply eqb_eq in Hhw.
-                 destruct Hpd as [_ [_ [_ [_ [Hpd _]]]]]. apply no_overlap_non_member with (x := h) in Hpd. exfalso. apply Hpd. left. reflexivity. rewrite <- Hhw. apply HwZ.
-              -- intros Hcond.
-                 assert (Hu: exists (xu: X), find_value G g u U [] = Some xu). { apply find_value_existence. apply HG. split. apply HU.
-                   apply is_edge_then_node_in_graph with (v := h). left. apply Huh. } destruct Hu as [xu Hxu].
-                 exists xu. intros w [Hwp Hwcol]. unfold node_in_path in Hwp. simpl in Hwp. apply split_orb_true in Hwp. rewrite split_orb_true in Hwp. destruct Hwp as [[Hwp | Hwp] | Hwp].
-                 ++ apply eqb_eq in Hwp. rewrite Hwp. apply Hxu.
-                 ++ apply eqb_eq in Hwp. rewrite Hwp. admit.
-                 ++ destruct (h =? w) as [|] eqn:Hhw. exfalso. apply Hwcol. simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. left. apply eqb_eq. apply Hhw.
-                    discriminate Hwp. }
-
-        + (* u -> h <- h' ... t'... v *)
-          assert (Huh: is_edge (u, h) G = true).
-          { simpl in Hin. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. rewrite Hin in Hp. rewrite orb_comm in Hp. simpl in Hp.
-            destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
-          assert (Hhv: is_edge (h', h) G = true).
-          { simpl in Houth. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. simpl in Hp. rewrite Houth in Hp. simpl in Hp.
-            destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply split_and_true in Hp. apply Hp. }
-
-          assert (Hcoluv: find_colliders_in_path (u, v, h :: h' :: t') G = h :: find_colliders_in_path (h', v, t') G).
-          { simpl. unfold is_collider_bool. rewrite Huh. rewrite Hhv. simpl. f_equal. destruct t' as [| h'' t''].
-            - simpl. simpl in Houth. rewrite Houth. simpl. reflexivity.
-            - simpl. simpl in Houth. rewrite Houth. simpl. reflexivity. }
-
-          specialize IH with (u := h') (l := t') (D := D). (* TODO D should just be D minus first element (h)? *)
-          assert (Hp': In (h', v, t') (find_all_paths_from_start_to_end h' v G)).
-          { apply paths_start_to_end_correct in Hp. apply paths_start_to_end_correct. split.
-            - apply is_path_in_graph_induction with (u := h). apply is_path_in_graph_induction with (u := u). apply Hp.
-            - split. apply path_start_end_refl. apply subpath_still_acyclic with (w := u) (l1 := [h]) (l3 := h :: h' :: t'). split. reflexivity. apply Hp. }
-          pose proof Hp' as Hpind. apply IH in Hp'. clear IH.
-
-          * destruct Hp' as [A1' [A2' [A3' Hind]]]. exists A1'.
-            assert (Hi: exists i: nat, index (find_parents h G) u = Some i).
-            { assert (Hh: In u (find_parents h G)).
-              { apply edge_from_parent_to_child. unfold is_edge in Huh. destruct G as [V E]. simpl. apply split_and_true in Huh. apply Huh. }
-              apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-            destruct Hi as [iu Hiu].
-            assert (Hi: exists i: nat, index (find_parents h G) h' = Some i).
-            { assert (Hh: In h' (find_parents h G)).
-              { apply edge_from_parent_to_child. unfold is_edge in Hhv. destruct G as [V E]. simpl. apply split_and_true in Hhv. apply Hhv. }
-              apply index_exists in Hh. destruct Hh as [i Hi]. exists i. rewrite Hi. reflexivity. }
-            destruct Hi as [iv Hiv].
-
-            unfold descendant_paths_disjoint in Hdesc. destruct Hdesc as [Hdesc' Hdesc]. specialize Hdesc with (c := h).
-            assert (Hcolh: In h (find_colliders_in_path (u, v, path_int (u, v, h :: h' :: t')) G)). { simpl. simpl in Hcoluv. rewrite Hcoluv. left. reflexivity. }
-            assert (HA1ind: is_exact_assignment_for A1'
-                               (get_A1_binded_nodes_in_g_path G (u, v, h :: h' :: t')) /\
-                             A1_nodes_binded_to_parent_in_path G (u, v, h :: h' :: t') A1').
-            { repeat split.
-              - rewrite A1_induction_add_collider. apply Hind. split. apply paths_start_to_end_correct in Hp. apply Hp. apply HG.
-                split. apply Hin. apply Houth.
-              - rewrite A1_induction_add_collider. apply Hind. split. apply paths_start_to_end_correct in Hp. apply Hp. apply HG.
-                split. apply Hin. apply Houth.
-              - unfold A1_nodes_binded_to_parent_in_path. intros m i Hmi. destruct Hind as [_ [Hind _]]. apply Hind in Hmi.
-                destruct Hmi as [a Hmi]. exists a. split. apply Hmi. destruct Hmi as [_ [Hmi | Hmi]].
-                -- left. apply sublist_breaks_down_list. apply sublist_breaks_down_list in Hmi. destruct Hmi as [l2 [l3 Hmi]]. exists (u :: h :: l2). exists l3.
-                   simpl. simpl in Hmi. rewrite <- Hmi. reflexivity.
-                -- right. apply sublist_breaks_down_list. apply sublist_breaks_down_list in Hmi. destruct Hmi as [l2 [l3 Hmi]]. exists (u :: h :: l2). exists l3.
-                   simpl. simpl in Hmi. rewrite <- Hmi. reflexivity. }
-
-            assert (HA2ind: forall (xh y: X), is_exact_assignment_for ((h, (iu, iv, xh, y)) :: A2')
-                                  (get_A2_binded_nodes_in_g_path G (u, v, h :: h' :: t')) /\
-                                A2_nodes_colliders_in_graph G (u, v, h :: h' :: t')
-                                  ((h, (iu, iv, xh, y)) :: A2')).
-            { intros xh' y. repeat split.
-              - unfold get_A2_binded_nodes_in_g_path. unfold nodes in *. rewrite Hcoluv. simpl. rewrite eqb_refl. simpl. apply is_assignment_for_cat.
-                destruct Hind as [_ [_ [Hind _]]]. unfold get_A2_binded_nodes_in_g_path in Hind. simpl in Hind. apply Hind.
-              - intros w Hw. simpl. unfold get_A2_binded_nodes_in_g_path in Hw. unfold nodes in *. rewrite Hcoluv in Hw. destruct (w =? h) as [|] eqn:Hwh.
-                simpl in Hw. rewrite eqb_sym in Hwh. rewrite Hwh in Hw. discriminate Hw. simpl. apply Hind. simpl in Hw. rewrite eqb_sym in Hwh. rewrite Hwh in Hw. apply Hw.
-              - unfold A2_nodes_colliders_in_graph. intros c i j x' y' Hc. destruct Hc as [Hc | Hc].
-                { exists u. exists h'. inversion Hc. repeat split.
-                  -- rewrite <- H1. rewrite <- H2. apply index_correct. symmetry. apply Hiu.
-                  -- rewrite <- H1. rewrite <- H3. apply index_correct. symmetry. apply Hiv.
-                  -- simpl. repeat rewrite eqb_refl. simpl. reflexivity.
-                  -- unfold is_collider_bool. rewrite <- H1. rewrite Huh. rewrite Hhv. reflexivity. }
-                { destruct Hind as [_ [_ [_ [Hind _]]]]. apply Hind in Hc. destruct Hc as [a [b Hc]]. exists a. exists b. repeat split.
-                  -- apply Hc.
-                  -- apply Hc.
-                  -- destruct Hc as [_ [_ [Hc _]]]. apply sublist_breaks_down_list. apply sublist_breaks_down_list in Hc. destruct Hc as [l2 [l3 Hc]].
-                     exists (u :: h :: l2). exists l3. simpl. simpl in Hc. rewrite <- Hc. reflexivity.
-                  -- apply Hc. } }
-
-            apply Hdesc in Hcolh. clear Hdesc. destruct Hcolh as [Hcolh | Hcolh].
-            { (* h is in Z *)
-              assert (HhAZ: exists (xh: X), get_assigned_value AZ h = Some xh).
-              { apply assigned_has_value with (L := Z). split. apply Hcolh. apply HAZ. }
-              destruct HhAZ as [xh HhAZ].
-              assert (Hxh: exists (y: X), y <> xh).
-              { destruct HG as [HG _]. destruct HG as [xX [yX Hxy]]. destruct (eqb xX xh) as [|] eqn:Hxd.
-                - exists yX. apply eqb_eq' in Hxd. rewrite <- Hxd. intros Hxy'. apply Hxy. symmetry. apply Hxy'.
-                - exists xX. intros Hxy'. rewrite Hxy' in Hxd. rewrite eqb_refl' in Hxd. discriminate Hxd. }
-              destruct Hxh as [y Hxh].
-
-              exists ((h, (iu, iv, xh, y)) :: A2'). exists A3'.
-
-              rewrite <- and_assoc. split. apply HA1ind. rewrite <- and_assoc. split. apply HA2ind. split.
-              * simpl. simpl in Hcoluv. rewrite Hcoluv. simpl. destruct Hcolh as [Hcolh _]. rewrite Hcolh. rewrite eqb_refl.
-                destruct Hind as [_ [_ [_ [_ [Hind _]]]]]. simpl in Hind. rewrite Hind. reflexivity.
-                (* D is just (h, ([], h)) in this case, so not included in get_A3_assignments. *)
-              * intros A4 A5 def U HA4 HU. remember (g_path' X A1' ((h, (iu, iv, xh, y)) :: A2') A3' A4 A5 def) as g. split.
-                -- intros w [HwZ Hhw]. simpl in Hhw. apply split_orb_true in Hhw. destruct Hhw as [Hhw | Hhw].
-                   ++ apply eqb_eq in Hhw. rewrite Hhw.
-                      assert (Hx': exists (P: assignments X), find_values G g (find_parents h G) U [] = Some P
-                             /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents h G)
-                             /\ exists (unobs: X), get_assigned_value U h = Some unobs
-                             /\ find_value G g h U [] = Some (g h (unobs, pa))).
-                      { apply find_value_evaluates_to_g. split.
-                        - destruct HG as [_ HG]. apply HG.
-                        - split. apply HU. apply is_edge_then_node_in_graph with (v := u). right. apply Huh. }
-                      destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                      rewrite Heqg. unfold g_path'. simpl. rewrite eqb_refl. (* obviously h is not in A1', otherwise it would be in path (h', v, t'), contradict acyclic *)
-                      admit.
-                   ++ (* assign u = xh, h = xh, all the descendant nodes (for next case) = xh in A5 *) admit.
-                -- intros Hcond. (* TODO change in Hcond' A5 *)
-                   assert (Hcond': unobs_conditions_on_Z G (g_path' X A1' A2' A3' A4 A5 def) U AZ Z). { admit. }
-                   (* apply Hind in Hcond', use same x. Show that f(u) = x as well due to f(h) *) admit. }
-
-            { destruct Hcolh as [ph [dh Hpd]].
-              assert (HhAZ: exists (xd: X), get_assigned_value AZ dh = Some xd).
-              { apply assigned_has_value with (L := Z). split. apply Hpd. apply HAZ. }
-              destruct HhAZ as [xd HhAZ].
-              assert (Hxh: exists (y: X), y <> xd).
-              { destruct HG as [HG _]. destruct HG as [xX [yX Hxy]]. destruct (eqb xX xd) as [|] eqn:Hxd.
-                - exists yX. apply eqb_eq' in Hxd. rewrite <- Hxd. intros Hxy'. apply Hxy. symmetry. apply Hxy'.
-                - exists xX. intros Hxy'. rewrite Hxy' in Hxd. rewrite eqb_refl' in Hxd. discriminate Hxd. }
-              destruct Hxh as [y Hxd].
-
-              exists ((h, (iu, iv, xd, y)) :: A2').
-              assert (HA3: exists (A3: assignments nat), get_A3_assignments_for_desc_paths D G (find_colliders_in_path (u, v, h :: h' :: t') G) = Some A3).
-              { admit. }
-              destruct HA3 as [A3 HA3]. exists A3.
-
-              rewrite <- and_assoc. split. apply HA1ind. rewrite <- and_assoc. split. apply HA2ind. split.
-              * apply HA3.
-              * intros A4 A5 def U HA4 HU. remember (g_path' X A1' ((h, (iu, iv, xd, y)) :: A2') A3 A4 A5 def) as g. split.
-                -- intros w [HwZ Hhw]. simpl in Hhw. apply split_orb_true in Hhw. destruct Hhw as [Hhw | Hhw].
-                   ++ apply eqb_eq in Hhw. rewrite Hhw.
-                      assert (Hx': exists (P: assignments X), find_values G g (find_parents h G) U [] = Some P
-                             /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents h G)
-                             /\ exists (unobs: X), get_assigned_value U h = Some unobs
-                             /\ find_value G g h U [] = Some (g h (unobs, pa))).
-                      { apply find_value_evaluates_to_g. split.
-                        - destruct HG as [_ HG]. apply HG.
-                        - split. apply HU. apply is_edge_then_node_in_graph with (v := u). right. apply Huh. }
-                      destruct Hx' as [Px' [HPx' [pax' [Hparx' [unobsx' [HxU' Hx']]]]]]. rewrite Hx'.
-                      rewrite Heqg. unfold g_path'. simpl. rewrite eqb_refl. (* obviously h is not in A1', otherwise it would be in path (h', v, t'), contradict acyclic *)
-                      admit.
-                   ++ (* assign u = xh, h = xh, all the descendant nodes = xh in A5 *) admit.
-                -- intros Hcond. (* TODO change in Hcond' A5 *)
-                   assert (Hcond': unobs_conditions_on_Z G (g_path' X A1' A2' A3' A4 A5 def) U AZ Z). { admit. }
-                   (* apply Hind in Hcond', use same x. Show that f(u) = x as well due to f(h) *) admit. }
-
-          * (* u -> h <- h', so h' not a collider *) assert (Hh': In h' (h :: h' :: t')). { right. left. reflexivity. }
-            apply paths_start_to_end_correct in Hp. destruct Hp as [Hp [_ Hcyc]]. apply intermediate_node_in_path with (x := h') in Hp. apply Hp in Hh'. intros HhZ.
-            destruct Hh' as [Hh' | [Hh' | Hh']].
-            -- destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := h') in Hconn. apply Hconn. apply HhZ. apply Hh'.
-            -- destruct Hconn as [_ [Hconn _]]. apply no_overlap_non_member with (x := h') in Hconn. apply Hconn. apply HhZ. apply Hh'.
-            -- apply colliders_vs_edges_in_path in Hh'. destruct Hh' as [y [z [Hh' [Hedge _]]]]. apply start_of_sublist_still_sublist in Hh'.
-               assert (Hsub: sublist [h; h'] (u :: (h :: h' :: t') ++ [v]) = true). { simpl. repeat rewrite eqb_refl. rewrite orb_comm. reflexivity. }
-               assert (Hy: y = h).
-               { apply two_sublists_the_same_2 with (l := (u :: (h :: h' :: t') ++ [v])) (a := h'). apply Hh'. apply Hsub.
-                apply acyclic_path_count with (x := h') in Hcyc. apply Hcyc. right. right. left. reflexivity. }
-               rewrite Hy in Hedge. apply acyclic_no_two_cycle in Hhv. rewrite Hedge in Hhv. discriminate Hhv. apply HG.
-          * unfold descendant_paths_disjoint. admit. (* TODO would need to do (remove_assignment D h) instead, but do we ever need this? since A3 is already exact by construction *)
-          * apply subpath_still_d_connected_gen with (w := u) (l1 := [h]) (l3 := h :: h' :: t'). split. reflexivity. apply Hconn.
-          * exists (h' :: t' ++ [v]). split. reflexivity. destruct Hl as [l' [Hl' Hsub]]. rewrite Hl' in Hsub. apply end_of_sublist_still_sublist_gen in Hsub.
-            apply sublist_breaks_down_list in Hsub. destruct Hsub as [l2 [l3 Hsub]]. apply sublist_breaks_down_list. exists (l2 ++ [h]). exists l3.
-            rewrite <- app_assoc. apply Hsub. }
-Admitted.
-
-Lemma exists_node_not_defined_in_path {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path) (Z: nodes) (A1: assignments nat) (A2: assignments (nat * nat * X * X)),
-  generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G)
-  -> d_connected_2 p G Z
-  -> (forall (w: node), member w (get_A1_binded_nodes_in_g_path G p) = false -> is_assigned A1 w = false)
-     /\ (forall (w: node), member w (get_A2_binded_nodes_in_g_path G p) = false -> is_assigned A2 w = false)
-  -> exists (w: node), is_assigned A1 w = false /\ is_assigned A2 w = false /\ ~(In w Z) /\ In w (find_unblocked_ancestors G u Z) /\ node_in_path w p = true.
-Proof.
-(* if path is out of u (u -> ...), then w = u.
-   else, if there is any out arrow, the first out arrow's parent is w (u <- ... <- w -> ...)
-   else, the last node is w (u <- ... <- w) *)
-  intros G u v p Z A1 A2. intros [HG Hp] Hconn [HA1 HA2].
-  destruct p as [[u' v'] l]. apply paths_start_to_end_correct in Hp as Huv. destruct Huv as [_ [Huv _]]. apply path_start_end_equal in Huv.
-  destruct Huv as [Hu Hv]. rewrite Hu in *. rewrite Hv in *. clear Hu. clear Hv.
-  generalize dependent v. generalize dependent u. induction l as [| h t IH].
-  - intros u v HGp Hconn HA1 HA2. destruct (path_out_of_start (u, v, []) G) as [|] eqn:Hout.
-    + exists u. repeat split.
-      * simpl in Hout. assert (Hedge: is_edge (v, u) G = false).
-        { destruct (member_edge (v, u) (edges_in_graph G)) as [|] eqn:He.
-          - admit. (* TODO cycle u' -> v' -> u' *)
-          - unfold is_edge. destruct G as [V E]. simpl in He. rewrite He. rewrite andb_comm. simpl. reflexivity. }
-        simpl in HA1. rewrite Hedge in HA1. specialize HA1 with (w := u). apply HA1. simpl.
-        assert (Hvu: v =? u = false). { admit. (* TODO cycl u' -> u' *) } rewrite Hvu. reflexivity.
-      * simpl in HA2. specialize HA2 with (w := u). apply HA2. simpl. reflexivity.
-      * admit. (* use Hconn / have to assume that endpoints not in Z (shouldn't affect induction) *)
-      * simpl in Hout. apply unblocked_ancestors_have_unblocked_directed_path. left. reflexivity.
-      * unfold node_in_path. simpl. rewrite eqb_refl. simpl. reflexivity.
-    + exists v. admit.
-  - (* u -> h ... v, then u. u <- h ... w ... v, then w. *)
-    intros u v HGp Hconn HA1 HA2. destruct (path_out_of_start (u, v, h :: t) G) as [|] eqn:Hout.
-    + exists u. admit. (* use path_into vs. out_of proof? similar to above. *)
-    + specialize IH with (u := h) (v := v).
-      assert (exists w : node,
-       is_assigned A1 w = false /\
-       is_assigned A2 w = false /\
-       ~ In w Z /\
-       In w (find_unblocked_ancestors G h Z) /\
-       node_in_path w (h, v, t) = true).
-      { apply IH.
-        - admit.
-        - admit.
-        - intros w Hmem. specialize HA1 with (w := w). admit. (* only difference could be u, but u is not in it, since u -> *)
-        - intros w Hmem. specialize HA2 with (w := w). apply HA2. admit. (* can we simplify the assumption? wait don't need because will always be on path and first -> by construction, so not collider *) }
-      destruct H0 as [w Hw]. exists w. repeat split.
-      * destruct Hw as [Hw _]. apply Hw.
-      * destruct Hw as [_ [Hw _]]. apply Hw.
-      * destruct Hw as [_ [_ [Hw _]]]. apply Hw.
-      * destruct Hw as [_ [_ [_ [Hw _]]]]. apply unblocked_ancestors_have_unblocked_directed_path in Hw.
-        destruct Hw as [Hwh | Hhl].
-        -- apply unblocked_ancestors_have_unblocked_directed_path. right. exists []. split.
-           ++ simpl. (* Hout gives that (h, u) is an edge *) admit.
-           ++ split. admit. unfold node_in_path. simpl. admit.
-        -- apply unblocked_ancestors_have_unblocked_directed_path. right. destruct Hhl as [l Hhl]. exists (l ++ [h]). split.
-           ++ simpl. (* might be annoying *) admit.
-           ++ admit.
-      * unfold node_in_path. simpl. destruct Hw as [_ [_ [_ [_ Hw]]]]. unfold node_in_path in Hw. simpl in Hw. admit. (* use Hw *)
-Admitted.
+  intros G u v l. intros Hp Hc.
+  assert (Hl: path_length (u, v, l) = length (u :: l ++ [v])). { unfold path_length. simpl. rewrite app_length. simpl. lia. }
+  destruct G as [V E].
+  assert (Hw: forall (w: node), In w (u :: l ++ [v]) -> In w V).
+  { intros w Hwmem. apply directed_path_has_edge with (w := w) in Hp. destruct Hp as [x [_ Hp]].
+    simpl in Hp. destruct Hp as [Hp | Hp].
+    apply split_and_true in Hp. destruct Hp as [Hp]. apply split_and_true in Hp. apply member_In_equiv. apply Hp.
+    apply split_and_true in Hp. destruct Hp as [Hp]. apply split_and_true in Hp. apply member_In_equiv. apply Hp.
+    rewrite node_in_path_equiv. apply member_In_equiv. apply Hwmem. }
+
+  assert (Hcount: forall (w: node), In w (u :: l ++ [v]) -> count w (u :: l ++ [v]) = 1). { intros w Hwmem. apply acyclic_path_count with (x := w) in Hc. apply Hc. apply Hwmem. }
+  rewrite Hl. unfold num_nodes.
+  clear Hp. clear Hc. clear Hl.
+  generalize dependent u. generalize dependent V. induction l as [| h t IH].
+  - intros V u Hw Hcount. simpl. destruct V as [| x V'].
+    + exfalso. apply Hw with (w := u). left. reflexivity.
+    + destruct V' as [| x' V'].
+      * assert (Hu: u = x). { assert (Hu: In u [x]). { apply Hw. left. reflexivity. } destruct Hu as [Hu | Hu]. symmetry. apply Hu. exfalso. apply Hu. }
+        assert (Hv: v = x). { assert (Hv: In v [x]). { apply Hw. right. simpl. left. reflexivity. } destruct Hv as [Hv | Hv]. symmetry. apply Hv. exfalso. apply Hv. }
+        assert (Hc': count x (u :: [] ++ [v]) = 1). { apply Hcount. left. apply Hu. } simpl in Hc'. rewrite Hu in Hc'. rewrite Hv in Hc'. rewrite eqb_refl in Hc'. lia.
+      * simpl. lia.
+  - intros V u Hw Hcount.
+    assert (Hl: length (u :: (h :: t) ++ [v]) = S (length (h :: t ++ [v]))). { simpl. reflexivity. }
+    rewrite Hl.
+    assert (Hind: length (h :: t ++ [v]) <= length (filter (fun v : nat => negb (v =? u)) V)).
+    { assert (Hwu: forall (w: node), In w (h :: t ++ [v]) -> w =? u = false).
+      { intros w Hwmem. destruct (w =? u) as [|] eqn:Hwu.
+        * exfalso. assert (Hc': count w (u :: (h :: t) ++ [v]) = 1). { apply Hcount. right. apply Hwmem. }
+          simpl in Hc'. rewrite eqb_sym in Hwu. rewrite Hwu in Hc'. apply member_count_at_least_1 in Hwmem. simpl in Hwmem. lia.
+        * reflexivity. }
+      apply IH.
+      - intros w Hwmem. apply filter_true. split.
+        + apply Hw. right. apply Hwmem.
+        + rewrite Hwu. reflexivity. apply Hwmem.
+      - intros w Hwmem. assert (Hc': count w (u :: (h :: t) ++ [v]) = 1). { apply Hcount. right. apply Hwmem. }
+        simpl in Hc'. rewrite eqb_sym in Hc'. rewrite Hwu in Hc'. apply Hc'. apply Hwmem. }
+    assert (Hl': S (length (filter (fun v : nat => negb (v =? u)) V)) <= length V). { apply filter_length_membership. apply Hw. left. reflexivity. }
+    lia.
+Qed.
 
 
 (* show that using the g from generic_graph_and_type_properties_hold to equate values along the path, the
@@ -16506,7 +14981,7 @@ Lemma path_d_connected_then_not_independent {X : Type} `{EqType X}: forall (G: g
   -> d_connected_2 p G Z -> ~(conditionally_independent'' X G u v Z).
 Proof.
   intros G u v p [HG Hp]. intros Z [HZ [HZnode [HuZ HvZ]]] Hconn.
-  intros Hcond. unfold conditionally_independent'' in Hcond.
+  intros H_cond_ind. unfold conditionally_independent'' in H_cond_ind.
   pose proof HG as Hxy. unfold generic_graph_and_type_properties_hold in Hxy. destruct Hxy as [Hxy _]. destruct Hxy as [x [y Hxy]].
   apply paths_start_to_end_correct in Hp.
 
@@ -16525,334 +15000,110 @@ Proof.
   assert (Heq: generic_graph_and_type_properties_hold X G /\ In (u, v, l) (find_all_paths_from_start_to_end u v G)).
   { split. apply HG. apply paths_start_to_end_correct. split. apply Huvl. split. apply path_start_end_refl. apply Huvl. }
 
-  apply Heq' in Heq. clear Heq'.
+  remember (get_assignment_for Z x) as AZ.
+
+  apply Heq' with (AZ := AZ) in Heq. clear Heq'.
   2: { split. apply member_In_equiv_F. apply HuZ. apply member_In_equiv_F. apply HvZ. }
+  2: { rewrite HeqAZ. apply nodes_map_to_exact_assignment. }
   2: { simpl. apply HD. }
   2: { apply Huvl. }
 
   destruct Heq as [A1 [A2 [A3 Heq]]].
-  rewrite <- and_assoc in Heq. destruct Heq as [HA1 Heq]. rewrite <- and_assoc in Heq. destruct Heq as [HA2 Heq]. destruct Heq as [HA3 Heq].
-  remember (get_assignment_for (nodes_in_graph G) x) as U.
+  rewrite <- and_assoc in Heq. rewrite <- and_assoc in Heq. destruct Heq as [HA1 Heq]. rewrite <- and_assoc in Heq. rewrite <- and_assoc in Heq. destruct Heq as [HA2 Heq]. destruct Heq as [HA3 Heq].
+  (* Hcond: for all AZ, changing f(u) from a to b via valid sequence does NOT change the value of f(v) *)
+  (* Heq: there is some sequence that changes the value of f(v) to x *)
 
-  remember (get_assignment_for Z x) as Zx. (* use arbitrary assignment of nodes in Z *)
-  remember (get_constant_nodefun_assignments Zx) as A5. (* unused, could be empty *)
-  (* for A4, each node will be mapped to f = unobs. Here, map arbitrarily to x *)
-  remember (get_assignment_for (get_A4_binded_nodes_in_g_path G (u, v, l)) x) as A4.
+  remember ([]) as empty. rewrite Heqempty in *.
+  remember (get_constant_nodefun_assignments empty) as A5. (* unused, could be empty *)
+  remember (get_assignment_for (get_A4_binded_nodes_in_g_path G (u, v, l)) x) as A4. (* value doesn't matter *)
+  remember (f_constant X x) as default.
 
-  remember (g_path'' X A1 A2 A3 A4 Zx A5 (f_constant X x)) as g.
+  assert (HA4: is_exact_assignment_for A4 (get_A4_binded_nodes_in_g_path G (u, v, l))). { rewrite HeqA4. apply nodes_map_to_exact_assignment. }
 
-  assert (HU: is_assignment_for U (nodes_in_graph G) = true).
-  { rewrite HeqU. apply nodes_map_to_assignment. }
+  apply Heq with (A5 := A5) (default := default) (x := x) in HA4. clear Heq.
+  destruct HA4 as [U [x' [HU [Hcond [Hx [Hx' HA4]]]]]].
 
-  assert (HAZ: exists (AZ: assignments X), find_values G g Z U [] = Some AZ).
-  { apply find_values_existence_gen. apply HG. apply HU. intros w Hw. apply forallb_true_iff_mem with (x := w) in HZ.
-    destruct G as [V E]. simpl. simpl in HZ. apply HZ. apply Hw. }
-  destruct HAZ as [AZ HAZ].
+  remember (g_path'' X A1 A2 A3 A4 AZ A5 default) as g.
 
-  assert (HUAZ: unobs_conditions_on_Z G g U AZ Z).
-  { unfold unobs_conditions_on_Z. intros w Hw.
+  remember ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), x) :: U) as Ux.
+  remember (tl (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U x)) as LUx.
+  assert (HUseq: assignments_equiv Ux ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), x) :: U) /\
+      list_assignments_equiv LUx
+        (tl
+           (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U
+              x))).
+  { split. rewrite HeqUx. unfold assignments_equiv. reflexivity.
+    rewrite HeqLUx. apply list_assignments_equiv_identity. }
+  rewrite HeqUx in HA4. rewrite HeqLUx in HA4.
+  apply HA4 in HUseq. clear HA4.
 
- admit. }
+  assert (HA: exists (A: assignments X), get_values G g U [] = Some A). { apply get_values_existence. apply HG. apply HU. }
+  destruct HA as [A HA].
 
-  remember (g_path'' X A1 A2 A3 A4 AZ A5 (f_constant X x)) as g'.
+  assert (HUx: is_assignment_for Ux (nodes_in_graph G) = true).
+  { destruct HUseq as [_ [_ [HUseq _]]]. simpl in HUseq. unfold sequence_of_ancestors_change_for_Z in HUseq. apply HUseq. right. left. reflexivity. }
 
-  assert (Hgg': g = g').
-  { apply functional_extensionality. admit. }
+  assert (HAx: exists (A: assignments X), get_values G g Ux [] = Some A). { apply get_values_existence. apply HG. apply HUx. }
+  destruct HAx as [Ax HAx].
 
-  assert (HA4: is_exact_assignment_for A4 (get_A4_binded_nodes_in_g_path G (u, v, l))). { admit. }
+  remember (last (Ux :: LUx) Ux) as Ub'.
+  assert (HUb': is_assignment_for Ub' (nodes_in_graph G) = true).
+  { destruct HUseq as [_ [_ [HUseq _]]]. simpl in HUseq. unfold sequence_of_ancestors_change_for_Z in HUseq. apply HUseq. rewrite HeqUb'. rewrite <- last_suffix with (u := U) (a := Ux). right. apply last_mem. }
 
-  assert (Hv: exists (a: X), find_value G g v U [] = Some a). { admit. }
-  destruct Hv as [a Hva].
-  assert (Hb: exists (b: X), a <> b). { admit. }
-  destruct Hb as [b Hb].
+  assert (HAb': exists (Ab': assignments X), get_values G g Ub' [] = Some Ab'). { apply get_values_existence. apply HG. apply HUb'. }
+  destruct HAb' as [Ab' HAb'].
 
-  assert (Hu: exists (a: X), find_value G g u U [] = Some a). { admit. }
-  destruct Hu as [ua Hua].
-
-  remember ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), b) :: U) as Ux.
-  remember (tl (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U b)) as LUx.
-
-  apply Heq with (A5 := A5) (AZ := AZ) (default := f_constant X x) (U := U) (x := b)
-                 (Ux := Ux) (LUx := LUx) in HA4 as Hlem. clear Heq.
-  - assert (HA: exists (A: assignments X), get_values G g U [] = Some A). { admit. }
-    destruct HA as [A HA].
-
-    assert (HAx: exists (A: assignments X), get_values G g Ux [] = Some A). { admit. }
-    destruct HAx as [Ax HAx].
-
-    remember (last (Ux :: LUx) Ux) as Ub'.
-    assert (HAb': exists (Ab': assignments X), get_values G g Ub' [] = Some Ab'). { admit. }
-    destruct HAb' as [Ab' HAb'].
-
-    specialize Hcond with (AZ := AZ) (g := g) (a := ua) (Ua := U) (Aa := A) (b := b) (Ub := Ux) (Ab := Ax) (L := LUx)
+  specialize H_cond_ind with (AZ := AZ) (g := g) (a := x') (Ua := U) (Aa := A) (b := x) (Ub := Ux) (Ab := Ax) (L := LUx)
         (Ub' := Ub') (Ab' := Ab').
 
-    assert (Hva': get_assigned_value A v = Some a). { admit. }
-    assert (Hvb': get_assigned_value Ab' v = Some b). { admit. }
+  assert (Hv: node_in_path v (u, v, l) = true /\ ~ In v (find_colliders_in_path (u, v, l) G)).
+  { split. unfold node_in_path. simpl. rewrite <- orb_assoc. rewrite orb_comm. rewrite eqb_refl. reflexivity.
+    intros Hv. destruct Huvl as [Hcyc [_ [HpG _]]]. apply intermediate_node_in_path with (x := v) in HpG. destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc.
+    apply HpG. right. right. apply Hv. }
 
-    assert (Hcond': get_assigned_value A v = get_assigned_value Ab' v).
-    { apply Hcond.
-      - split. admit. admit.
-      - split. apply HA. repeat split.
-        + apply HU.
-        + (* Hua *) admit.
-        + apply HUAZ.
-      - split.
-        + unfold sequence_of_ancestors_change_for_Z in Hlem. admit.
-        + split. apply HAx. split.
-          * admit.
-          * admit.
-      - admit. (* Hlem, path length shorter than num nodes due to acyclic Huvl *)
-      - split. symmetry. apply HeqUb'. apply HAb'.
-      - repeat split.
-        + rewrite Hgg'. rewrite Heqg'. rewrite HeqUb'. apply Hlem.
-        + admit.
-        + admit.
-      - apply Hlem. }
+  assert (Hva': get_assigned_value A v = Some x').
+  { assert (Hf: find_value G g v U [] = Some x'). { apply Hx. apply Hv. }
+    unfold find_value in Hf. rewrite HA in Hf. apply Hf. }
 
-    apply Hb. rewrite Hva' in Hcond'. rewrite Hvb' in Hcond'. inversion Hcond'. reflexivity.
-  - admit.
-  - apply HU.
-  - rewrite <- Heqg'. rewrite <- Hgg'. apply HUAZ.
-  - split.
-    + rewrite HeqUx. unfold assignments_equiv. intros w. reflexivity.
-    + rewrite HeqLUx. apply list_assignments_equiv_identity.
-Admitted.
-(* originally path_d_connected_then_not_independent fully proved, but changed g_path *)
-    (* specialize Hg with (A3 := A3) (default := f_constant X x).
-    remember ((w, x) :: (get_assignment_for (nodes_in_graph G) x)) as Ux. remember ((w, y) :: (get_assignment_for (nodes_in_graph G) x)) as Uy.
-    assert (HUxG: is_assignment_for Ux (nodes_in_graph G) = true).
-    { rewrite HeqUx. apply is_assignment_for_cat. apply nodes_map_to_assignment. }
-    assert (HUyG: is_assignment_for Uy (nodes_in_graph G) = true).
-    { rewrite HeqUy. apply is_assignment_for_cat. apply nodes_map_to_assignment. }
-    remember (g_path X A1 A2 A3 (f_constant X x)) as g.
-    (* show that this choice of g always correctly conditions on Z *)
-    assert (HU: forall (U: assignments X), is_assignment_for U (nodes_in_graph G) = true
-                -> unobs_conditions_on_Z G g U AZ Z).
-    { intros U HU. unfold unobs_conditions_on_Z. intros z HzZ.
-      assert (HzG: node_in_graph z G = true).
-      { destruct G as [V E]. simpl. apply member_In_equiv. apply subset_larger_set_membership with (l1 := Z).
-        split. apply HZ. apply HzZ. }
-      (* express f(z) in terms of g *)
-      assert (Hz: exists (P: assignments X), find_values G g (find_parents z G) U [] = Some P
-                  /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents z G)
-                  /\ exists (unobs: X), get_assigned_value U z = Some unobs
-                  /\ find_value G g z U [] = Some (g z (unobs, pa))).
-      { apply find_value_evaluates_to_g. split.
-        - destruct HGp as [HG _]. apply HG.
-        - split. apply HU. apply HzG. }
-      destruct Hz as [P [HP [pa [Hpar [unobs [HzU Hz]]]]]].
-      (* since z is in Z, either z is not in the path or z is a collider *)
-      (* first, show z is either in A2 (collider) and evaluates to correct value, or not assigned in A2 *)
-      destruct (is_assigned A2 z) as [|] eqn:HzA2.
-      - specialize Hg with (U := U). apply Hg in HU as Hg'. clear Hg. pose proof Hg' as Hg.
-        destruct Hg as [Hg _]. specialize Hg with (w := z). apply Hg.
-        split. apply HzZ. apply HzA2.
-      - rewrite Hz. rewrite Heqg. unfold g_path.
-        (* show that since z in Z and path is d-connected, z is not assigned in A1 *)
-        assert (HzA1: ~(In z (get_A1_binded_nodes_in_g_path G p))).
-        { intros HzA1. unfold get_A1_binded_nodes_in_g_path in HzA1.
-          destruct (path_out_of_end p G) as [[|]|].
-          - destruct (path_into_start p G) as [|].
-            + rewrite Hpath in *. simpl in HzA1. destruct HzA1 as [Hzu | Hzmed].
-              * (* by assumption (HuZ), u is not in Z *)
-                apply member_In_equiv in HzZ. rewrite Hzu in HuZ. rewrite HzZ in HuZ. discriminate HuZ.
-              * (* z cannot be a mediator, or else p would not be d-connected *)
-                unfold d_connected_2 in Hconn. destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := z) in Hconn.
-                -- exfalso. apply Hconn. apply HzZ.
-                -- apply Hzmed.
-            + unfold d_connected_2 in Hconn. destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := z) in Hconn.
-                -- exfalso. apply Hconn. apply HzZ.
-                -- rewrite Hpath in *. apply HzA1.
-          - destruct (path_into_start p G) as [|].
-            + rewrite Hpath in *. simpl in HzA1. destruct HzA1 as [Hzu | Hzmedv].
-              * apply member_In_equiv in HzZ. rewrite Hzu in HuZ. rewrite HzZ in HuZ. discriminate HuZ.
-              * apply membership_append_or in Hzmedv. destruct Hzmedv as [Hzmed | Hzv].
-                -- unfold d_connected_2 in Hconn. destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := z) in Hconn.
-                   ++ exfalso. apply Hconn. apply HzZ.
-                   ++ apply Hzmed.
-                -- simpl in Hzv. destruct Hzv as [Hzv | F].
-                   ++ apply member_In_equiv in HzZ. rewrite Hzv in HvZ. rewrite HzZ in HvZ. discriminate HvZ.
-                   ++ apply F.
-            + rewrite Hpath in *. apply membership_append_or in HzA1. destruct HzA1 as [Hzmed | Hzv].
-              * unfold d_connected_2 in Hconn. destruct Hconn as [Hconn _]. apply no_overlap_non_member with (x := z) in Hconn.
-                   ++ exfalso. apply Hconn. apply HzZ.
-                   ++ apply Hzmed.
-              * simpl in Hzv. destruct Hzv as [Hzv | F].
-                   ++ apply member_In_equiv in HzZ. rewrite Hzv in HvZ. rewrite HzZ in HvZ. discriminate HvZ.
-                   ++ apply F.
-          - rewrite Hpath in HzA1. simpl in HzA1. apply HzA1. }
-        unfold is_exact_assignment_for in HA1. destruct HA1 as [_ HA1]. specialize HA1 with (u := z).
-        assert (HzA1': member z (get_A1_binded_nodes_in_g_path G p) = false).
-        { destruct (member z (get_A1_binded_nodes_in_g_path G p)) eqn:Hmem.
-          - exfalso. apply HzA1. apply member_In_equiv. apply Hmem.
-          - reflexivity. }
-        clear HzA1. apply HA1 in HzA1'. apply assigned_is_false in HzA1'. rewrite HzA1'.
-        (* z is not assigned in A2 *)
-        apply assigned_is_false in HzA2. rewrite HzA2.
-        (* z is assigned in A3 to be its value in AZf (since z != w since w not in Z)
-           its value in AZf is the function that returns AZ(z) for all inputs *)
-        assert (HzAZ: exists (val_z: X), get_assigned_value AZ z = Some val_z).
-        { apply assigned_is_true. rewrite HeqAZ. apply node_maps_to_assigned. apply HzZ. }
-        destruct HzAZ as [valz HzAZ].
-        assert (HzA3: get_assigned_value A3 z = Some (f_constant X valz)).
-        { rewrite HeqA3. simpl. destruct (w =? z) as [|] eqn:Hwz.
-          - destruct Hw as [_ [_ [Hw _]]]. apply eqb_eq in Hwz. rewrite <- Hwz in HzZ. exfalso. apply Hw. apply HzZ.
-          - apply assigned_node_has_constant_nodefun in HzAZ. rewrite HeqAZf. apply HzAZ. }
-        unfold nodefun. rewrite HzA3. unfold f_constant. rewrite HzAZ. reflexivity. }
-    (* set Ua = Ux, Ub = Uy, and Ub' = Uy in Hcond *)
-    assert (HAx: exists (Ax: assignments X), get_values G g Ux [] = Some Ax).
-    { apply get_values_existence. destruct HGp as [[_ HG] _]. apply HG. apply HUxG. }
-    assert (HAy: exists (Ay: assignments X), get_values G g Uy [] = Some Ay).
-    { apply get_values_existence. destruct HGp as [[_ HG] _]. apply HG. apply HUyG. }
-    destruct HAx as [Ax HAx]. destruct HAy as [Ay HAy].
+  assert (Hvb': get_assigned_value Ab' v = Some x).
+  { assert (Hf: find_value G g v Ub' [] = Some x).
+    { rewrite HeqUb'. destruct HUseq as [_ [_ [_ [_ HUseq]]]]. apply HUseq. apply Hv. }
+    unfold find_value in Hf. rewrite HAb' in Hf. apply Hf. }
 
-    (* show that f(any non-collider node in path) is equal to the binding of w *)
-    assert (HwU: forall (U A: assignments X) (c: X),
-                 is_assignment_for U (nodes_in_graph G) = true
-                 /\ U = (w, c) :: get_assignment_for (nodes_in_graph G) x
-                 /\ get_values G g U [] = Some A
-                 -> forall w : node, node_in_path w p = true /\ ~ In w (find_colliders_in_path p G) ->
-                    find_value G g w U [] = Some c).
-    { (* show that f(w) = c (due to binding in U) *)
-      intros U A c [HUG [HeqU HA]].
-      assert (Hwc: exists (P: assignments X), find_values G g (find_parents w G) U [] = Some P
-                  /\ exists (pa: list X), Some pa = get_parent_assignments P (find_parents w G)
-                  /\ exists (unobs: X), get_assigned_value U w = Some unobs
-                  /\ find_value G g w U [] = Some (g w (unobs, pa))).
-      { apply find_value_evaluates_to_g. split.
-        - destruct HGp as [HG _]. apply HG.
-        - split.
-          + apply HUG.
-          + apply nodes_in_graph_in_V with (p := p). split.
-            * destruct Hw as [_ [_ [_ [_ Hw]]]]. apply Hw.
-            * destruct HGp as [_ Hp]. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp. }
-      destruct Hwc as [Pwc [HPwc [pawc [Hparwc [unobswc [HwU Hwc]]]]]].
-      assert (Hgwc: g w (unobswc, pawc) = c).
-      { rewrite Heqg. unfold g_path. destruct Hw as [Hw1 [Hw2 _]]. apply assigned_is_false in Hw1. rewrite Hw1.
-        apply assigned_is_false in Hw2. rewrite Hw2. rewrite HeqA3. simpl. rewrite eqb_refl. simpl.
-        rewrite HeqU in HwU. simpl in HwU. rewrite eqb_refl in HwU. inversion HwU. reflexivity. }
-      (* show that all non-collider nodes equal c (due to Hg and f(w) = c) *)
-      specialize Hg with (U := U). apply Hg in HUG as Hg'. clear Hg. pose proof Hg' as Hg. clear Hg'.
-      destruct Hg as [_ Hg]. apply HU in HUG as Hnodex. apply Hg in Hnodex. clear Hg.
-      destruct Hnodex as [x' Hnodex].
-      assert (Hcx': c = x').
-      { assert (Hwx': find_value G g w U [] = Some x').
-        { apply Hnodex. split.
-          - destruct Hw as [_ [_ [_ [_ Hw]]]]. apply Hw.
-          - destruct Hw as [_ [Hw _]]. unfold get_A2_binded_nodes_in_g_path in HA2. unfold is_exact_assignment_for in HA2.
-            destruct HA2 as [HA2 _]. intros Hmemw.
-            assert (F: is_assigned A2 w = true).
-            { apply assigned_is_true. apply assigned_has_value with (L := find_colliders_in_path p G). split. apply Hmemw. apply HA2. }
-            rewrite Hw in F. discriminate F. }
-        rewrite Hgwc in Hwc. rewrite Hwx' in Hwc. inversion Hwc. reflexivity. }
-      rewrite <- Hcx' in Hnodex. apply Hnodex. }
+  assert (H_contra: get_assigned_value A v = get_assigned_value Ab' v).
+  { assert (Hu: node_in_path u (u, v, l) = true /\ ~ In u (find_colliders_in_path (u, v, l) G)).
+    { split. unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
+      intros Hu. destruct Huvl as [Hcyc [_ [HpG _]]]. apply intermediate_node_in_path with (x := u) in HpG. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc.
+      apply HpG. right. right. apply Hu. }
 
-    (* show that v is equal to the binding of w *)
-    assert (HvU: forall (U A: assignments X) (c: X),
-                 is_assignment_for U (nodes_in_graph G) = true
-                 /\ U = (w, c) :: get_assignment_for (nodes_in_graph G) x
-                 /\ get_values G g U [] = Some A
-                 -> get_assigned_value A v = Some c).
-    { (* show that f(w) = c (due to binding in U) *)
-      intros U A c [HUG [HeqU HA]].
-      assert (Hnodex: forall w : node, node_in_path w p = true /\ ~ In w (find_colliders_in_path p G) ->
-                    find_value G g w U [] = Some c).
-      { apply HwU with (A := A). repeat split. apply HUG. apply HeqU. apply HA. }
-      (* show that f(v) = c *)
-      specialize Hnodex with (w := v). unfold find_value in Hnodex. rewrite HA in Hnodex.
-      apply Hnodex. split.
-      - rewrite Hpath. unfold node_in_path. simpl. rewrite eqb_refl. rewrite orb_true_r. reflexivity.
-      - intros Hmemx. rewrite Hpath in Hmemx. unfold find_colliders_in_path in Hmemx. apply colliders_vs_edges_in_path in Hmemx.
-        destruct Hmemx as [v1 [v2 [Hsub Hedge]]].
-        (* v must appear twice in the list, since v1 <-> v <-> v2 appears as a subpath in p *)
-        destruct HGp as [_ Hp]. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]].
-        apply middle_elt_of_sublist_not_last_elt with (l := u :: l) in Hsub. destruct Hsub as [Hsub | Hsub].
-        + (* u cannot equal v, or cyclic *)
-          unfold acyclic_path_2 in Hp. rewrite Hpath in Hp. destruct Hp as [Hp _]. apply Hp. apply Hsub.
-        + (* v appears in l, also contradicts acyclic *)
-          unfold acyclic_path_2 in Hp. rewrite Hpath in Hp. destruct Hp as [_ [_ [Hp _]]]. apply Hp. apply Hsub. }
-    (* show that for U = Ux, f(v) = f(w) = x *)
-    assert (HvUx: get_assigned_value Ax v = Some x).
-    { apply HvU with (U := Ux). repeat split.
-      - apply HUxG.
-      - apply HeqUx.
-      - apply HAx. }
-    assert (HvUy: get_assigned_value Ay v = Some y).
-    { apply HvU with (U := Uy). repeat split.
-      - apply HUyG.
-      - apply HeqUy.
-      - apply HAy. }
+    apply H_cond_ind.
+    - rewrite HeqAZ. split. apply nodes_map_to_exact_assignment. apply exact_assignment_assigns_once. apply HZnode.
+    - split. apply HA. repeat split.
+      + apply HU.
+      + assert (Hf: find_value G g u U [] = Some x'). { apply Hx. apply Hu. }
+        unfold find_value in Hf. rewrite HA in Hf. apply Hf.
+      + apply Hcond.
+    - split.
+      + unfold sequence_of_ancestors_change_for_Z in HUseq. destruct HUseq as [_ [_ [HUseq _]]]. destruct HUseq as [HUseq _].
+        unfold assignments_change_only_for_subset. intros w. split.
+        * apply HUseq.
+        * intros Hw. apply HUseq. intros Hw'. apply Hw. apply intersect_correct_element with (l1 := u :: path_int (u, v, l) ++ [v]). apply Hw'.
+      + split. apply HAx. split.
+        * apply HUx.
+        * destruct HUseq as [HUseq _]. unfold find_value in HUseq. rewrite HAx in HUseq. apply HUseq.
+    - assert (Hlen: path_length (u, v, l) <= num_nodes G). { apply path_length_acyclic_graph. apply Huvl. apply Huvl. }
+      lia.
+    - split. symmetry. apply HeqUb'. apply HAb'.
+    - repeat split.
+      + rewrite HeqUb'. apply HUseq.
+      + apply HUb'.
+      + assert (Hf: find_value G g u Ub' [] = Some x). { rewrite HeqUb'. destruct HUseq as [_ [_ [_ [_ HUseq]]]]. apply HUseq. apply Hu. }
+        unfold find_value in Hf. rewrite HAb' in Hf. apply Hf.
+    - unfold sequence_of_ancestors_change_for_Z in HUseq. apply HUseq. }
 
-    (* show that u is equal to the binding of w *)
-    assert (HuU: forall (U A: assignments X) (c: X),
-                 is_assignment_for U (nodes_in_graph G) = true
-                 /\ U = (w, c) :: get_assignment_for (nodes_in_graph G) x
-                 /\ get_values G g U [] = Some A
-                 -> get_assigned_value A u = Some c).
-    { (* show that f(w) = c (due to binding in U) *)
-      intros U A c [HUG [HeqU HA]].
-      assert (Hnodex: forall w : node, node_in_path w p = true /\ ~ In w (find_colliders_in_path p G) ->
-                    find_value G g w U [] = Some c).
-      { apply HwU with (A := A). repeat split. apply HUG. apply HeqU. apply HA. }
-      (* show that f(v) = c *)
-      specialize Hnodex with (w := u). unfold find_value in Hnodex. rewrite HA in Hnodex.
-      apply Hnodex. split.
-      - rewrite Hpath. unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-      - intros Hmemx. rewrite Hpath in Hmemx. unfold find_colliders_in_path in Hmemx. apply colliders_vs_edges_in_path in Hmemx.
-        destruct Hmemx as [v1 [v2 [Hsub Hedge]]].
-        (* v must appear twice in the list, since v1 <-> v <-> v2 appears as a subpath in p *)
-        destruct HGp as [_ Hp]. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [_ Hp]].
-        apply middle_elt_of_sublist_not_first_elt with (l := l ++ [v]) in Hsub. apply membership_append_or in Hsub. destruct Hsub as [Hsub | Hsub].
-        + (* u appears in l, contradicts acyclic *)
-          unfold acyclic_path_2 in Hp. rewrite Hpath in Hp. destruct Hp as [_ [Hp _]]. apply Hp. apply Hsub.
-        + (* u cannot equal v, or cyclic *)
-          simpl in Hsub. destruct Hsub as [Hsub | F].
-          * unfold acyclic_path_2 in Hp. rewrite Hpath in Hp. destruct Hp as [Hp _]. apply Hp. rewrite Hsub. reflexivity.
-          * apply F. }
+  apply Hx'. rewrite Hva' in H_contra. rewrite Hvb' in H_contra. inversion H_contra. reflexivity.
+Qed.
 
-    (* using the assumption of conditional independence (Hcond), derive contradiction (Ax(v) = Ay(v)) *)
-    specialize Hcond with (AZ := AZ) (g := g) (a := x) (Ua := Ux) (Aa := Ax)
-                          (b := y) (Ub := Uy) (Ab := Ay) (Ub' := Uy) (Ab' := Ay).
-    assert (HvAxAy: get_assigned_value Ax v = get_assigned_value Ay v).
-    { apply Hcond.
-      - rewrite HeqAZ. split. apply nodes_map_to_exact_assignment. apply exact_assignment_assigns_once. apply HZnode.
-      - repeat split.
-        + apply HAx.
-        + apply HUxG.
-        + apply HuU with (U := Ux). repeat split.
-          * apply HUxG.
-          * apply HeqUx.
-          * apply HAx.
-        + specialize HU with (U := Ux). apply HU. apply HUxG.
-      - repeat split.
-        + intros Hx0. rewrite HeqUx in Hx0. simpl in Hx0. rewrite HeqUy. simpl. apply Hx0.
-        + intros Hx0. rewrite HeqUy in Hx0. simpl in Hx0. rewrite HeqUx. simpl. apply Hx0.
-        + intros Hx0. rewrite HeqUx. rewrite HeqUy. simpl. destruct (w =? x0) as [|] eqn:Hwx0.
-          * exfalso. apply Hx0. apply eqb_eq in Hwx0. rewrite <- Hwx0. destruct Hw as [_ [_ [_ [Hw _]]]]. apply Hw.
-          * reflexivity.
-        + apply HAy.
-        + apply HUyG.
-        + apply HuU with (U := Uy). repeat split.
-          * apply HUyG.
-          * apply HeqUy.
-          * apply HAy.
-      - repeat split.
-        + easy.
-        + easy.
-        + apply HAy.
-        + apply HUyG.
-        + apply HuU with (U := Uy). repeat split.
-          * apply HUyG.
-          * apply HeqUy.
-          * apply HAy.
-        + specialize HU with (U := Uy). apply HU. apply HUyG. }
-    rewrite HvUx in HvAxAy. rewrite HvUy in HvAxAy. inversion HvAxAy.
-    apply Hxy. apply H1.
-  - intros HuZ'. apply member_In_equiv in HuZ'. rewrite HuZ' in HuZ. discriminate HuZ.
-  - apply Hconn.
-  - rewrite HeqAZ. apply nodes_map_to_assignment.
-Qed. *)
 
 Lemma find_values_unequal {X: Type} `{EqType X}: forall (G: graph) (g: graphfun) (u: node) (U1 U2 P1 P2: assignments X),
   find_values G g (find_parents u G) U1 [] = Some P1
@@ -17058,7 +15309,7 @@ Proof.
            assert (Hmedh: In h (find_mediators_in_path (anc, u, l) G)).
            { apply directed_path_all_mediators with (m := h). split. apply Hdir. apply Hmemh. }
            apply if_mediator_then_not_confounder_path in Hmedh. destruct Hmedh as [_ Hhcol]. exfalso. apply Hhcol. rewrite Hcol'. left. reflexivity.
-           destruct HG as [_ [_ HG]]. apply HG.
+           destruct HG as [_ [_ HG]]. apply HG. admit.
       + unfold all_colliders_have_descendant_conditioned_on. unfold collider_descendants_not_conditioned in Hcol. apply forallb_true_iff_mem.
         intros col Hcol'. apply descendants_in_or_not_in. apply example_usage with (x := col) in Hcol.
         ** apply Hcol.
@@ -17972,24 +16223,33 @@ Proof.
                 -- apply Hconn.
               * split. apply Hancuz. apply Hancu.
             + split. apply Hancv. apply Hancvz. } }
+  admit.
+Admitted.
+
+Theorem conditional_independence_d_separation' {X : Type} `{EqType X}: forall (G: graph) (u v: node),
+  u <> v /\ generic_graph_and_type_properties_hold X G /\ node_in_graph v G = true
+  -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
+  -> d_separated_bool u v G Z = true <-> conditionally_independent'' X G u v Z.
+Proof.
+  intros G u' v'. intros [Huveq [HG Hnodev]] Z HZ. split.
+  { admit. }
   { intros Hcond. remember u' as u. remember v' as v. (* show that if NOT d-separated, then there is a contradiction. *)
     destruct (d_separated_bool u v G Z) as [|] eqn:Hsep.
     - reflexivity.
     - apply d_separated_vs_connected in Hsep. destruct Hsep as [l Hp].
-      assert (contra: ~(conditionally_independent X G u v Z)).
+      assert (contra: ~(conditionally_independent'' X G u v Z)).
       { apply path_d_connected_then_not_independent with (p := (u, v, l)).
         - split. apply HG.
           apply paths_start_to_end_correct. split.
-          + destruct Hp as [_ [Hp _]]. apply Hp.
+          + apply Hp.
           + split.
             * apply path_start_end_refl.
-            * destruct Hp as [Hp _]. apply Hp.
+            * apply Hp.
         - apply HZ.
-        - destruct Hp as [_ [_ Hp]]. apply Hp. }
+        - apply Hp. }
       (* need to update for new definition of conditionally_independent; before, could just do "contradiction." *)
-      admit. }
+      exfalso. apply contra. apply Hcond. }
 Admitted.
-
 
 (* interventions *)
 Definition remove_edges_into (X: node) (E: edges) : edges :=
