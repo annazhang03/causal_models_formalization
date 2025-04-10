@@ -886,23 +886,36 @@ Proof.
       * apply Hpath.
 Qed.
 
-Lemma reverse_path_in_graph: forall (G: graph) (u v: node) (l: nodes),
-  is_path_in_graph (u, v, l) G = true -> is_path_in_graph (v, u, rev l) G = true.
-Proof.
-  intros [V E] u v l H.
-  generalize dependent v. generalize dependent u. induction l as [| h t IH].
-  - intros u v H. simpl in H. rewrite andb_comm in H. simpl in H. simpl.
-    rewrite orb_comm in H. rewrite H. reflexivity.
-  - intros u v H. specialize IH with (u := h) (v := v). simpl in H. apply split_and_true in H.
-    destruct H as [H1 H2]. apply IH in H2. replace (rev (h :: t)) with ((rev t) ++ [h]).
-    + simpl. simpl in H2. admit.
-Admitted.
-
 Theorem concat_paths_still_a_path: forall u1 mid v2: node, forall l1 l2: nodes, forall G: graph,
   is_path_in_graph (u1, mid, l1) G = true /\ is_path_in_graph (mid, v2, l2) G = true
   -> is_path_in_graph (concat u1 mid v2 l1 l2) G = true.
 Proof.
-Admitted.
+  intros u m v l1 l2 G.
+  intros [H1 H2].
+  unfold concat.
+  generalize dependent u. induction l1 as [| hl1 tl1 IH].
+  - intros u H1. simpl. destruct G as [V E]. apply split_and_true. split.
+    + simpl in H1. apply split_and_true in H1. apply H1.
+    + apply H2.
+  - intros u H1. simpl. destruct G as [V E]. apply split_and_true. split.
+    + simpl in H1. apply split_and_true in H1. apply H1.
+    + apply IH. simpl in H1. apply split_and_true in H1. apply H1.
+Qed.
+
+
+Lemma reverse_path_in_graph: forall (G: graph) (u v: node) (l: nodes),
+  is_path_in_graph (u, v, l) G = true -> is_path_in_graph (v, u, rev l) G = true.
+Proof.
+  intros G u v l. intros H.
+  generalize dependent u. induction l as [| h t IH].
+  - intros u H. simpl. simpl in H. rewrite orb_comm. apply H.
+  - intros u H. specialize IH with (u := h).
+    assert (Hind: is_path_in_graph (v, h, rev t) G = true). { apply IH. simpl in H. destruct G as [V E]. apply split_and_true in H. apply H. }
+    assert (Hrew: is_path_in_graph (v, u, rev (h :: t)) G = is_path_in_graph (v, u, rev t ++ [h]) G). { simpl. reflexivity. }
+    rewrite Hrew.
+    apply concat_paths_still_a_path. split. apply Hind. simpl. simpl in H. destruct G as [V E]. apply split_and_true in H. apply split_and_true.
+    split. rewrite orb_comm. apply H. reflexivity.
+Qed.
 
 Example path_in_graph: is_path_in_graph (2, 4, [1]) G = true.
 Proof. reflexivity. Qed.
@@ -1443,13 +1456,13 @@ Proof.
 Admitted.
 
 Theorem contains_cycle_true_correct : forall G: graph,
-  (exists p: path, is_path_in_graph p G = true /\ ~(acyclic_path_2 p))
+  (exists p: path, is_directed_path_in_graph p G = true /\ ~(acyclic_path_2 p))
   <-> contains_cycle G = true.
 Proof.
 Admitted.
 
 Theorem contains_cycle_false_correct : forall G: graph, forall p: path,
-  contains_cycle G = false -> ((is_path_in_graph p G = true) -> acyclic_path_2 p).
+  contains_cycle G = false -> ((is_directed_path_in_graph p G = true) -> acyclic_path_2 p).
 Proof.
   intros G p.
   pose proof contains_cycle_true_correct as cycle_true.
@@ -1457,11 +1470,10 @@ Proof.
   intros Hcyc Hpath.
   destruct (classic (acyclic_path_2 p)) as [HnC | HC].
   - apply HnC.
-  - assert (H: (exists p' : path, is_path_in_graph p' G = true /\ ~ acyclic_path_2 p')).
+  - assert (H: (exists p' : path, is_directed_path_in_graph p' G = true /\ ~ acyclic_path_2 p')).
     { exists p. split. apply Hpath. apply HC. }
     apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc.
 Qed.
-(* TODO think this should be is_directed_path_in_graph... *)
 
 Lemma acyclic_no_self_loop: forall (G: graph) (u: node),
   contains_cycle G = false -> is_edge (u, u) G = false.
@@ -1471,7 +1483,7 @@ Proof.
   - apply contains_cycle_false_correct with (p := (u, u, [])) in Hcyc.
     + simpl in Hcyc. destruct Hcyc as [Hcyc _]. unfold not in Hcyc.
         exfalso. apply Hcyc. reflexivity.
-    + destruct G as [V E]. simpl. unfold is_edge in Hedge. rewrite Hedge. simpl. reflexivity.
+    + simpl. rewrite Hedge. reflexivity.
   - reflexivity.
 Qed.
 
@@ -1482,7 +1494,7 @@ Proof.
   destruct (is_edge (v, u) G) as [|] eqn:Hvu.
   - apply contains_cycle_false_correct with (p := (u, u, [v])) in Hcyc.
     + simpl in Hcyc. destruct Hcyc as [F _]. exfalso. apply F. reflexivity.
-    + simpl. rewrite He. rewrite Hvu. simpl. destruct G as [V E]. reflexivity.
+    + simpl. rewrite He. rewrite Hvu. reflexivity.
   - reflexivity.
 Qed.
 
@@ -1509,6 +1521,12 @@ Definition find_directed_paths_from_start (u: node) (G: graph) : paths :=
 Definition find_directed_paths_to_end (t: node) (G: graph): paths :=
   filter (fun (p: path) => path_end p =? t)
          (snd (dfs_extend_by_edges_iter (edges_in_graph G) (directed_edges_as_paths (edges_in_graph G)) (num_nodes G))).
+
+Theorem directed_paths_to_end_correct : forall p: path, forall v: node, forall G: graph,
+      (is_directed_path_in_graph p G = true) /\ (path_end p =? v = true) /\ acyclic_path_2 p
+  <-> In p (find_directed_paths_to_end v G).
+Proof.
+Admitted.
 
 
 Example directed_paths_from_1: find_directed_paths_from_start 1 G = [(1, 2, [])].
@@ -1768,13 +1786,6 @@ Definition find_all_paths (G: graph) : paths :=
 Compute find_all_paths G.
 
 
-Theorem general_path_of_G : forall G: graph, forall p: path, 
-  member_path p (find_all_paths G) = true <-> is_path_in_graph p G = true.
-Proof.
-Admitted.
-
-
-
 
 
 Definition adj_list : Type := list (node * nodes).
@@ -1879,7 +1890,7 @@ Definition contains_any_node (G: graph): bool :=
   end.
 
 Theorem constructed_path_in_graph: forall (G: graph) (p: path) (iters: nat),
-  G_well_formed G = true -> is_path_in_graph p G = true -> is_path_in_graph (construct_path G p iters) G = true.
+  G_well_formed G = true -> is_directed_path_in_graph p G = true -> is_directed_path_in_graph (construct_path G p iters) G = true.
 Proof.
   intros G p iters Hwf H.
   generalize dependent p. induction iters as [| iters' IH].
@@ -1887,15 +1898,11 @@ Proof.
   - intros p H. destruct p as [[u v] l]. simpl. destruct (find_parents u G) as [| h t] eqn:HP.
     + apply H.
     + specialize IH with (p := (h, v, u :: l)). apply IH.
-      destruct G as [V E]. simpl in H. simpl. rewrite H.
-      assert (Hedge: edge_in_graph (h, u) (V, E) = true).
-      { apply edge_from_parent_to_child. rewrite HP. simpl. left. reflexivity. }
-      simpl in Hedge. rewrite Hedge.
-      assert (Hnode: node_in_graph h (V, E) = true /\ node_in_graph u (V, E) = true).
-      { apply edge_corresponds_to_nodes_in_well_formed. split.
-        - apply Hwf.
-        - simpl. apply Hedge. }
-      simpl in Hnode. destruct Hnode as [Hh Hu]. rewrite Hh. rewrite Hu. simpl. reflexivity.
+      simpl. apply split_and_true. split.
+      * assert (Hedge: edge_in_graph (h, u) G = true).
+        { apply edge_from_parent_to_child. rewrite HP. simpl. left. reflexivity. }
+        apply edge_in_graph_then_is_edge in Hedge. apply Hedge. apply Hwf.
+      * apply H.
 Qed.
 
 Theorem constructed_path_adds_length_iters: forall (G: graph) (p: path) (iters: nat),
@@ -1976,7 +1983,7 @@ Proof.
         { apply edge_corresponds_to_nodes_in_well_formed. split. rewrite HG. apply HGwf. apply Hp. }
         destruct HpV as [HpV _].
         remember (construct_path G (p, v, []) (length V)) as cycle. (* extend (p, v) backwards |V| times *)
-        assert (Hpath: is_path_in_graph cycle G = true).
+        assert (Hpath: is_directed_path_in_graph cycle G = true).
         { rewrite Heqcycle. apply constructed_path_in_graph. rewrite HG. apply HGwf. rewrite HG. simpl.
           rewrite HG in HpV. simpl in HpV. rewrite HpV. rewrite eqb_refl.
           rewrite HG in Hp. simpl in Hp. rewrite Hp. simpl. reflexivity. }
@@ -1991,7 +1998,7 @@ Proof.
                 + rewrite He. rewrite eqb_refl. simpl.
                   apply split_orb_true. left. apply split_orb_true. right. reflexivity.
                 + apply member_In_equiv in Hint. rewrite Hint. apply split_orb_true. right. reflexivity.
-              - apply Hpath. }
+              - apply directed_path_is_path. apply Hpath. }
             rewrite HG in Heq. rewrite <- HV in Heq. simpl in Heq. apply member_In_equiv. apply Heq.
           - assert (Hlen: measure_path cycle = 2 + (length V)).
             { rewrite Heqcycle. apply constructed_path_adds_length_iters. repeat split.
@@ -4491,6 +4498,62 @@ Proof.
   - apply path_must_have_direction_2. apply HpG.
 Qed.
 
+Lemma directed_path_can_be_acyclic: forall (G: graph) (u v: node) (l: nodes),
+  u <> v
+  -> is_directed_path_in_graph (u, v, l) G = true
+  -> exists (l': nodes), is_directed_path_in_graph (u, v, l') G = true /\ acyclic_path_2 (u, v, l')
+      /\ subset l' l = true.
+Proof.
+  intros G u v l Huv Hdir.
+  assert (Hi: exists (i: nat), length l <= i). { exists (length l). lia. }
+  destruct Hi as [i Hi].
+  generalize dependent u. generalize dependent l. induction i as [| i' IH].
+  - intros l Hi u Huv Hdir.
+    assert (Hl: l = []). { destruct l as [| h t]. reflexivity. simpl in Hi. lia. } rewrite Hl in *. clear Hl.
+    exists []. split. apply Hdir. split. simpl. split. apply Huv. easy. simpl. reflexivity.
+  - intros l Hi u Huv Hdir.
+    destruct l as [| h t].
+    { exists []. split. apply Hdir. split. simpl. split. apply Huv. easy. simpl. reflexivity. }
+    destruct (member u (h :: t)) as [|] eqn:Hut.
+    * apply member_In_equiv in Hut. apply membership_splits_list in Hut. destruct Hut as [l1 [l2 Hut]].
+      specialize IH with (l := l2) (u := u). apply IH in Huv.
+      -- destruct Huv as [l' Huv]. exists l'. split. apply Huv. split. apply Huv.
+         apply forallb_true_iff_mem. intros x Hx. apply member_In_equiv. destruct Huv as [_ [_ Huv]]. apply forallb_true_iff_mem with (x := x) in Huv.
+         rewrite <- Hut. apply membership_append_r. simpl. right. apply member_In_equiv. apply Huv. apply Hx.
+      -- rewrite <- Hut in Hi. rewrite app_length in Hi. rewrite app_length in Hi. simpl in Hi.
+         assert (Hlen: length l2 < S (length l2)). { lia. }
+         assert (Hlen2: S (length l2) <= length l1 + S (length l2)). { lia. }
+         assert (Hlen3: S (length l2) <= S i'). { lia. }
+         apply le_S_n in Hlen3. apply Hlen3.
+      -- apply subpath_still_directed with (w := u) (l1 := l1) (l3 := h :: t). split. apply Hut. apply Hdir.
+    * specialize IH with (u := h).
+      assert (Hdir': is_directed_path_in_graph (h, v, t) G = true).
+      { simpl in Hdir. apply split_and_true in Hdir. apply Hdir. }
+      destruct (h =? v) as [|] eqn:Hvh.
+      + exists []. split. simpl. rewrite andb_comm. simpl. simpl in Hdir. apply split_and_true in Hdir. apply eqb_eq in Hvh. rewrite <- Hvh. apply Hdir.
+        split. simpl. split. apply Huv. easy. simpl. reflexivity.
+      + apply IH in Hdir'.
+        -- destruct Hdir' as [l' Hdir'].
+           destruct (member u l') as [|] eqn:Hul.
+           { apply member_In_equiv in Hul. apply membership_splits_list in Hul. destruct Hul as [l1 [l2 Hul]].
+             exists l2. split.
+             - apply subpath_still_directed with (w := h) (l1 := l1) (l3 := l'). split. apply Hul. apply Hdir'.
+             - split. apply subpath_still_acyclic with (w := h) (l1 := l1) (l3 := l'). split. apply Hul. apply Hdir'.
+               apply forallb_true_iff_mem. intros x Hx. apply member_In_equiv. right. destruct Hdir' as [_ [_ Hdir']]. apply forallb_true_iff_mem with (x := x) in Hdir'.
+               apply member_In_equiv. apply Hdir'. rewrite <- Hul. apply membership_append_r. simpl. right. apply Hx. }
+           exists (h :: l'). split.
+           ++ simpl. apply split_and_true. split. simpl in Hdir. apply split_and_true in Hdir. apply Hdir. apply Hdir'.
+           ++ split.
+              ** apply acyclic_path_cat_2. apply Hdir'. intros Hu. destruct Hu as [Hu | Hu]. simpl in Hut. rewrite Hu in Hut. rewrite eqb_refl in Hut. discriminate Hut.
+                 apply membership_append_or in Hu. destruct Hu as [Hu | Hu]. 
+                 { apply member_In_equiv_F in Hul. apply Hul. apply Hu. }
+                 { destruct Hu as [Hu | Hu]. apply Huv. symmetry. apply Hu. apply Hu. }
+              ** simpl. rewrite eqb_refl. simpl. apply forallb_true_iff_mem. intros x Hx. apply member_In_equiv. right. destruct Hdir' as [_ [_ Hdir']]. apply forallb_true_iff_mem with (x := x) in Hdir'.
+                 apply member_In_equiv. apply Hdir'. apply Hx.
+        -- simpl in Hi. apply le_S_n in Hi. apply Hi.
+        -- apply eqb_neq. apply Hvh.
+Qed.
+
 Fixpoint path_into_end_nodes (p: nodes) (G: graph): option bool :=
   match p with
   | [] => None
@@ -4986,61 +5049,6 @@ Proof.
   { intros H. rewrite H. reflexivity. }
 Qed.
 
-
-Lemma concat_preserves_colliders_2: forall (G: graph) (u m v c: node) (l1 l2: nodes),
-  acyclic_path_2 (concat u m v l1 l2) /\ In c (find_colliders_in_path (concat u m v l1 l2) G) /\ In c l1 -> In c (find_colliders_in_path (u, m, l1) G).
-Proof.
-  intros G u m v c l1 l2. intros [Hcyc [Hcol Hl1]].
-  apply colliders_vs_edges_in_path in Hcol. destruct Hcol as [y [z [Hsub Hedge]]].
-  apply colliders_vs_edges_in_path. exists y. exists z. 
-  assert (~(In c l2)). { admit. (* acyclic, and c is in l1, so cannot also be in l2 *) }
-  assert (Hcm: c =? m = false). { admit. (* acyclic, same reasoning *) }
-  split.
-  - replace (u :: (l1 ++ m :: l2) ++ [v]) with ((u :: l1 ++ [m]) ++ (l2 ++ [v])) in Hsub.
-    + apply sublist_of_long_list with (l1 := (u :: l1 ++ [m])) (l2 := l2 ++ [v]) in Hsub.
-      destruct Hsub as [Hsub | [Hsub | Hsub]].
-      * apply Hsub.
-      * destruct Hsub as [sl1 [sl2 Hsub]].
-        destruct sl1 as [| h t].
-        -- destruct Hsub as [_ [H1 H2]]. simpl in H2. apply sublist_of_long_list in H1.
-           destruct H1 as [H1 | [H1 | H1]].
-           ++ assert (In c l2).
-              { apply sublist_member with (l1 := sl2). split.
-                - rewrite H2. simpl. right. left. reflexivity.
-                - apply H1. }
-              exfalso. apply H. apply H0.
-           ++ destruct H1 as [sl1 [sl3 [H11 [H12 H13]]]].
-              assert (In c sl1).
-              { destruct sl3 as [| h t].
-                - rewrite append_identity in H13. rewrite H13 in H11.
-                  rewrite H13. rewrite H2. simpl. right. left. reflexivity.
-                - simpl in H12. apply split_orb_true in H12. destruct H12 as [H12 | H12].
-                  + apply split_and_true in H12. destruct H12 as [H12 H12'].
-                    destruct t as [| h' t'].
-                    * assert (forall (l t: list nat) (a d: nat), l ++ [a] = t ++ [d] -> l = t).
-                      { intros l t a d Ha. generalize dependent t. induction l as [| hl tl IHl].
-                        - intros t Ha. simpl in Ha. destruct t as [| ht tt]. reflexivity. simpl in Ha. destruct tt as [| htt ttt]. discriminate Ha. discriminate Ha.
-                        - intros t Ha. destruct t as [| ht tt].
-                          + simpl in Ha. destruct tl as [| ht1 ht2]. discriminate Ha. discriminate Ha.
-                          + specialize IHl with (t := tt). simpl in Ha. inversion Ha. apply IHl in H3. rewrite H3. reflexivity. }
-                      specialize H0 with (l := sl1) (t := [y; c]) (a := h) (d := z). rewrite <- H13 in H2. simpl in H0. apply H0 in H2.
-                      rewrite H2. simpl. right. left. reflexivity.
-                    * simpl in H12'. discriminate H12'.
-                  + discriminate H12. }
-              assert (In c l2).
-              { apply sublist_member with (l1 := sl1). split.
-                - apply H0.
-                - apply H11. }
-              exfalso. apply H. apply H1. 
-           ++ rewrite H2 in H1. simpl in H1. rewrite andb_comm in H1. simpl in H1. discriminate H1.
-           (* TODO not sure why this is so hard rn, the idea is that because of how sublists work, either c in l1, c = m, or c in l2.
-              because of acyclic, c in l1. that should prove the theorem *)
-        -- admit.
-      * (* contradiction, c is in l2 *) admit.
-    + simpl. f_equal. rewrite append_vs_concat. apply rearrange_list_concat_app.
-  - apply Hedge.
-Admitted.
-
 (* there is some collider such that none of its descendants are in Z *)
 Definition collider_descendants_not_conditioned (cols: nodes) (G: graph) (Z: nodes) : bool :=  
   existsb (fun c => descendants_not_in_Z_bool (find_descendants c G) Z) cols.
@@ -5119,30 +5127,6 @@ Definition path_has_no_colliders (p: path) (G: graph): bool :=
   | (u, v, l) => forallb (fun x: node => negb (is_collider_in_path_bool x p G)) l
   end.
 
-Lemma colliders_in_path_helper: forall l: nodes, forall G: graph, forall C: node,
-  In C (find_colliders_in_nodes l G) <-> is_collider_in_path_helper C l G.
-Proof.
-  intros l G C. split.
-  - intros H. induction l as [| h t IH].
-    + simpl in H. exfalso. apply H.
-    + destruct t as [| h1 t1].
-      * simpl in H. apply H.
-      * destruct t1 as [| h2 t2].
-        -- simpl. simpl in H. apply H.
-        -- simpl. destruct (h1 =? C) as [|] eqn:Hh1C.
-           ++ simpl in H.  (* TODO need V to have no duplicate nodes *)
-Admitted.
-
-Theorem colliders_in_path: forall p: path, forall G: graph, forall C: node,
-  In C (find_colliders_in_path p G) <-> is_collider_in_path C p G.
-Proof.
-  intros p G C. split.
-  - intros H. destruct p as [[u v] l].
-    induction l as [| h t IH].
-    + simpl in H. exfalso. apply H.
-    + simpl.
-Admitted.
-
 Theorem intermediate_node_in_path: forall G: graph, forall u v x: node, forall l: nodes,
   is_path_in_graph (u, v, l) G = true -> 
   (In x l <-> 
@@ -5208,8 +5192,8 @@ Proof.
   split.
   { destruct (is_confounder_bool u v x G) as [|] eqn:Hcon.
   - unfold is_confounder_bool in Hcon. apply split_and_true in Hcon. destruct Hcon as [H3 H4].
-    assert (Hpath: is_path_in_graph (u, u, [x]) G = true).
-    { destruct G as [V E]. simpl. unfold is_edge in *. rewrite H1. rewrite H3. simpl. reflexivity. }
+    assert (Hpath: is_directed_path_in_graph (u, u, [x]) G = true).
+    { simpl. rewrite H1. rewrite H3. simpl. reflexivity. }
     apply contains_cycle_false_correct in Hpath.
     + simpl in Hpath. destruct Hpath as [contra _]. unfold not in contra.
       exfalso. apply contra. reflexivity.
@@ -5217,8 +5201,8 @@ Proof.
   - reflexivity. }
   { destruct (is_collider_bool u v x G) as [|] eqn:Hcol.
   - unfold is_collider_bool in Hcol. apply split_and_true in Hcol. destruct Hcol as [H3 H4].
-    assert (Hpath: is_path_in_graph (v, v, [x]) G = true).
-    { destruct G as [V E]. simpl. unfold is_edge in *. rewrite H2. rewrite H4. simpl. reflexivity. }
+    assert (Hpath: is_directed_path_in_graph (v, v, [x]) G = true).
+    { simpl. rewrite H2. rewrite H4. simpl. reflexivity. }
     apply contains_cycle_false_correct in Hpath.
     + simpl in Hpath. destruct Hpath as [contra _]. unfold not in contra.
       exfalso. apply contra. reflexivity.
@@ -5556,6 +5540,25 @@ Qed.
 Definition generic_graph_and_type_properties_hold (X: Type) (G: graph): Prop :=
   (exists (x y: X), x <> y) /\ G_well_formed G = true /\ contains_cycle G = false.
 
+Lemma path_breaks_down_midpoint_vs_endpoint: forall (l1 l2 l3: nodes) (a b: node),
+  l1 ++ [a] ++ l2 = l3 ++ [b]
+  -> (rev l2 = [] -> a = b /\ l1 = l3) /\ (forall (hl2: node) (tl2: nodes), rev l2 = hl2 :: tl2 -> b = hl2 /\ l3 = l1 ++ [a] ++ rev tl2).
+Proof.
+  intros l1' l2' l3 a b H. split.
+  { intros Hlp2.
+    assert (Hlem: rev (l1' ++ [a]) = rev (l3 ++ [b])).
+    { rewrite <- H. rewrite reverse_list_append. rewrite reverse_list_append. rewrite reverse_list_append. unfold nodes in *. unfold node in *. rewrite Hlp2.
+      simpl. reflexivity. }
+    rewrite reverse_list_append in Hlem. rewrite reverse_list_append in Hlem. simpl in Hlem.
+    inversion Hlem. split. reflexivity. rewrite reverse_list_twice with (l := l1'). rewrite H2. rewrite <- reverse_list_twice.
+    reflexivity. }
+  { intros hlp2' tlp2' Hlp2'. assert (Hlem: rev (l1' ++ [a] ++ l2') = rev (l3 ++ [b])).
+    { rewrite <- H. reflexivity. }
+    rewrite reverse_list_append in Hlem. rewrite reverse_list_append in Hlem. unfold nodes in *. unfold node in *. rewrite Hlp2' in Hlem. simpl in Hlem. rewrite reverse_list_append in Hlem.
+    simpl in Hlem. inversion Hlem. split. reflexivity. rewrite reverse_list_twice with (l := l3).
+    rewrite <- H2. repeat rewrite reverse_list_append. rewrite <- reverse_list_twice. simpl. reflexivity. }
+Qed.
+
 (* p represents a path backwards. return nodes in path before any node in Z is reached *)
 Fixpoint find_unblocked_members_of_nodes (p: nodes) (Z: nodes): nodes :=
   match p with
@@ -5566,25 +5569,109 @@ Fixpoint find_unblocked_members_of_nodes (p: nodes) (Z: nodes): nodes :=
 Lemma unblocked_member_means_in_path: forall (p: nodes) (Z: nodes) (a: node),
   In a (find_unblocked_members_of_nodes p Z) -> In a p /\ ~(In a Z).
 Proof.
-Admitted.
+  intros p Z a H.
+  induction p as [| h t IH].
+  - simpl in H. exfalso. apply H.
+  - simpl in H. destruct (member h Z) as [|] eqn:Hh.
+    + exfalso. apply H.
+    + destruct H as [H | H].
+      * split. rewrite H. left. reflexivity. rewrite <- H. apply member_In_equiv_F. apply Hh.
+      * apply IH in H. split. right. apply H. apply H.
+Qed.
+
+Lemma unblocked_member_means_in_path_2: forall (p: nodes) (Z: nodes) (a: node),
+  In a (find_unblocked_members_of_nodes p Z) <-> exists (l1 l2: nodes), l1 ++ [a] ++ l2 = p /\ forall (x: node), In x (l1 ++ [a]) -> ~ In x Z.
+Proof.
+  intros p Z a. split.
+  { intros H.
+    induction p as [| h t IH].
+    - simpl in H. exfalso. apply H.
+    - simpl in H. destruct (member h Z) as [|] eqn:Hh.
+      + exfalso. apply H.
+      + destruct H as [H | H].
+        * exists []. exists t. split. rewrite H. reflexivity. intros x Hx. simpl in Hx. destruct Hx as [Hx | Hx].
+          rewrite <- Hx. rewrite <- H. apply member_In_equiv_F. apply Hh. exfalso. apply Hx.
+        * apply IH in H. destruct H as [l1 [l2 H]]. exists (h :: l1). exists l2. split. destruct H as [H _]. rewrite <- H. reflexivity.
+          intros x Hx. destruct Hx as [Hx | Hx]. rewrite <- Hx. apply member_In_equiv_F. apply Hh. apply H. apply Hx. }
+  { intros [l1 [l2 [Hp Hx]]]. generalize dependent l1. induction p as [| h t IH].
+    - intros l1 Hp Hx. destruct l1 as [| hl1 tl1]. discriminate Hp. discriminate Hp.
+    - intros l1 Hp Hx. destruct l1 as [| hl1 tl1].
+      + inversion Hp. simpl. destruct (member h Z) as [|] eqn:Hh.
+        * exfalso. assert (Hh': ~ In h Z). { apply Hx. left. apply H0. } apply Hh'. apply member_In_equiv. apply Hh.
+        * left. reflexivity.
+      + inversion Hp. simpl. destruct (member h Z) as [|] eqn:Hh.
+        * exfalso. assert (Hh': ~ In h Z). { apply Hx. left. apply H0. } apply Hh'. apply member_In_equiv. apply Hh.
+        * right. rewrite H1. apply IH with (l1 := tl1). apply H1. intros x Hxmem. apply Hx. right. apply Hxmem. }
+Qed.
 
 (* does NOT include the end node (the node that all other nodes are ancestors of) *)
 Fixpoint find_unblocked_ancestors_given_paths (P: paths) (Z: nodes): nodes :=
   match P with
   | [] => []
   | p :: P' => match p with
-               | (u, v, l) => add_nodes_no_repeats (find_unblocked_members_of_nodes ((rev l) ++ [u]) Z) (find_unblocked_ancestors_given_paths P' Z)
+               | (u, v, l) => (find_unblocked_members_of_nodes ((rev l) ++ [u]) Z) ++ (find_unblocked_ancestors_given_paths P' Z)
                end
   end.
 
 Lemma in_unblocked_ancestors_of_some_path: forall (P: paths) (Z: nodes) (a: node),
-  In a (find_unblocked_ancestors_given_paths P Z) -> exists (p: path), In p P /\ In a (find_unblocked_members_of_nodes ((rev (path_int p)) ++ [path_start p]) Z).
+  In a (find_unblocked_ancestors_given_paths P Z) <-> exists (p: path), In p P /\ In a (find_unblocked_members_of_nodes ((rev (path_int p)) ++ [path_start p]) Z).
 Proof.
-Admitted.
+  intros P Z a. split.
+  { intros Ha.
+    induction P as [| hp tp IH].
+    - simpl in Ha. exfalso. apply Ha.
+    - simpl in Ha. destruct hp as [[uh vh] lh].
+      apply membership_append_or in Ha. destruct Ha as [Ha | Ha].
+      + exists (uh, vh, lh). split. left. reflexivity. simpl. apply Ha.
+      + apply IH in Ha. destruct Ha as [p Hp]. exists p. split. right. apply Hp. apply Hp. }
+  { intros [p [Hp Ha]]. induction P as [| hp tp IH].
+    - exfalso. apply Hp.
+    - destruct Hp as [Hp | Hp].
+      + simpl. destruct hp as [[uh vh] lh]. apply membership_append. rewrite <- Hp in Ha. simpl in Ha. apply Ha.
+      + apply IH in Hp. simpl. destruct hp as [[uh vh] lh]. apply membership_append_r. apply Hp. }
+Qed.
 
 (* return all ancestors of u with an unblocked directed path to u TODO prove this is correct *)
 Definition find_unblocked_ancestors (G: graph) (v: node) (Z: nodes): nodes :=
   v :: (find_unblocked_ancestors_given_paths (find_directed_paths_to_end v G) Z).
+
+
+Theorem unblocked_ancestors_have_unblocked_directed_path: forall (G: graph) (v a: node) (Z: nodes),
+  In a (find_unblocked_ancestors G v Z)
+  <-> (a = v) \/ (exists (l: nodes), is_directed_path_in_graph (a, v, l) G = true /\ acyclic_path_2 (a, v, l) /\ forall (w: node), (w = a \/ In w l) -> ~(In w Z)).
+Proof.
+  (* path can be acyclic because if there is a directed path, can remove cycle *)
+  intros G v a Z. split.
+  - intros H. unfold find_unblocked_ancestors in H. simpl in H. destruct H as [H | H].
+    + left. rewrite H. reflexivity.
+    + right. apply in_unblocked_ancestors_of_some_path in H. destruct H as [p [Hp Ha]].
+      destruct p as [[u v'] l].
+      assert (Hv: v' = v).
+      { unfold find_directed_paths_to_end in Hp. apply filter_true in Hp. destruct Hp as [_ Hp]. simpl in Hp. apply eqb_eq. apply Hp. }
+      rewrite Hv in *. clear Hv. apply unblocked_member_means_in_path_2 in Ha as Ha'. destruct Ha' as [l1 [l2 [Hal HlZ]]]. simpl in Ha. simpl in Hal.
+      exists (rev l1). rewrite <- and_assoc. split.
+      * apply directed_paths_to_end_correct in Hp. apply path_breaks_down_midpoint_vs_endpoint in Hal.
+        destruct (rev l2) as [| hl2 tl2] eqn:Hl2.
+        -- destruct Hal as [Hal _]. assert (Hal': a = u /\ l1 = rev l). { apply Hal. reflexivity. }
+           destruct Hal' as [Ha' Hl1]. rewrite Ha'. rewrite Hl1. rewrite <- reverse_list_twice. split. apply Hp. apply Hp.
+        -- destruct Hal as [_ Hal]. specialize Hal with (hl2 := hl2) (tl2 := tl2). assert (Hal': u = hl2 /\ rev l = l1 ++ [a] ++ rev tl2). { apply Hal. reflexivity. }
+           destruct Hal' as [Hu Hl]. split.
+           { apply subpath_still_directed with (w := u) (l1 := tl2) (l3 := l). split.
+             rewrite reverse_list_twice with (l := l). unfold nodes in *. unfold node in *. rewrite Hl. rewrite reverse_list_append. simpl.
+             rewrite <- reverse_list_twice. rewrite <- app_assoc. reflexivity. apply Hp. }
+           { apply subpath_still_acyclic with (w := u) (l1 := tl2) (l3 := l). split.
+             rewrite reverse_list_twice with (l := l). unfold nodes in *. unfold node in *. rewrite Hl. rewrite reverse_list_append. simpl.
+             rewrite <- reverse_list_twice. rewrite <- app_assoc. reflexivity. apply Hp. }
+      * intros w Hw. apply HlZ. destruct Hw as [Hw | Hw]. apply membership_append_r. left. symmetry. apply Hw. apply membership_append. apply membership_rev. apply Hw.
+  - intros [H | H].
+    + unfold find_unblocked_ancestors. simpl. left. rewrite H. reflexivity.
+    + destruct H as [l [Hp [Hc Hw]]]. unfold find_unblocked_ancestors. right. apply in_unblocked_ancestors_of_some_path.
+      exists (a, v, l). split.
+      * apply directed_paths_to_end_correct. split. apply Hp. split. simpl. apply eqb_refl. apply Hc.
+      * simpl. apply unblocked_member_means_in_path_2. exists (rev l). exists []. split. rewrite append_identity. reflexivity.
+        intros x Hx. apply Hw. apply membership_append_or in Hx. destruct Hx as [Hx | [Hx | Hx]]. right. apply membership_rev. apply Hx.
+        left. symmetry. apply Hx. exfalso. apply Hx.
+Qed.
 
 
 Lemma acyclic_path_equate_sublists: forall (l1 l2 l3 l4: nodes) (m: node),
@@ -6001,6 +6088,34 @@ Proof.
               simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
 Qed.
 
+Lemma subpath_preserves_confounders_2: forall (w u v: node) (l1 l2 l3: nodes) (G: graph),
+  l1 ++ [u] ++ l2 = l3
+  -> find_confounders_in_path (w, v, l3) G = (find_confounders_in_path (w, u, l1) G) ++ [u] ++ (find_confounders_in_path (u, v, l2) G)
+     \/ find_confounders_in_path (w, v, l3) G = (find_confounders_in_path (w, u, l1) G) ++ (find_confounders_in_path (u, v, l2) G).
+Proof.
+  intros w u v l1 l2 l3 G. intros H.
+  generalize dependent w. generalize dependent l3. induction l1 as [| h t IH].
+  - intros l3 H w. simpl in H. rewrite <- H. simpl. destruct l2 as [| h2 t2].
+    + simpl. destruct (is_confounder_bool w v u G) as [|]. left. reflexivity. right. reflexivity.
+    + simpl. destruct (is_confounder_bool w h2 u G) as [|]. left. reflexivity. right. reflexivity.
+  - intros l3 H w. simpl. destruct l3 as [| h3 t3].
+    + simpl. discriminate H.
+    + specialize IH with (l3 := t3) (w := h3). simpl in H. inversion H. rewrite <- H1 in *. apply IH in H2 as Hind.
+      simpl. rewrite H2. simpl in Hind. destruct t3 as [| h' t'].
+      * destruct t as [| ht tt]. discriminate H. discriminate H.
+      * simpl. simpl in Hind. destruct (is_confounder_bool w h' h G) as [|] eqn:Hcol.
+        -- destruct Hind as [Hind | Hind].
+           ++ left. destruct t as [| ht tt].  simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+              simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+           ++ right. destruct t as [| ht tt].  simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+              simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+        -- destruct Hind as [Hind | Hind].
+           ++ left. destruct t as [| ht tt].  simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+              simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+           ++ right. destruct t as [| ht tt].  simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+              simpl. simpl in Hind. simpl in H2. inversion H2. rewrite H3 in *. rewrite H4 in *. rewrite Hcol. simpl. f_equal. apply Hind.
+Qed.
+
 Lemma collider_count_acyclic: forall (u v c: node) (l: nodes) (G: graph),
   In c (find_colliders_in_path (u, v, l) G)
   -> acyclic_path_2 (u, v, l)
@@ -6034,6 +6149,43 @@ Proof.
       * simpl. rewrite Hcol. simpl.
         assert (In c (h' :: t')).
         { apply intermediate_node_in_path with (x := c) in Hp'. apply Hp'. right. right. apply Hc. }
+        destruct (h =? c) as [|] eqn:Hhc. apply eqb_eq in Hhc. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. rewrite Hhc. apply H.
+        apply IH in Hc. apply Hc. apply Hcyc'. apply Hp'.
+Qed.
+
+Lemma confounder_count_acyclic: forall (u v c: node) (l: nodes) (G: graph),
+  In c (find_confounders_in_path (u, v, l) G)
+  -> acyclic_path_2 (u, v, l)
+  -> is_path_in_graph (u, v, l) G = true
+  -> count c (find_confounders_in_path (u, v, l) G) = 1.
+Proof.
+  intros u v c l G Hc Hcyc Hp.
+  generalize dependent u. induction l as [| h t IH].
+  - intros u Hc Hcyc Hp. simpl in Hc. exfalso. apply Hc.
+  - intros u Hc Hcyc Hp. simpl in Hc. destruct t as [| h' t'].
+    + simpl in Hc. destruct (is_confounder_bool u v h G) as [|] eqn:Hcol.
+      * destruct Hc as [Hc | Hc]. simpl. rewrite Hcol. simpl. rewrite Hc. rewrite eqb_refl. reflexivity. exfalso. apply Hc.
+      * exfalso. apply Hc.
+    + simpl in Hc. 
+      assert (Hp': is_path_in_graph (h, v, h' :: t') G = true). { simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
+      assert (Hcyc': acyclic_path_2 (h, v, h' :: t')). { apply acyclic_path_cat with (u := u). apply Hcyc. }
+      destruct (is_confounder_bool u h' h G) as [|] eqn:Hcol.
+      * destruct Hc as [Hc | Hc].
+        --- simpl. rewrite Hcol. simpl. rewrite Hc. rewrite eqb_refl.
+            assert (~In c (find_confounders_in_path (h, v, h' :: t') G)).
+            { intros Hcmem.
+              apply intermediate_node_in_path with (x := c) in Hp'. assert (In c (h' :: t')). { apply Hp'. right. left. apply Hcmem. }
+              destruct Hcyc' as [_ [H1 _]]. apply H1.
+              rewrite Hc. apply H. }
+            apply member_In_equiv_F in H. apply not_member_count_0 in H. simpl in H. rewrite Hc in *. rewrite H. reflexivity.
+        --- simpl. rewrite Hcol. simpl.
+            assert (In c (h' :: t')).
+            { apply intermediate_node_in_path with (x := c) in Hp'. apply Hp'. right. left. apply Hc. }
+            destruct (h =? c) as [|] eqn:Hhc. apply eqb_eq in Hhc. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. rewrite Hhc. apply H.
+            apply IH in Hc. apply Hc. apply Hcyc'. apply Hp'.
+      * simpl. rewrite Hcol. simpl.
+        assert (In c (h' :: t')).
+        { apply intermediate_node_in_path with (x := c) in Hp'. apply Hp'. right. left. apply Hc. }
         destruct (h =? c) as [|] eqn:Hhc. apply eqb_eq in Hhc. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. rewrite Hhc. apply H.
         apply IH in Hc. apply Hc. apply Hcyc'. apply Hp'.
 Qed.
@@ -6085,26 +6237,6 @@ Proof.
      simpl in Hdir. apply split_and_true in Hdir. apply Hdir.
      simpl in Hpdy. inversion Hpdy. rewrite H0 in Hdir.
      simpl in Hdir. apply split_and_true in Hdir. apply Hdir.
-Qed.
-
-
-Lemma path_breaks_down_midpoint_vs_endpoint: forall (l1 l2 l3: nodes) (a b: node),
-  l1 ++ [a] ++ l2 = l3 ++ [b]
-  -> (rev l2 = [] -> a = b /\ l1 = l3) /\ (forall (hl2: node) (tl2: nodes), rev l2 = hl2 :: tl2 -> b = hl2 /\ l3 = l1 ++ [a] ++ rev tl2).
-Proof.
-  intros l1' l2' l3 a b H. split.
-  { intros Hlp2.
-    assert (Hlem: rev (l1' ++ [a]) = rev (l3 ++ [b])).
-    { rewrite <- H. rewrite reverse_list_append. rewrite reverse_list_append. rewrite reverse_list_append. unfold nodes in *. unfold node in *. rewrite Hlp2.
-      simpl. reflexivity. }
-    rewrite reverse_list_append in Hlem. rewrite reverse_list_append in Hlem. simpl in Hlem.
-    inversion Hlem. split. reflexivity. rewrite reverse_list_twice with (l := l1'). rewrite H2. rewrite <- reverse_list_twice.
-    reflexivity. }
-  { intros hlp2' tlp2' Hlp2'. assert (Hlem: rev (l1' ++ [a] ++ l2') = rev (l3 ++ [b])).
-    { rewrite <- H. reflexivity. }
-    rewrite reverse_list_append in Hlem. rewrite reverse_list_append in Hlem. unfold nodes in *. unfold node in *. rewrite Hlp2' in Hlem. simpl in Hlem. rewrite reverse_list_append in Hlem.
-    simpl in Hlem. inversion Hlem. split. reflexivity. rewrite reverse_list_twice with (l := l3).
-    rewrite <- H2. repeat rewrite reverse_list_append. rewrite <- reverse_list_twice. simpl. reflexivity. }
 Qed.
 
 
@@ -6301,13 +6433,6 @@ Proof.
         -- apply Hxz.
 Qed.
 
-Lemma directed_path_can_be_acyclic: forall (G: graph) (u v: node) (l: nodes),
-  is_directed_path_in_graph (u, v, l) G = true
-  -> exists (l': nodes), is_directed_path_in_graph (u, v, l') G = true /\ acyclic_path_2 (u, v, l')
-      /\ subset l' l = true.
-Proof.
-  intros G u v l H.
-Admitted.
 
 Lemma colliders_have_unblocked_path_to_descendant: forall (G: graph) (Z: nodes) (c: node) (p: path),
   In c (find_colliders_in_path p G)
@@ -6354,6 +6479,7 @@ Proof.
               ** apply no_overlap_non_member. intros x Hx1 Hx2. apply no_overlap_non_member with (x := x) in Hover.
                  apply Hover. apply subset_larger_set_membership with (l1 := dp'). split. apply Hdp. apply Hx2. apply Hx1.
               ** apply HdZ.
+              ** intros Hcd. apply member_In_equiv_F in HcZ. apply HcZ. rewrite Hcd. apply HdZ.
   - apply Hc.
 Qed.
 
@@ -6911,9 +7037,7 @@ Proof.
       apply subpath_still_directed_2 with (v := u) (l2 := []) (l3 := rev t ++ [h]). split. reflexivity. apply Hdir. apply Hmem.
 Qed.
 
-
-Definition descendant_paths_disjoint (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes): Prop :=
-  is_exact_assignment_for D (find_colliders_in_path (u, v, l') G) /\
+Definition descendant_paths_disjoint_col (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes): Prop :=
   forall (c: node), In c (find_colliders_in_path (u, v, l') G)
       -> get_assigned_value D c = Some ([], c) /\ In c Z (* c is conditioned on, don't need path *)
          \/
@@ -6925,6 +7049,60 @@ Definition descendant_paths_disjoint (D: assignments (nodes * node)) (u v: node)
            /\ forall (c' d': node) (p': nodes), (c =? c' = false) /\ get_assigned_value D c' = Some (p', d')
               -> overlap (c :: p ++ [d]) (c' :: p' ++ [d']) = false. (* the descendant path does not intersect any other descendant path *)
 
+Lemma descendant_paths_disjoint_col_cat: forall (D: assignments (nodes * node)) (u v h: node) (t: nodes) (G: graph) (Z: nodes),
+  descendant_paths_disjoint_col D u v (h :: t) G Z
+  -> descendant_paths_disjoint_col D h v t G Z.
+Proof.
+  intros D u v h t G Z Hdesc.
+
+  unfold descendant_paths_disjoint_col in *. intros c Hc.
+  assert (Hc': In c (find_colliders_in_path (u, v, h :: t) G)).
+  { apply subpath_preserves_colliders with (u := h) (l1 := []) (l2 := t). split. reflexivity. left. apply Hc. }
+  apply Hdesc in Hc'. clear Hc.
+  destruct Hc' as [Hc | Hc].
+  - left. apply Hc.
+  - right. destruct Hc as [p [d Hc]]. exists p. exists d. split. apply Hc. split. apply Hc. split. apply Hc. split. apply Hc.
+    split. apply Hc. split.
+    + destruct Hc as [_ [_ [_ [_ [_ [Hc _]]]]]]. simpl in Hc. apply overlap_flip in Hc. apply overlap_cat in Hc. apply overlap_flip. apply Hc.
+    + apply Hc.
+Qed.
+
+Definition descendant_paths_disjoint (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes): Prop :=
+  is_exact_assignment_for D (find_colliders_in_path (u, v, l') G) /\
+  descendant_paths_disjoint_col D u v l' G Z.
+(*   forall (c: node), In c (find_colliders_in_path (u, v, l') G)
+      -> get_assigned_value D c = Some ([], c) /\ In c Z (* c is conditioned on, don't need path *)
+         \/
+         exists (p: nodes) (d: node), get_assigned_value D c = Some (p, d)
+           /\ In d Z /\ is_directed_path_in_graph (c, d, p) G = true (* c has path p to conditioned descendant d *)
+                     /\ acyclic_path_2 (c, d, p) (* directed path is acyclic, not a huge constraint *)
+           /\ overlap (c :: p) Z = false (* d is the first node in the path that is conditioned on *)
+           /\ overlap (p ++ [d]) (u :: l' ++ [v]) = false (* the descendant does not intersect the u-v path *)
+           /\ forall (c' d': node) (p': nodes), (c =? c' = false) /\ get_assigned_value D c' = Some (p', d')
+              -> overlap (c :: p ++ [d]) (c' :: p' ++ [d']) = false. (* the descendant path does not intersect any other descendant path *)
+
+ *)
+
+
+Lemma descendant_paths_disjoint_cat: forall (D: assignments (nodes * node)) (u v h: node) (t: nodes) (G: graph) (Z: nodes),
+  descendant_paths_disjoint D u v (h :: t) G Z
+  -> ~In h (find_colliders_in_path (u, v, h :: t) G)
+  -> descendant_paths_disjoint D h v t G Z.
+Proof.
+  intros D u v h t G Z Hdesc Hh.
+  assert (find_colliders_in_path (u, v, h :: t) G = find_colliders_in_path (h, v, t) G).
+  { simpl. destruct t as [| h' t'].
+    - simpl. destruct (is_collider_bool u v h G) as [|] eqn:Hcol.
+      + exfalso. apply Hh. simpl. rewrite Hcol. left. reflexivity.
+      + reflexivity.
+    - simpl. destruct (is_collider_bool u h' h G) as [|] eqn:Hcol.
+      + exfalso. apply Hh. simpl. rewrite Hcol. left. reflexivity.
+      + reflexivity. }
+
+  split. rewrite <- H. apply Hdesc. destruct Hdesc as [_ Hdesc]. apply descendant_paths_disjoint_col_cat in Hdesc.
+  apply Hdesc.
+Qed.
+
 Lemma get_collider_descendants_from_assignments_preserves_count: forall (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes) (L: nodes),
   descendant_paths_disjoint D u v l' G Z
   -> get_collider_descendants_from_assignments D (find_colliders_in_path (u, v, l') G) = Some L
@@ -6933,7 +7111,7 @@ Lemma get_collider_descendants_from_assignments_preserves_count: forall (D: assi
   -> forall (x: node), In x L -> count x L = 1.
 Proof.
   intros D u v l G Z L HD HL Hcyc Hp x Hx.
-  unfold descendant_paths_disjoint in HD. destruct HD as [_ HD].
+  unfold descendant_paths_disjoint in HD. destruct HD as [_ HD]. unfold descendant_paths_disjoint_col in HD.
 
   assert (Hcount: forall (c: node), In c (find_colliders_in_path (u, v, l) G) -> count c (find_colliders_in_path (u, v, l) G) = 1).
   { intros c Hc. apply collider_count_acyclic. apply Hc. apply Hcyc. apply Hp. }
@@ -7982,7 +8160,7 @@ Proof.
                      (* cycle u -> h ->...ph..-> u *) apply membership_splits_list in Hu. destruct Hu as [lphu1 [lphu2 Hlphu]].
                      destruct HG as [_ HG]. apply contains_cycle_false_correct with (p := (u, u, h :: lphu1)) in HG.
                      + exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-                     + apply directed_path_is_path. destruct (rev lphu2) as [| hlphu2 tlphu2] eqn:Hlphu2.
+                     + destruct (rev lphu2) as [| hlphu2 tlphu2] eqn:Hlphu2.
                        -- assert (Huv: rev lphu2 = [] -> u = zh /\ lphu1 = ph). { apply Hl2. apply Hlphu. } apply Huv in Hlphu2. destruct Hlphu2 as [Hlphu2 Hlphu2'].
                           simpl. apply split_and_true. split. apply Huh. rewrite Hlphu2. rewrite Hlphu2'. apply Hh'.
                        -- apply subpath_still_directed_2 with (v := zh) (l2 := rev tlphu2) (l3 := h :: ph). split. simpl. f_equal.
@@ -8180,7 +8358,7 @@ Proof.
                      exists []. assert (Hcol': find_colliders_in_path (u, x, h :: ph1) G = []). { apply Hcolph1 with (ph2' := ph2). apply Hx. }
 
                      unfold nodes in *. unfold node in *. rewrite Hcol'. split. unfold is_exact_assignment_for. split. simpl. reflexivity. simpl. reflexivity.
-                     intros c F. exfalso. apply F.
+                     intros c F. unfold nodes in *. unfold node in *. rewrite Hcol' in F. exfalso. apply F.
 
                    + (* CASE 2C.3: v = hlx1 *)
                      destruct Hx as [Hx [Hx' Hx'']]. inversion Hx'. rewrite <- H0 in *.
@@ -8590,7 +8768,7 @@ Proof.
                           + intros c Hc. destruct (c =? y) as [|] eqn:Hyc.
                             * apply eqb_eq in Hyc. left. split. simpl. rewrite Hyc. rewrite eqb_refl. reflexivity. rewrite Hyc. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. apply Hl2 in Hy'.
                               apply Hy' in Hlyd2. destruct Hlyd2 as [Hlyd2 _]. rewrite Hlyd2. apply Hpdy''.
-                            * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                            * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
 
                               apply HyDcy' with (D := (y, ([], y)) :: Dcy) (py' := []) (dy' := y) in Hyc.
                               -- destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
@@ -8645,7 +8823,7 @@ Proof.
                                       apply Hpathcy' with (dy := dy) (py := py) (l2 := l4). apply Hpdy''. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2. rewrite <- app_assoc. rewrite <- app_assoc.
                                       unfold nodes in *. unfold node in *. rewrite <- Hw'. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity. }
                                   destruct HG as [_ HG]. apply contains_cycle_false_correct with (p := (w, w, l2 ++ [y] ++ l3)) in HG. destruct HG as [HG _]. apply HG. reflexivity.
-                                  apply directed_path_is_path. apply Hcycle. }
+                                  apply Hcycle. }
 
                                 rewrite <- app_assoc in Hw. rewrite <- app_assoc in Hw. rewrite app_assoc in Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
                                 { destruct Hpdy'' as [_ [_ [Hpdy'' _]]]. apply acyclic_path_count with (x := w) in Hpdy''. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2 in Hpdy''.
@@ -8683,7 +8861,7 @@ Proof.
                                 - reflexivity.
                                 - right. apply Hc'. }
 
-                            * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                            * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
 
                               apply HyDcy' with (D := (y, (rev ty, dy)) :: Dcy) (py' := rev ty) (dy' := dy) in Hyc.
                               -- destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
@@ -9066,7 +9244,6 @@ Proof.
 
                                 rewrite <- app_assoc in Hw. simpl in Hw. destruct Hw as [Hw | Hw].
                                 { destruct Hc' as [_ [_ [_ [_ [_ [Hc' _]]]]]]. apply no_overlap_non_member with (x := w) in Hc'. apply Hc'. apply Hw'. right. rewrite Hlhvrev. rewrite <- app_assoc. apply membership_append_r. simpl. left. apply Hw. }
-                                (* TODO only above 2 cases were added from 2c.3.i, otherwise identical *)
 
                                 rewrite <- app_assoc in Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
                                 { (* w is in Lx. (py ++ [dy]) comes before (pc ++ [dc]) in Lx, since cy comes before c. Then, y' comes before w, so w in Lx1 *)
@@ -9127,7 +9304,7 @@ Proof.
                           + intros c Hc. destruct (c =? y) as [|] eqn:Hyc.
                             * apply eqb_eq in Hyc. left. split. simpl. rewrite Hyc. rewrite eqb_refl. reflexivity. rewrite Hyc. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. apply Hl2 in Hy'.
                               apply Hy' in Hlyd2. destruct Hlyd2 as [Hlyd2 _]. rewrite Hlyd2. apply Hpdy''.
-                            * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                            * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
 
                               apply HyDcy' with (D := (y, ([], y)) :: Dcy) (py' := []) (dy' := y) in Hyc.
                               -- destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
@@ -9142,7 +9319,7 @@ Proof.
                                     apply member_In_equiv_F in Hmemy. rewrite Hmemy. reflexivity.
                                  ** apply Hyc. split. apply Hcc'. apply Hcdp'.
                               -- reflexivity.
-                              -- right. apply Hc. } (* TODO identical to 2c.3.i *)
+                              -- right. apply Hc. }
 
                         { destruct Hy' as [Hy'' [Hy' Hovery']]. symmetry in Hy'. apply Hl2 in Hy'. apply Hy' in Hlyd2. exists ((y, (rev ty, dy)) :: Dcy). split.
                           + apply HyDcy with (py' := rev ty) (dy' := dy) (Dcy := Dcy). reflexivity. apply HDcy.
@@ -9183,7 +9360,7 @@ Proof.
                                       apply Hpathcy' with (dy := dy) (py := py) (l2 := l4). apply Hpdy''. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2. rewrite <- app_assoc. rewrite <- app_assoc.
                                       unfold nodes in *. unfold node in *. rewrite <- Hw'. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity. }
                                   destruct HG as [_ HG]. apply contains_cycle_false_correct with (p := (w, w, l2 ++ [y] ++ l3)) in HG. destruct HG as [HG _]. apply HG. reflexivity.
-                                  apply directed_path_is_path. apply Hcycle. } (* TODO change to a generic ph11 = ph1 ++ [x] ++ lxy1, then identical to 2c.3.i *)
+                                  apply Hcycle. }
 
                                 rewrite <- app_assoc in Hw. rewrite <- app_assoc in Hw. rewrite app_assoc in Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
                                 { destruct Hpdy'' as [_ [_ [Hpdy'' _]]]. apply acyclic_path_count with (x := w) in Hpdy''. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2 in Hpdy''.
@@ -9220,7 +9397,7 @@ Proof.
                                     apply Hcc'. apply Hw. right. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2. rewrite <- app_assoc. apply membership_append_r. rewrite <- Hyc. apply Hw'.
                                 - reflexivity.
                                 - right. apply Hc'. }
-                            * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                            * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
 
                               apply HyDcy' with (D := (y, (rev ty, dy)) :: Dcy) (py' := rev ty) (dy' := dy) in Hyc.
                               -- destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
@@ -9438,7 +9615,7 @@ Proof.
                               + unfold node in *. simpl in Hcolhv. simpl. rewrite Hcolhv. simpl in Hcolhy. rewrite Hcolhy. simpl. reflexivity. }
 
                          unfold nodes in *. rewrite Hcolhv. split. apply collider_subpath_is_exact_assignment with (D := Dh). apply HDx.
-                         intros c Hc.
+                         intros c Hc. unfold nodes in *. rewrite Hcolhv in Hc.
                          assert (Hc': In c (find_colliders_in_path (h, v, lhv) G)).
                          { apply subpath_preserves_colliders with (u := x) (l1 := rev lx2) (l2 := rev tlx1). split. symmetry. apply Hlhvrev. left. apply Hc. }
                          pose proof Hc' as Hc''. destruct HDh as [HDh HDh']. apply HDh' in Hc'. destruct Hc' as [Hc' | Hc'].
@@ -9585,7 +9762,7 @@ Proof.
                                       apply member_In_equiv_F in Hmemy. rewrite Hmemy. reflexivity.
                                    ** apply Hyc. split. apply Hcc'. apply Hcdp'.
                                 ++ reflexivity.
-                                ++ apply Hc.
+                                ++ unfold nodes in *. rewrite Hcolhv in Hc. apply Hc.
 
 
                          -- (* use desc path, since no overlap with Lx *) simpl in HbLx. exists ((x, (rev tph2, zh)) :: Dx). split.
@@ -9656,7 +9833,7 @@ Proof.
 
                                 { rewrite Hyc in *. apply Hoverx. }
 
-                              * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                              * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
 
                                 apply HyDcy' with (D := (x, (rev tph2, zh)) :: Dx) (py' := rev tph2) (dy' := zh) in Hyc.
                                 ++ destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
@@ -9978,7 +10155,7 @@ Proof.
                            + intros c Hc. destruct (c =? y) as [|] eqn:Hyc.
                              * apply eqb_eq in Hyc. left. split. simpl. rewrite Hyc. rewrite eqb_refl. reflexivity. rewrite Hyc. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. apply Hl2 in Hy'.
                                apply Hy' in Hlyd2. destruct Hlyd2 as [Hlyd2 _]. rewrite Hlyd2. apply Hpdy''.
-                             * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                             * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
                                apply HyDcy' with (D := (y, ([], y)) :: Dcy) (py' := []) (dy' := y) in Hyc.
                                 -- destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
 
@@ -10032,7 +10209,7 @@ Proof.
                                       apply Hpathcy' with (dy := dy) (py := py) (l2 := l4). apply Hpdy''. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2. rewrite <- app_assoc. rewrite <- app_assoc.
                                       unfold nodes in *. unfold node in *. rewrite <- Hw'. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity. }
                                   destruct HG as [_ HG]. apply contains_cycle_false_correct with (p := (w, w, l2 ++ [y] ++ l3)) in HG. destruct HG as [HG _]. apply HG. reflexivity.
-                                  apply directed_path_is_path. apply Hcycle. } (* TODO change to a generic ph11 = ph1 ++ [x] ++ lxy1, then identical to 2c.3.i *)
+                                  apply Hcycle. }
 
                                 rewrite <- app_assoc in Hw. rewrite <- app_assoc in Hw. rewrite app_assoc in Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
                                 { destruct Hpdy'' as [_ [_ [Hpdy'' _]]]. apply acyclic_path_count with (x := w) in Hpdy''. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2 in Hpdy''.
@@ -10068,7 +10245,7 @@ Proof.
                                     apply Hcc'. apply Hw. right. destruct Hlyd2 as [_ Hlyd2]. rewrite Hlyd2. rewrite <- app_assoc. apply membership_append_r. rewrite <- Hyc. apply Hw'.
                                 - reflexivity.
                                 - right. apply Hc'. }
-                            * destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
+                            * unfold nodes in *. rewrite Hcolhv in Hc. destruct Hc as [Hc | Hc]. rewrite Hc in Hyc. rewrite eqb_refl in Hyc. discriminate Hyc.
 
                               apply HyDcy' with (D := (y, (rev ty, dy)) :: Dcy) (py' := rev ty) (dy' := dy) in Hyc.
                               -- destruct Hyc as [Hyc | Hyc]. left. apply Hyc. right. destruct Hyc as [pc [dc Hyc]]. exists pc. exists dc.
@@ -10112,7 +10289,7 @@ Proof.
                          { symmetry. apply node_in_path_cat. apply Hwu. }
                          assert (Hnode': node_in_path w (u, v, h :: t) = node_in_path w (h, v, t)).
                          { symmetry. apply node_in_path_cat. apply Hwu. }
-                         rewrite Hnode in H. rewrite Hnode' in H. apply Hout in H. rewrite Houtw. apply H. } (* TODO generalize this *)
+                         rewrite Hnode in H. rewrite Hnode' in H. apply Hout in H. rewrite Houtw. apply H. }
 
                      exists ((h, (ph, zh)) :: Dh). split. unfold nodes in *. rewrite Hcol. split.
                      { simpl. rewrite eqb_refl. simpl. apply is_assignment_for_cat. apply HDh. }
@@ -10148,20 +10325,20 @@ Proof.
                               { apply assigned_true_then_in_list with (A := Dh). split. apply assigned_is_true. exists (p', d'). apply Hc''. apply HDh. }
                               destruct (member h (p' ++ [d'])) as [|] eqn:Hmem.
                               ++ destruct HDh as [_ HDh]. apply HDh in Hcolc'. destruct Hcolc' as [Hcolc' | Hcolc'].
-                                 ** destruct Hcolc' as [Hcolc' _]. rewrite Hc'' in Hcolc'. inversion Hcolc'. rewrite H0 in Hmem. rewrite H1 in Hmem. simpl in Hmem. rewrite eqb_sym in Hc'.
+                                 ** destruct Hcolc' as [Hcolc' _]. unfold nodes in *. rewrite Hc'' in Hcolc'. inversion Hcolc'. rewrite H0 in Hmem. rewrite H1 in Hmem. simpl in Hmem. rewrite eqb_sym in Hc'.
                                     rewrite Hc' in Hmem. discriminate Hmem.
-                                 ** destruct Hcolc' as [p'' [d'' Hcolc']]. destruct Hcolc' as [Hpd'' Hcolc']. rewrite Hc'' in Hpd''.
+                                 ** destruct Hcolc' as [p'' [d'' Hcolc']]. destruct Hcolc' as [Hpd'' Hcolc']. unfold nodes in *. rewrite Hc'' in Hpd''.
                                     inversion Hpd''. rewrite <- H0 in Hcolc'. rewrite <- H1 in Hcolc'. clear H0. clear H1. clear Hpd''.
                                     destruct Hcolc' as [_ [_ [_ [_ [Hcolc' _]]]]]. apply overlap_flip in Hcolc'. simpl in Hcolc'. rewrite Hmem in Hcolc'. discriminate Hcolc'.
                               ++ apply no_overlap_non_member. intros w Hw Hw'. destruct Hw as [Hw | Hw].
                                  ** apply no_overlap_non_member with (x := c') in Hoverh. apply Hoverh. rewrite Hw. apply Hw'. apply membership_append.
                                     destruct Hlhv as [_ Hlhv]. apply intermediate_node_in_path with (x := c') in Hlhv. apply Hlhv. right. right. apply Hcolc'.
                                  ** pose proof Hcolc' as Hcolc''. destruct HDh as [_ HDh]. apply HDh in Hcolc'. destruct Hcolc' as [Hcolc' | Hcolc'].
-                                    --- destruct Hcolc' as [Hcolc' _]. rewrite Hc'' in Hcolc'. inversion Hcolc'. rewrite H0 in Hw. rewrite H1 in Hw. simpl in Hw. rewrite or_comm in Hw. destruct Hw as [Hw | Hw]. apply Hw.
+                                    --- destruct Hcolc' as [Hcolc' _]. unfold nodes in *. rewrite Hc'' in Hcolc'. inversion Hcolc'. rewrite H0 in Hw. rewrite H1 in Hw. simpl in Hw. rewrite or_comm in Hw. destruct Hw as [Hw | Hw]. apply Hw.
                                         apply no_overlap_non_member with (x := c') in Hoverh. apply Hoverh. rewrite Hw. apply Hw'. apply membership_append.
                                         destruct Hlhv as [_ Hlhv]. apply intermediate_node_in_path with (x := c') in Hlhv. apply Hlhv. right. right. apply Hcolc''.
                                     --- apply no_overlap_non_member with (x := w) in HoverL. apply HoverL. apply Hw'.
-                                        destruct Hcolc' as [p'' [d'' Hcolc']]. destruct Hcolc' as [Hpd'' Hcolc']. rewrite Hc'' in Hpd''.
+                                        destruct Hcolc' as [p'' [d'' Hcolc']]. destruct Hcolc' as [Hpd'' Hcolc']. unfold nodes in *. rewrite Hc'' in Hpd''.
                                         inversion Hpd''. rewrite <- H1 in Hcolc'. rewrite <- H2 in Hcolc'. clear H1. clear H2. clear Hpd''.
                                         apply HpdL with (c := c') (p := p') (d := d'). apply Hcolc''. apply Hcolc'. apply Hcolc'. apply Hc''.
                                         apply Hw.
@@ -10199,29 +10376,6 @@ Proof.
     + apply subpath_still_d_connected with (u := u). apply Hconn.
     + simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. apply Hpath.
 Qed.
-
-
-Theorem unblocked_ancestors_have_unblocked_directed_path: forall (G: graph) (v a: node) (Z: nodes),
-  In a (find_unblocked_ancestors G v Z)
-  <-> (a = v) \/ (exists (l: nodes), is_directed_path_in_graph (a, v, l) G = true /\ acyclic_path_2 (a, v, l) /\ forall (w: node), (w = a \/ In w l) -> ~(In w Z)).
-Proof.
-  (* path can be acyclic because if there is a directed path, can remove cycle *)
-  intros G v a Z. split.
-  - intros H. unfold find_unblocked_ancestors in H. simpl in H. destruct H as [H | H].
-    + left. rewrite H. reflexivity.
-    + right. apply in_unblocked_ancestors_of_some_path in H. destruct H as [p [Hp Ha]].
-      destruct p as [[u v'] l]. apply unblocked_member_means_in_path in Ha as Ha'. destruct Ha' as [Ha' HaZ]. simpl in Ha'.
-      apply membership_append_or in Ha'. destruct Ha' as [Ha' | Ha'].
-      * admit.
-      * simpl in Ha'. exists l. split.
-        -- admit.
-        -- split.
-           ++ admit.
-           ++ intros w Hw HZ. admit. (* show w in find_unblocked...nodes, then use lemma *)
-  - intros [H | H].
-    + unfold find_unblocked_ancestors. simpl. left. rewrite H. reflexivity.
-    + destruct H as [l [Hp Hw]]. admit.
-Admitted.
 
 Theorem acyclic_path_if_common_ancestor: forall (u v anc: node) (lv lu: nodes) (Z: nodes) (G: graph) (len: nat),
   u <> v /\ ~(In u (find_unblocked_ancestors G v Z)) /\ ~(In v (find_unblocked_ancestors G u Z))
@@ -10332,7 +10486,7 @@ Proof.
                      apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
                  apply contains_cycle_false_correct with (p := (anc2, anc2, l2' ++ [x] ++ c1)) in HG.
                  +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
-                 +++ apply directed_path_is_path. apply Hcyc.
+                 +++ apply Hcyc.
              --- intros H. unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [_ [_ [Hcyc2 _]]]. apply Hcyc2. apply membership_append with (l2 := [x] ++ l2'') in H.
                  rewrite Hl2. apply H.
           ** destruct (overlap l2' l1'') as [|] eqn:F.
@@ -10346,7 +10500,7 @@ Proof.
                  apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
              apply contains_cycle_false_correct with (p := (x', x', s2 ++ [x] ++ t1)) in HG.
              +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-             +++ apply directed_path_is_path. apply Hcyc.
+             +++ apply Hcyc.
              +++ reflexivity.
        ++ split.
           ** intros w Hw. destruct Hw as [Hw | Hw].
@@ -10403,9 +10557,12 @@ Lemma unblocked_ancestors_transitive: forall (u ancu' ancu'': node) (G: graph) (
   -> In ancu'' (find_unblocked_ancestors G u Z).
 Proof.
   intros u ancu' ancu'' G Z Hu Hancu'. apply unblocked_ancestors_have_unblocked_directed_path in Hancu'.
-  destruct Hancu' as [Hancu' | Hancu'].
-  - rewrite Hancu'. apply Hu.
-  - apply unblocked_ancestors_have_unblocked_directed_path in Hu. destruct Hu as [Hu | Hu].
+  destruct (ancu'' =? ancu') as [|] eqn:Heq.
+  - apply eqb_eq in Heq. rewrite Heq. apply Hu.
+  - destruct Hancu' as [Hancu' | Hancu']. rewrite Hancu' in Heq. rewrite eqb_refl in Heq. discriminate Heq.
+    apply unblocked_ancestors_have_unblocked_directed_path in Hu.
+    destruct (ancu'' =? u) as [|] eqn:Heq'. { left. apply eqb_eq in Heq'. symmetry. apply Heq'. }
+    destruct Hu as [Hu | Hu].
     + rewrite <- Hu. apply unblocked_ancestors_have_unblocked_directed_path. right. apply Hancu'.
     + apply unblocked_ancestors_have_unblocked_directed_path. right. 
       destruct Hu as [l1 Hu]. destruct Hancu' as [l2 Hancu'].
@@ -10420,6 +10577,7 @@ Proof.
         apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
         ** destruct Hancu' as [_ [_ Hancu']]. apply Hancu'. right. apply Hmem.
         ** destruct Hu as [_ [_ Hu]]. apply Hu. simpl in Hmem. destruct Hmem as [Hmem | Hmem]. left. symmetry. apply Hmem. right. apply Hmem.
+      * apply eqb_neq. apply Heq'.
 Qed.
 
 
@@ -10483,7 +10641,7 @@ Fixpoint find_unblocked_ancestors_in_Z {X: Type} `{EqType X} (G: graph) (Z: node
                      end
   end.
 
-(* find all unblocked ancestors of nodes in Z that are not properly conditioned in A' TODO added 2.16 *)
+(* find all unblocked ancestors of nodes in Z that are not properly conditioned in A' *)
 Fixpoint find_unblocked_ancestors_in_Z' {X: Type} `{EqType X} (G: graph) (Z: nodes) (AZ A': assignments X) (S: nodes): nodes :=
   match AZ with
   | [] => []
@@ -10578,7 +10736,6 @@ Proof.
       * simpl in HhS. rewrite HhS. apply IH. simpl in Hz. apply Hz.
 Qed.
 
-(* TODO added 2.16 *)
 Theorem unblocked_ancestor_of_node_in_Z' {X: Type} `{EqType X}: forall (G: graph) (Z S: nodes) (AZ Ab Ub: assignments X) (anc: node) (g: graphfun),
   In anc (find_unblocked_ancestors_in_Z' G Z AZ Ab S) /\ get_values G g Ub [] = Some Ab /\ each_node_assigned_once AZ
   -> exists (z: node), In anc (find_unblocked_ancestors G z Z) /\ overlap (find_unblocked_ancestors G z Z) S = true
@@ -10793,7 +10950,7 @@ Definition conditionally_independent (X: Type) `{EqType X} (G: graph) (u v: node
   (* value of v must stay constant *)
   -> get_assigned_value Aa v = get_assigned_value Ab' v.
 
-(* TODO added 2.16 *)
+
 Fixpoint unblocked_ancestors_that_changed_A_to_B {X: Type} `{EqType X} (V: nodes) (Ua Ub: assignments X): nodes :=
   match V with
   | [] => []
@@ -11157,6 +11314,17 @@ Proof.
   - simpl. reflexivity.
 Qed.
 
+Lemma subpath_preserves_path_out_of_end: forall (G: graph) (u w v: node) (l l1 l2: nodes),
+  l = l1 ++ [w] ++ l2
+  -> path_out_of_end (u, v, l) G = path_out_of_end (w, v, l2) G.
+Proof.
+  intros G u w v l l1 l2 Hl.
+  generalize dependent l. generalize dependent u. induction l1 as [| hl1 tl1 IH].
+  - intros u l Hl. rewrite Hl. simpl. destruct l2 as [| hl2 tl2]. simpl. reflexivity. simpl. reflexivity.
+  - intros u l Hl. rewrite Hl. simpl. destruct tl1 as [| hl1' tl1']. simpl. apply IH with (u := hl1) (l := w :: l2). reflexivity.
+    simpl. apply IH with (u := hl1) (l := hl1' :: tl1' ++ [w] ++ l2). reflexivity.
+Qed.
+
 Definition path_out_of_h (G: graph) (u v h: node) (t: nodes): bool :=
   match t with
   | [] => is_edge (h, v) G
@@ -11377,7 +11545,7 @@ Definition A1_nodes_binded_to_parent_in_path (G: graph) (p: path) (A1: assignmen
 
 
 Definition get_A2_binded_nodes_in_g_path (G: graph) (p: path): nodes :=
-  find_colliders_in_path p G. (* TODO and descendants as necessary *)
+  find_colliders_in_path p G.
 
 Lemma A2_induction_case: forall (G: graph) (u h v: node) (t: nodes),
   contains_cycle G = false
@@ -11703,20 +11871,6 @@ Proof.
   - exists (u :: find_confounders_in_path (u, v, rev (h :: t)) G). reflexivity.
 Qed.
 
-(* TODO move *)
-Lemma middle_node_not_end: forall (l l' l'': list nat) (b c v: nat),
-  l ++ [v] = l'' ++ b :: c :: l'
-  -> In b l.
-Proof.
-  intros l l' l'' b c v H.
-  destruct (rev l') as [| h t] eqn:Hl'.
-  - assert (Hl: l' = []). { rewrite reverse_list_twice with (l := l'). rewrite Hl'. reflexivity. }
-    rewrite Hl in *. clear Hl. assert (Hl: v :: rev l = rev (l'' ++ [b; c])). { rewrite <- H. rewrite reverse_list_append. simpl. reflexivity. }
-    rewrite reverse_list_append in Hl. simpl in Hl. inversion Hl. apply membership_rev. rewrite H2. left. reflexivity.
-  - assert (Hl: l' = rev t ++ [h]). { rewrite reverse_list_twice with (l := l'). rewrite Hl'. reflexivity. }
-    rewrite Hl in *. clear Hl. assert (Hl: v :: rev l = rev (l'' ++ b :: c :: rev t ++ [h])). { rewrite <- H. rewrite reverse_list_append. simpl. reflexivity. }
-    rewrite reverse_list_append in Hl. simpl in Hl. rewrite reverse_list_append in Hl. simpl in Hl. inversion Hl. apply membership_rev. rewrite H2. apply membership_append. apply membership_append_r. left. reflexivity.
-Qed.
 
 Lemma mid_A4_nodes_in_path: forall (G: graph) (u v: node) (l: nodes) (a b c: node) (l4: nodes),
   get_A4_binded_nodes_in_g_path G (u, v, l) = a :: b :: c :: l4
@@ -11764,40 +11918,6 @@ Proof.
   - apply Hw.
 Qed.
 
-Lemma subpath_preserves_A4: forall (G: graph) (u v: node) (l1 l2 l: nodes) (b: node) (A A': nodes),
-  get_A4_binded_nodes_in_g_path G (u, v, l) = A' ++ b :: A
-  -> l1 ++ [b] ++ l2 = l
-  -> acyclic_path_2 (u, v, l)
-  -> get_A4_binded_nodes_in_g_path G (b, v, l2) = b :: A.
-Proof.
-  intros G u v l1 l2 l b A A' HA Hl Hcyc.
-  generalize dependent l. generalize dependent u. generalize dependent A'. induction l1 as [| h t IH].
-  - intros A' u l HA Hl Hcyc. simpl in Hl. rewrite <- Hl in HA. unfold get_A4_binded_nodes_in_g_path in HA.
-    destruct (path_out_of_end (u, v, b :: l2) G) as [[|]|] eqn:Hout.
-    + unfold nodes in *. rewrite Hout in HA. destruct (path_into_start (u, v, b :: l2) G) as [|] eqn:Hin.
-      * unfold get_A4_binded_nodes_in_g_path.
-        (* either A' is empty or contradiction (b in l2) *) admit.
-      * unfold get_A4_binded_nodes_in_g_path.
-        assert (Hout': path_out_of_end (b, v, l2) G = Some true). { admit. }
-        rewrite Hout'. (* u <- b -> ..., so path_in is false *) admit.
-    + unfold nodes in *. rewrite Hout in HA. destruct (path_into_start (u, v, b :: l2) G) as [|] eqn:Hin.
-      * unfold get_A4_binded_nodes_in_g_path.
-        (* either A' is empty or contradiction (b in l2) *) admit.
-      * unfold get_A4_binded_nodes_in_g_path.
-        assert (Hout': path_out_of_end (b, v, l2) G = Some true). { admit. }
-        rewrite Hout'. (* u <- b -> ..., so path_in is false *) admit.
-    + apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-  - intros A' u l HA Hl Hcyc. unfold get_A4_binded_nodes_in_g_path in HA.
-    destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
-    + apply IH with (u := h) (l := t ++ [b] ++ l2) (A' := A').
-      * admit.
-      * reflexivity.
-      * apply acyclic_path_cat with (u := u). rewrite <- Hl in Hcyc. apply Hcyc.
-    + (* A' must have first node = u. Let A'' be the remainder of A', use that in induction *)
-      admit.
-Admitted.
-
-(* TODO move *)
 Lemma mediators_in_A1: forall (G: graph) (a: node) (u v: node) (l: nodes),
   In a (find_mediators_in_path (u, v, l) G)
   -> In a (get_A1_binded_nodes_in_g_path G (u, v, l)).
@@ -11947,27 +12067,6 @@ Proof.
     right. right. apply Hu'.
 Qed.
 
-Lemma sublist_of_path_has_edge: forall (a b h v: node) (t: nodes) (G: graph),
-  sublist [b; a] (h :: t ++ [v]) = true
-  -> is_path_in_graph (h, v, t) G = true
-  -> is_edge (b, a) G = true \/ is_edge (a, b) G = true.
-Proof.
-  intros a b h v t G Hsub Hpath.
-  generalize dependent h. induction t as [| h' t' IH].
-  - intros h Hsub Hpath. simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hsub | F].
-    + apply split_and_true in Hsub. destruct Hsub as [Hbh Hav].
-      simpl in Hpath. destruct G as [V E]. apply eqb_eq in Hbh. rewrite Hbh. rewrite andb_comm in Hav. simpl in Hav. apply eqb_eq in Hav. rewrite Hav.
-      rewrite andb_comm in Hpath. simpl in Hpath. apply split_orb_true in Hpath. apply Hpath.
-    + rewrite orb_comm in F. simpl in F. rewrite andb_comm in F. simpl in F. discriminate F.
-  - intros h Hsub Hpath. simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hsub | Hsub].
-    + apply split_and_true in Hsub. destruct Hsub as [Hbh Hav].
-      simpl in Hpath. destruct G as [V E]. apply eqb_eq in Hbh. rewrite Hbh. rewrite andb_comm in Hav. simpl in Hav. apply eqb_eq in Hav. rewrite Hav.
-      apply split_and_true in Hpath. destruct Hpath as [Hpath _ ]. apply split_orb_true in Hpath. apply Hpath.
-    + apply IH with (h := h').
-      * apply Hsub.
-      * apply is_path_in_graph_induction with (u := h). apply Hpath.
-Qed.
-
 Lemma sublist_path_out_of_end: forall (x v h: node) (t: nodes) (G: graph),
   is_edge (v, x) G = true
   -> sublist [x; v] (h :: t ++ [v]) = true
@@ -11990,6 +12089,408 @@ Proof.
         -- apply Hsub.
         -- intros F. apply Hmem. right. apply F.
 Qed.
+
+Lemma sublist_path_out_of_end_false: forall (x v h: node) (t: nodes) (G: graph),
+  is_edge (v, x) G = false
+  -> sublist [x; v] (h :: t ++ [v]) = true
+  -> ~(In v (h :: t))
+  -> path_out_of_end (h, v, t) G = Some false.
+Proof.
+  intros x v h t G. intros Hedge Hsub Hmem.
+  unfold path_out_of_end.
+  generalize dependent h. induction t as [| h' t' IH].
+  - intros h Hsub Hmem. simpl in Hsub. simpl.
+    rewrite orb_comm in Hsub. rewrite andb_comm in Hsub. simpl in Hsub. apply split_and_true in Hsub. destruct Hsub as [Hxh _].
+    apply eqb_eq in Hxh. rewrite Hxh in Hedge. rewrite Hedge. reflexivity.
+  - intros h Hsub Hmem. simpl in Hsub. rewrite andb_assoc in Hsub. destruct ((x =? h) && (v =? h')) as [|] eqn:H.
+    + apply split_and_true in H. destruct H as [_ Hvh']. apply eqb_eq in Hvh'. exfalso. apply Hmem. right. left. rewrite Hvh'. reflexivity.
+    + simpl in Hsub. simpl. specialize IH with (h := h').
+      destruct t' as [| h'' t''].
+      * simpl. simpl in Hsub. rewrite orb_comm in Hsub. rewrite andb_comm in Hsub. simpl in Hsub. apply split_and_true in Hsub. destruct Hsub as [Hsub _].
+        apply eqb_eq in Hsub. rewrite <- Hsub. rewrite Hedge. reflexivity.
+      * simpl. apply IH.
+        -- apply Hsub.
+        -- intros F. apply Hmem. right. apply F.
+Qed.
+
+
+
+Lemma subpath_preserves_A4: forall (G: graph) (u v: node) (l1 l2 l: nodes) (b: node) (A A': nodes),
+  contains_cycle G = false
+  -> is_path_in_graph (u, v, l) G = true
+  -> get_A4_binded_nodes_in_g_path G (u, v, l) = A' ++ b :: A
+  -> l1 ++ [b] ++ l2 = l
+  -> acyclic_path_2 (u, v, l)
+  -> get_A4_binded_nodes_in_g_path G (b, v, l2) = b :: A.
+Proof.
+  intros G u v l1 l2 l b A A' HG Hp HA Hl Hcyc.
+
+  assert (Hb: In b (find_confounders_in_path (u, v, l) G)).
+  { assert (Hb: In b (get_A4_binded_nodes_in_g_path G (u, v, l))). { rewrite HA. apply membership_append_r. left. reflexivity. }
+    apply A4_confounders_or_endpoints in Hb. destruct Hb as [Hb | [Hb | Hb]].
+    - destruct Hcyc as [_ [Hcyc _]]. exfalso. apply Hcyc. rewrite <- Hb. rewrite <- Hl. apply membership_append_r. left. reflexivity.
+    - apply Hb.
+    - destruct Hcyc as [_ [_ [Hcyc _]]]. exfalso. apply Hcyc. rewrite <- Hb. rewrite <- Hl. apply membership_append_r. left. reflexivity. }
+
+  apply confounders_vs_edges_in_path in Hb. destruct Hb as [y [z [Hsub Hedge]]]. rewrite <- Hl in Hsub. destruct l2 as [| h2 t2].
+  - rewrite append_identity in Hsub. assert (Hzv: z = v).
+    { apply two_sublists_the_same with (l := u :: l1 ++ [b] ++ [v]) (a := b).
+      - apply end_of_sublist_still_sublist_2 in Hsub. rewrite <- app_assoc in Hsub. apply Hsub.
+      - apply sublist_breaks_down_list. exists (u :: l1). exists []. simpl. reflexivity.
+      - apply acyclic_path_count with (x := b) in Hcyc. rewrite <- Hl in Hcyc. rewrite append_identity in Hcyc. rewrite <- app_assoc in Hcyc. apply Hcyc.
+        right. rewrite <- Hl. apply membership_append. apply membership_append_r. left. reflexivity. }
+    simpl. destruct Hedge as [_ Hedge]. rewrite Hzv in Hedge. apply acyclic_no_two_cycle in Hedge. rewrite Hedge. 2: { apply HG. }
+    unfold get_A4_binded_nodes_in_g_path in HA.
+    assert (Hout: path_out_of_end (u, v, l) G = Some false).
+    { rewrite <- Hl. rewrite append_identity. apply sublist_path_out_of_end_false with (x := b). apply Hedge. rewrite Hzv in Hsub. apply end_of_sublist_still_sublist_2 in Hsub. apply Hsub.
+      intros Hv. destruct Hv as [Hv | Hv]. destruct Hcyc as [Hcyc _]. apply Hcyc. apply Hv. destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc. rewrite <- Hl. rewrite append_identity. apply Hv. }
+    rewrite Hout in HA.
+    destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+    + pose proof Hl as Hl'. apply subpath_preserves_confounders_2 with (w := u) (v := v) (G := G) in Hl. destruct Hl as [Hl | Hl].
+      * rewrite Hl in HA.
+        assert (Hlem: find_confounders_in_path (u, b, l1) G = A' /\ find_confounders_in_path (b, v, []) G = A).
+        { apply acyclic_path_equate_sublists with (m := b). split. 2: { apply HA. }
+          apply acyclic_path_intermediate_nodes. intros x.
+          destruct (member x (find_confounders_in_path (u, b, l1) G)) as [|] eqn:Hmem1.
+          - right. rewrite count_app.
+            assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hcyc. }
+            assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hp. }
+
+            rewrite confounder_count_acyclic.
+            2: { apply member_In_equiv. apply Hmem1. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+            simpl. destruct (b =? x) as [|] eqn:Hbx.
+            + apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply member_In_equiv.
+              apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem1.
+            + reflexivity.
+          - rewrite count_app. apply not_member_count_0 in Hmem1. rewrite Hmem1. simpl. destruct (b =? x) as [|] eqn:Hbx. right. reflexivity. left. reflexivity. }
+        destruct Hlem as [Hlem1 Hlem2]. simpl in Hlem2. rewrite <- Hlem2. reflexivity.
+      * exfalso. assert (Hb: In b (A' ++ b :: A)). { apply membership_append_r. left. reflexivity. } rewrite <- HA in Hb. rewrite Hl in Hb. apply membership_append_or in Hb.
+        destruct Hb as [Hb | Hb].
+        -- assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hcyc. }
+           assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hp. }
+           apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+        -- simpl in Hb. apply Hb.
+    + destruct A' as [| ha ta]. inversion HA. exfalso. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. rewrite H0. rewrite <- Hl. apply membership_append_r. left. reflexivity.
+      assert (HA': find_confounders_in_path (u, v, l) G = ta ++ b :: A). { inversion HA. simpl. reflexivity. }
+      clear HA. pose proof HA' as HA. clear HA'.
+      pose proof Hl as Hl'. apply subpath_preserves_confounders_2 with (w := u) (v := v) (G := G) in Hl. destruct Hl as [Hl | Hl].
+      * rewrite Hl in HA.
+        assert (Hlem: find_confounders_in_path (u, b, l1) G = ta /\ find_confounders_in_path (b, v, []) G = A).
+        { apply acyclic_path_equate_sublists with (m := b). split. 2: { apply HA. }
+          apply acyclic_path_intermediate_nodes. intros x.
+          destruct (member x (find_confounders_in_path (u, b, l1) G)) as [|] eqn:Hmem1.
+          - right. rewrite count_app.
+            assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hcyc. }
+            assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hp. }
+
+            rewrite confounder_count_acyclic.
+            2: { apply member_In_equiv. apply Hmem1. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+            simpl. destruct (b =? x) as [|] eqn:Hbx.
+            + apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply member_In_equiv.
+              apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem1.
+            + reflexivity.
+          - rewrite count_app. apply not_member_count_0 in Hmem1. rewrite Hmem1. simpl. destruct (b =? x) as [|] eqn:Hbx. right. reflexivity. left. reflexivity. }
+        destruct Hlem as [Hlem1 Hlem2]. simpl in Hlem2. rewrite <- Hlem2. reflexivity.
+      * exfalso. assert (Hb: In b (ta ++ b :: A)). { apply membership_append_r. left. reflexivity. } rewrite <- HA in Hb. rewrite Hl in Hb. apply membership_append_or in Hb.
+        destruct Hb as [Hb | Hb].
+        -- assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hcyc. }
+           assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hp. }
+           apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+        -- simpl in Hb. apply Hb.
+  - assert (Hzv: z = h2).
+    { apply two_sublists_the_same with (l := u :: l1 ++ [b] ++ h2 :: t2 ++ [v]) (a := b).
+      - apply end_of_sublist_still_sublist_2 in Hsub. rewrite <- app_assoc in Hsub. rewrite <- app_assoc in Hsub. apply Hsub.
+      - apply sublist_breaks_down_list. exists (u :: l1). exists (t2 ++ [v]). simpl. reflexivity.
+      - apply acyclic_path_count with (x := b) in Hcyc. rewrite <- Hl in Hcyc. rewrite <- app_assoc in Hcyc. rewrite <- app_assoc in Hcyc. apply Hcyc.
+        right. rewrite <- Hl. apply membership_append. apply membership_append_r. left. reflexivity. }
+    unfold get_A4_binded_nodes_in_g_path. destruct Hedge as [_ Hedge]. rewrite Hzv in Hedge. apply acyclic_no_two_cycle in Hedge. 2: { apply HG. }
+    unfold get_A4_binded_nodes_in_g_path in HA.
+
+    destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
+    { assert (Hout': path_out_of_end (b, v, h2 :: t2) G = Some true). { rewrite <- subpath_preserves_path_out_of_end with (u := u) (l1 := l1) (l := l). apply Hout. symmetry. apply Hl. }
+      unfold nodes in *. unfold node in *. rewrite Hout'. simpl. unfold nodes in *. unfold node in *. rewrite Hedge.
+      destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+      + pose proof Hl as Hl'. apply subpath_preserves_confounders_2 with (w := u) (v := v) (G := G) in Hl. destruct Hl as [Hl | Hl].
+        * unfold nodes in *. unfold node in *. rewrite Hl in HA.
+          assert (Hlem: find_confounders_in_path (u, b, l1) G = A' /\ find_confounders_in_path (b, v, h2 :: t2) G ++ [v] = A).
+          { apply acyclic_path_equate_sublists with (m := b). split. 2: { rewrite <- app_assoc in HA. apply HA. }
+            apply acyclic_path_intermediate_nodes. intros x.
+            destruct (member x (find_confounders_in_path (u, b, l1) G)) as [|] eqn:Hmem1.
+            - right. rewrite count_app.
+              assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hcyc. }
+              assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hp. }
+
+              rewrite confounder_count_acyclic.
+              2: { apply member_In_equiv. apply Hmem1. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+              destruct (b =? x) as [|] eqn:Hbx.
+              + apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply member_In_equiv.
+                apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem1.
+              + rewrite count_app. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: x appears in l1 and in h2 :: t2 *)
+                  assert (Hx1: In x l1). { apply intermediate_node_in_path with (x := x) in Hp'. apply Hp'. right. left. apply member_In_equiv. apply Hmem1. }
+                  assert (Hx2: In x (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := x) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply Hmem2. }
+                  apply acyclic_path_count with (x := x) in Hcyc.
+                  assert (Hc: count x l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx1. apply member_count_at_least_1 in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? x) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append. apply Hx1.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. destruct (v =? x) as [|] eqn:Hvx.
+                  -- apply intermediate_node_in_path with (x := v) in Hp. exfalso. destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc. apply Hp. right. left. unfold nodes in *. unfold node in *. rewrite Hl. apply membership_append. apply member_In_equiv.
+                     apply eqb_eq in Hvx. rewrite Hvx in *. apply Hmem1.
+                  -- simpl. reflexivity.
+            - rewrite count_app. apply not_member_count_0 in Hmem1. rewrite Hmem1. destruct (b =? x) as [|] eqn:Hbx.
+              + right. rewrite count_app. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * assert (Hx2: In b (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := b) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem2. }
+                  apply acyclic_path_count with (x := b) in Hcyc.
+                  assert (Hc: count b l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx2. simpl. rewrite eqb_refl. simpl in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? b) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append_r. left. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. destruct (v =? x) as [|] eqn:Hvx.
+                  -- destruct Hcyc as [_ [_ [Hcyc _]]]. exfalso. apply Hcyc. rewrite <- Hl'. apply membership_append_r. left. apply eqb_eq in Hbx. rewrite Hbx. symmetry. apply eqb_eq. apply Hvx.
+                  -- simpl. reflexivity.
+              + rewrite count_app. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * right. assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hcyc. }
+                  assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+
+                  rewrite confounder_count_acyclic.
+                  2: { apply member_In_equiv. apply Hmem2. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+                  destruct (v =? x) as [|] eqn:Hvx.
+                  -- apply intermediate_node_in_path with (x := v) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left.
+                     apply eqb_eq in Hvx. rewrite Hvx in *. apply member_In_equiv. apply Hmem2.
+                  -- simpl. rewrite Hbx. rewrite Hvx. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. destruct (v =? x) as [|] eqn:Hvx. right. reflexivity. left. reflexivity. }
+          destruct Hlem as [Hlem1 Hlem2]. simpl in Hlem2. rewrite <- Hlem2. reflexivity.
+        * exfalso. assert (Hb: In b (A' ++ b :: A)). { apply membership_append_r. left. reflexivity. } rewrite <- HA in Hb. unfold nodes in *. unfold node in *. rewrite Hl in Hb. apply membership_append_or in Hb.
+          destruct Hb as [Hb | Hb].
+          -- apply membership_append_or in Hb. destruct Hb as [Hb | Hb].
+             ++ assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split.  apply Hl'. apply Hcyc. }
+                assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+                apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+             ++ assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split.  apply Hl'. apply Hcyc. }
+                assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+                apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+          -- destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc. destruct Hb as [Hb | Hb]. rewrite Hb. rewrite <- Hl'. apply membership_append_r. left. reflexivity. exfalso. apply Hb.
+      + destruct A' as [| ha ta]. inversion HA. exfalso. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. rewrite H0. rewrite <- Hl. apply membership_append_r. left. reflexivity.
+        assert (HA': find_confounders_in_path (u, v, l) G ++ [v] = ta ++ b :: A). { inversion HA. simpl. reflexivity. }
+        clear HA. pose proof HA' as HA. clear HA'.
+        pose proof Hl as Hl'. apply subpath_preserves_confounders_2 with (w := u) (v := v) (G := G) in Hl. destruct Hl as [Hl | Hl].
+        * unfold nodes in *. unfold node in *. rewrite Hl in HA.
+          assert (Hlem: find_confounders_in_path (u, b, l1) G = ta /\ find_confounders_in_path (b, v, h2 :: t2) G ++ [v] = A).
+          { apply acyclic_path_equate_sublists with (m := b). split. 2: { rewrite <- app_assoc in HA. apply HA. }
+            apply acyclic_path_intermediate_nodes. intros x.
+            destruct (member x (find_confounders_in_path (u, b, l1) G)) as [|] eqn:Hmem1.
+            - right. rewrite count_app.
+              assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hcyc. }
+              assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hp. }
+
+              rewrite confounder_count_acyclic.
+              2: { apply member_In_equiv. apply Hmem1. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+              destruct (b =? x) as [|] eqn:Hbx.
+              + apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply member_In_equiv.
+                apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem1.
+              + rewrite count_app. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: x appears in l1 and in h2 :: t2 *)
+                  assert (Hx1: In x l1). { apply intermediate_node_in_path with (x := x) in Hp'. apply Hp'. right. left. apply member_In_equiv. apply Hmem1. }
+                  assert (Hx2: In x (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := x) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply Hmem2. }
+                  apply acyclic_path_count with (x := x) in Hcyc.
+                  assert (Hc: count x l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx1. apply member_count_at_least_1 in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? x) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append. apply Hx1.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. destruct (v =? x) as [|] eqn:Hvx.
+                  -- apply intermediate_node_in_path with (x := v) in Hp. exfalso. destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc. apply Hp. right. left. unfold nodes in *. unfold node in *. rewrite Hl. apply membership_append. apply member_In_equiv.
+                     apply eqb_eq in Hvx. rewrite Hvx in *. apply Hmem1.
+                  -- simpl. reflexivity.
+            - rewrite count_app. apply not_member_count_0 in Hmem1. rewrite Hmem1. destruct (b =? x) as [|] eqn:Hbx.
+              + right. rewrite count_app. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: b appears in h2 :: t2 *)
+                  assert (Hx2: In b (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := b) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem2. }
+                  apply acyclic_path_count with (x := b) in Hcyc.
+                  assert (Hc: count b l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx2. simpl. rewrite eqb_refl. simpl in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? b) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append_r. left. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. destruct (v =? x) as [|] eqn:Hvx.
+                  -- destruct Hcyc as [_ [_ [Hcyc _]]]. exfalso. apply Hcyc. rewrite <- Hl'. apply membership_append_r. left. apply eqb_eq in Hbx. rewrite Hbx. symmetry. apply eqb_eq. apply Hvx.
+                  -- simpl. reflexivity.
+              + rewrite count_app. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * right. assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hcyc. }
+                  assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+
+                  rewrite confounder_count_acyclic.
+                  2: { apply member_In_equiv. apply Hmem2. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+                  destruct (v =? x) as [|] eqn:Hvx.
+                  -- apply intermediate_node_in_path with (x := v) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left.
+                     apply eqb_eq in Hvx. rewrite Hvx in *. apply member_In_equiv. apply Hmem2.
+                  -- simpl. rewrite Hbx. rewrite Hvx. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. destruct (v =? x) as [|] eqn:Hvx. right. reflexivity. left. reflexivity. }
+          destruct Hlem as [Hlem1 Hlem2]. simpl in Hlem2. rewrite <- Hlem2. reflexivity.
+        * exfalso. assert (Hb: In b (ta ++ b :: A)). { apply membership_append_r. left. reflexivity. } rewrite <- HA in Hb. unfold nodes in *. unfold node in *. rewrite Hl in Hb. apply membership_append_or in Hb.
+          destruct Hb as [Hb | Hb].
+          -- apply membership_append_or in Hb. destruct Hb as [Hb | Hb].
+             ++ assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split.  apply Hl'. apply Hcyc. }
+                assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+                apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+             ++ assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split.  apply Hl'. apply Hcyc. }
+                assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+                apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+          -- destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc. destruct Hb as [Hb | Hb]. rewrite Hb. rewrite <- Hl'. apply membership_append_r. left. reflexivity. exfalso. apply Hb. }
+
+    { assert (Hout': path_out_of_end (b, v, h2 :: t2) G = Some false). { rewrite <- subpath_preserves_path_out_of_end with (u := u) (l1 := l1) (l := l). apply Hout. symmetry. apply Hl. }
+      unfold nodes in *. unfold node in *. rewrite Hout'. simpl. unfold nodes in *. unfold node in *. rewrite Hedge.
+      destruct (path_into_start (u, v, l) G) as [|] eqn:Hin.
+      + pose proof Hl as Hl'. apply subpath_preserves_confounders_2 with (w := u) (v := v) (G := G) in Hl. destruct Hl as [Hl | Hl].
+        * unfold nodes in *. unfold node in *. rewrite Hl in HA.
+          assert (Hlem: find_confounders_in_path (u, b, l1) G = A' /\ find_confounders_in_path (b, v, h2 :: t2) G = A).
+          { apply acyclic_path_equate_sublists with (m := b). split. 2: { apply HA. }
+            apply acyclic_path_intermediate_nodes. intros x.
+            destruct (member x (find_confounders_in_path (u, b, l1) G)) as [|] eqn:Hmem1.
+            - right. rewrite count_app.
+              assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hcyc. }
+              assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hp. }
+
+              rewrite confounder_count_acyclic.
+              2: { apply member_In_equiv. apply Hmem1. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+              destruct (b =? x) as [|] eqn:Hbx.
+              + apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply member_In_equiv.
+                apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem1.
+              + rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: x appears in l1 and in h2 :: t2 *)
+                  assert (Hx1: In x l1). { apply intermediate_node_in_path with (x := x) in Hp'. apply Hp'. right. left. apply member_In_equiv. apply Hmem1. }
+                  assert (Hx2: In x (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := x) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply Hmem2. }
+                  apply acyclic_path_count with (x := x) in Hcyc.
+                  assert (Hc: count x l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx1. apply member_count_at_least_1 in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? x) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append. apply Hx1.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. reflexivity.
+            - rewrite count_app. apply not_member_count_0 in Hmem1. rewrite Hmem1. destruct (b =? x) as [|] eqn:Hbx.
+              + right. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: b appears in h2 :: t2 *)
+                  assert (Hx2: In b (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := b) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem2. }
+                  apply acyclic_path_count with (x := b) in Hcyc.
+                  assert (Hc: count b l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx2. simpl. rewrite eqb_refl. simpl in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? b) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append_r. left. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. reflexivity.
+              + rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * right. assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hcyc. }
+                  assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+
+                  rewrite confounder_count_acyclic.
+                  2: { apply member_In_equiv. apply Hmem2. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+                  simpl. rewrite Hbx. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. left. reflexivity. }
+          destruct Hlem as [Hlem1 Hlem2]. simpl in Hlem2. rewrite <- Hlem2. reflexivity.
+        * exfalso. assert (Hb: In b (A' ++ b :: A)). { apply membership_append_r. left. reflexivity. } rewrite <- HA in Hb. unfold nodes in *. unfold node in *. rewrite Hl in Hb. apply membership_append_or in Hb.
+          destruct Hb as [Hb | Hb].
+          -- assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split.  apply Hl'. apply Hcyc. }
+             assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+             apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+          -- assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split.  apply Hl'. apply Hcyc. }
+             assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+             apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+      + destruct A' as [| ha ta]. inversion HA. exfalso. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. rewrite H0. rewrite <- Hl. apply membership_append_r. left. reflexivity.
+        assert (HA': find_confounders_in_path (u, v, l) G = ta ++ b :: A). { inversion HA. simpl. reflexivity. }
+        clear HA. pose proof HA' as HA. clear HA'.
+        pose proof Hl as Hl'. apply subpath_preserves_confounders_2 with (w := u) (v := v) (G := G) in Hl. destruct Hl as [Hl | Hl].
+        * unfold nodes in *. unfold node in *. rewrite Hl in HA.
+          assert (Hlem: find_confounders_in_path (u, b, l1) G = ta /\ find_confounders_in_path (b, v, h2 :: t2) G = A).
+          { apply acyclic_path_equate_sublists with (m := b). split. 2: { apply HA. }
+            apply acyclic_path_intermediate_nodes. intros x.
+            destruct (member x (find_confounders_in_path (u, b, l1) G)) as [|] eqn:Hmem1.
+            - right. rewrite count_app.
+              assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hcyc. }
+              assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. apply Hl'. apply Hp. }
+
+              rewrite confounder_count_acyclic.
+              2: { apply member_In_equiv. apply Hmem1. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+              destruct (b =? x) as [|] eqn:Hbx.
+              + apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply member_In_equiv.
+                apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem1.
+              + rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: x appears in l1 and in h2 :: t2 *)
+                  assert (Hx1: In x l1). { apply intermediate_node_in_path with (x := x) in Hp'. apply Hp'. right. left. apply member_In_equiv. apply Hmem1. }
+                  assert (Hx2: In x (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := x) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply Hmem2. }
+                  apply acyclic_path_count with (x := x) in Hcyc.
+                  assert (Hc: count x l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx1. apply member_count_at_least_1 in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? x) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append. apply Hx1.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. reflexivity.
+            - rewrite count_app. apply not_member_count_0 in Hmem1. rewrite Hmem1. destruct (b =? x) as [|] eqn:Hbx.
+              + right. rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * (* contra: b appears in h2 :: t2 *)
+                  assert (Hx2: In b (h2 :: t2)).
+                  { assert (Hp'': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+                    apply intermediate_node_in_path with (x := b) in Hp''. apply Hp''. right. left. apply member_In_equiv. apply eqb_eq in Hbx. rewrite Hbx in *. apply Hmem2. }
+                  apply acyclic_path_count with (x := b) in Hcyc.
+                  assert (Hc: count b l >= 2).
+                  { rewrite <- Hl'. rewrite count_app. rewrite count_app. apply member_count_at_least_1 in Hx2. simpl. rewrite eqb_refl. simpl in Hx2. lia. }
+                  simpl in Hcyc. rewrite count_app in Hcyc. destruct (u =? b) as [|]. lia. lia. right. apply membership_append. rewrite <- Hl'. apply membership_append_r. left. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. reflexivity.
+              + rewrite count_app.
+                destruct (member x (find_confounders_in_path (b, v, h2 :: t2) G)) as [|] eqn:Hmem2.
+                * right. assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hcyc. }
+                  assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hl'. apply Hp. }
+
+                  rewrite confounder_count_acyclic.
+                  2: { apply member_In_equiv. apply Hmem2. } 2: { apply Hcyc'. } 2: { apply Hp'. }
+                  simpl. rewrite Hbx. reflexivity.
+                * apply not_member_count_0 in Hmem2. rewrite Hmem2. simpl. rewrite Hbx. left. reflexivity. }
+          destruct Hlem as [Hlem1 Hlem2]. simpl in Hlem2. rewrite <- Hlem2. reflexivity.
+        * exfalso. assert (Hb: In b (ta ++ b :: A)). { apply membership_append_r. left. reflexivity. } rewrite <- HA in Hb. unfold nodes in *. unfold node in *. rewrite Hl in Hb. apply membership_append_or in Hb.
+          destruct Hb as [Hb | Hb].
+          -- assert (Hcyc': acyclic_path_2 (u, b, l1)). { apply subpath_still_acyclic_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split.  apply Hl'. apply Hcyc. }
+             assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := h2 :: t2) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+             apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
+          -- assert (Hcyc': acyclic_path_2 (b, v, h2 :: t2)). { apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split.  apply Hl'. apply Hcyc. }
+             assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
+             apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. apply Hp'. right. left. apply Hb. }
+    { exfalso. apply path_out_of_end_Some in Hout. apply Hout. }
+Qed.
+
+Lemma sublist_of_path_has_edge: forall (a b h v: node) (t: nodes) (G: graph),
+  sublist [b; a] (h :: t ++ [v]) = true
+  -> is_path_in_graph (h, v, t) G = true
+  -> is_edge (b, a) G = true \/ is_edge (a, b) G = true.
+Proof.
+  intros a b h v t G Hsub Hpath.
+  generalize dependent h. induction t as [| h' t' IH].
+  - intros h Hsub Hpath. simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hsub | F].
+    + apply split_and_true in Hsub. destruct Hsub as [Hbh Hav].
+      simpl in Hpath. destruct G as [V E]. apply eqb_eq in Hbh. rewrite Hbh. rewrite andb_comm in Hav. simpl in Hav. apply eqb_eq in Hav. rewrite Hav.
+      rewrite andb_comm in Hpath. simpl in Hpath. apply split_orb_true in Hpath. apply Hpath.
+    + rewrite orb_comm in F. simpl in F. rewrite andb_comm in F. simpl in F. discriminate F.
+  - intros h Hsub Hpath. simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hsub | Hsub].
+    + apply split_and_true in Hsub. destruct Hsub as [Hbh Hav].
+      simpl in Hpath. destruct G as [V E]. apply eqb_eq in Hbh. rewrite Hbh. rewrite andb_comm in Hav. simpl in Hav. apply eqb_eq in Hav. rewrite Hav.
+      apply split_and_true in Hpath. destruct Hpath as [Hpath _ ]. apply split_orb_true in Hpath. apply Hpath.
+    + apply IH with (h := h').
+      * apply Hsub.
+      * apply is_path_in_graph_induction with (u := h). apply Hpath.
+Qed.
+
 
 Definition A3_nodes_not_assigned_elsewhere {X: Type} (A3: assignments nat) (G: graph) (p: path): Prop :=
   forall (u: node),
@@ -12049,56 +12550,6 @@ Proof.
            apply IHtp with (c := hp). simpl in Hmem. rewrite eqb_sym in Hxhp. rewrite Hxhp in Hmem. apply Hmem. apply Hr.
         -- discriminate HA.
       * discriminate HA.
-Qed.
-
-Definition descendant_paths_disjoint_col (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes): Prop :=
-  forall (c: node), In c (find_colliders_in_path (u, v, l') G)
-      -> get_assigned_value D c = Some ([], c) /\ In c Z (* c is conditioned on, don't need path *)
-         \/
-         exists (p: nodes) (d: node), get_assigned_value D c = Some (p, d)
-           /\ In d Z /\ is_directed_path_in_graph (c, d, p) G = true (* c has path p to conditioned descendant d *)
-                     /\ acyclic_path_2 (c, d, p) (* directed path is acyclic, not a huge constraint *)
-           /\ overlap (c :: p) Z = false (* d is the first node in the path that is conditioned on *)
-           /\ overlap (p ++ [d]) (u :: l' ++ [v]) = false (* the descendant does not intersect the u-v path *)
-           /\ forall (c' d': node) (p': nodes), (c =? c' = false) /\ get_assigned_value D c' = Some (p', d')
-              -> overlap (c :: p ++ [d]) (c' :: p' ++ [d']) = false. (* the descendant path does not intersect any other descendant path *)
-(* TODO move, this is the second part of descendant_paths_disjoint_col definition *)
-
-Lemma descendant_paths_disjoint_col_cat: forall (D: assignments (nodes * node)) (u v h: node) (t: nodes) (G: graph) (Z: nodes),
-  descendant_paths_disjoint_col D u v (h :: t) G Z
-  -> descendant_paths_disjoint_col D h v t G Z.
-Proof.
-  intros D u v h t G Z Hdesc.
-
-  unfold descendant_paths_disjoint_col in *. intros c Hc.
-  assert (Hc': In c (find_colliders_in_path (u, v, h :: t) G)).
-  { apply subpath_preserves_colliders with (u := h) (l1 := []) (l2 := t). split. reflexivity. left. apply Hc. }
-  apply Hdesc in Hc'. clear Hc.
-  destruct Hc' as [Hc | Hc].
-  - left. apply Hc.
-  - right. destruct Hc as [p [d Hc]]. exists p. exists d. split. apply Hc. split. apply Hc. split. apply Hc. split. apply Hc.
-    split. apply Hc. split.
-    + destruct Hc as [_ [_ [_ [_ [_ [Hc _]]]]]]. simpl in Hc. apply overlap_flip in Hc. apply overlap_cat in Hc. apply overlap_flip. apply Hc.
-    + apply Hc.
-Qed.
-
-Lemma descendant_paths_disjoint_cat: forall (D: assignments (nodes * node)) (u v h: node) (t: nodes) (G: graph) (Z: nodes),
-  descendant_paths_disjoint D u v (h :: t) G Z
-  -> ~In h (find_colliders_in_path (u, v, h :: t) G)
-  -> descendant_paths_disjoint D h v t G Z.
-Proof.
-  intros D u v h t G Z Hdesc Hh.
-  assert (find_colliders_in_path (u, v, h :: t) G = find_colliders_in_path (h, v, t) G).
-  { simpl. destruct t as [| h' t'].
-    - simpl. destruct (is_collider_bool u v h G) as [|] eqn:Hcol.
-      + exfalso. apply Hh. simpl. rewrite Hcol. left. reflexivity.
-      + reflexivity.
-    - simpl. destruct (is_collider_bool u h' h G) as [|] eqn:Hcol.
-      + exfalso. apply Hh. simpl. rewrite Hcol. left. reflexivity.
-      + reflexivity. }
-
-  split. rewrite <- H. apply Hdesc. destruct Hdesc as [_ Hdesc]. apply descendant_paths_disjoint_col_cat in Hdesc.
-  apply Hdesc.
 Qed.
 
 Fixpoint get_A3_assignments_for_desc_paths (D: assignments (nodes * node)) (G: graph) (col: nodes): option (assignments nat) :=
@@ -12895,44 +13346,6 @@ Proof.
                  rewrite Hhh''. simpl. left. reflexivity.
 Qed.
 
-(* TODO move to be with collider_count_acyclic *)
-Lemma confounder_count_acyclic: forall (u v c: node) (l: nodes) (G: graph),
-  In c (find_confounders_in_path (u, v, l) G)
-  -> acyclic_path_2 (u, v, l)
-  -> is_path_in_graph (u, v, l) G = true
-  -> count c (find_confounders_in_path (u, v, l) G) = 1.
-Proof.
-  intros u v c l G Hc Hcyc Hp.
-  generalize dependent u. induction l as [| h t IH].
-  - intros u Hc Hcyc Hp. simpl in Hc. exfalso. apply Hc.
-  - intros u Hc Hcyc Hp. simpl in Hc. destruct t as [| h' t'].
-    + simpl in Hc. destruct (is_confounder_bool u v h G) as [|] eqn:Hcol.
-      * destruct Hc as [Hc | Hc]. simpl. rewrite Hcol. simpl. rewrite Hc. rewrite eqb_refl. reflexivity. exfalso. apply Hc.
-      * exfalso. apply Hc.
-    + simpl in Hc. 
-      assert (Hp': is_path_in_graph (h, v, h' :: t') G = true). { simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
-      assert (Hcyc': acyclic_path_2 (h, v, h' :: t')). { apply acyclic_path_cat with (u := u). apply Hcyc. }
-      destruct (is_confounder_bool u h' h G) as [|] eqn:Hcol.
-      * destruct Hc as [Hc | Hc].
-        --- simpl. rewrite Hcol. simpl. rewrite Hc. rewrite eqb_refl.
-            assert (~In c (find_confounders_in_path (h, v, h' :: t') G)).
-            { intros Hcmem.
-              apply intermediate_node_in_path with (x := c) in Hp'. assert (In c (h' :: t')). { apply Hp'. right. left. apply Hcmem. }
-              destruct Hcyc' as [_ [H1 _]]. apply H1.
-              rewrite Hc. apply H. }
-            apply member_In_equiv_F in H. apply not_member_count_0 in H. simpl in H. rewrite Hc in *. rewrite H. reflexivity.
-        --- simpl. rewrite Hcol. simpl.
-            assert (In c (h' :: t')).
-            { apply intermediate_node_in_path with (x := c) in Hp'. apply Hp'. right. left. apply Hc. }
-            destruct (h =? c) as [|] eqn:Hhc. apply eqb_eq in Hhc. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. rewrite Hhc. apply H.
-            apply IH in Hc. apply Hc. apply Hcyc'. apply Hp'.
-      * simpl. rewrite Hcol. simpl.
-        assert (In c (h' :: t')).
-        { apply intermediate_node_in_path with (x := c) in Hp'. apply Hp'. right. left. apply Hc. }
-        destruct (h =? c) as [|] eqn:Hhc. apply eqb_eq in Hhc. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. rewrite Hhc. apply H.
-        apply IH in Hc. apply Hc. apply Hcyc'. apply Hp'.
-Qed.
-
 Lemma A4_count_acyclic: forall (u v c: node) (l: nodes) (G: graph),
   In c (get_A4_binded_nodes_in_g_path G (u, v, l))
   -> acyclic_path_2 (u, v, l)
@@ -13050,7 +13463,7 @@ Proof.
       -- apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hb. apply Hp.
       -- apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split. apply Hb. apply Hcyc.
       -- apply subpath_still_d_connected_gen with (w := u) (l1 := l1) (l3 := l). split. apply Hb. apply Hconn.
-      -- apply subpath_preserves_A4 with (u := u) (l1 := l1) (A := c :: l4) (l := l) (A' := [a]). apply HA4. apply Hb. apply Hcyc.
+      -- apply subpath_preserves_A4 with (u := u) (l1 := l1) (A := c :: l4) (l := l) (A' := [a]). apply HG2. apply Hp. apply HA4. apply Hb. apply Hcyc.
       -- intros w Hw. assert (Hind: exists (r: X), get_assigned_value U w = Some r /\ eqb r x = false).
          { apply HUx. right. apply Hw. } destruct Hind as [r Hr].
          simpl in HA. inversion HA. simpl.
@@ -14159,7 +14572,7 @@ Proof.
                        apply Hcyc. apply sublist_member with (l1 := [a;w]). split. left. reflexivity. apply Haxsub. }
                    unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
                    +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                   +++ apply directed_path_is_path. simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
+                   +++ simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
                        rewrite Haxix. rewrite <- Hwb. destruct Ha as [_ [_ Ha]]. rewrite Ha. reflexivity. apply HG'. }
 
              destruct Ha as [Ha | Ha].
@@ -14190,7 +14603,7 @@ Proof.
                        apply Hp. apply sublist_member with (l1 := [a;b]). split. left. reflexivity. apply Hbasub. }
                    unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
                    +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                   +++ apply directed_path_is_path. simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
+                   +++ simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
                        rewrite Hbaia. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite Haxix. reflexivity.
                        apply HG'. apply HG'.
        - apply membership_rev in Hwmem. apply index_exists in Hwmem. destruct Hwmem as [iwp Hiwp].
@@ -14240,7 +14653,7 @@ Proof.
                        apply Hcyc. apply sublist_member with (l1 := [w;a]). split. right. left. reflexivity. apply Haxsub. }
                    unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
                    +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                   +++ apply directed_path_is_path. simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
+                   +++ simpl. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix.
                        rewrite Haxix. rewrite <- Hwb. destruct Ha as [_ [Ha _]]. rewrite Ha. reflexivity. apply HG'.
                - destruct Ha as [Ha | Ha]. rewrite <- Ha. apply HvA4. exfalso. apply Ha. }
 
@@ -14257,7 +14670,7 @@ Proof.
                        apply Hp. apply sublist_member with (l1 := [b;a]). split. right. left. reflexivity. apply Hbasub. }
                    unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
                    +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                   +++ apply directed_path_is_path. simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
+                   +++ simpl. rewrite <- Hwb in Hbaia. apply nth_error_In in Hbaia. apply edge_from_parent_to_child in Hbaia. apply edge_in_graph_then_is_edge in Hbaia.
                        rewrite Hbaia. apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite Haxix. reflexivity.
                        apply HG'. apply HG'.
                 ++ apply IH with (a := b) (iw := ia). apply assigned_is_true. exists ia. apply HA1a.
@@ -14320,7 +14733,7 @@ Proof.
         { unfold is_collider_bool in Hawbcol. destruct (w =? a2) as [|] eqn:Hwa2.
           - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (a, a, [w])) in HG.
             + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-            + apply directed_path_is_path. simpl. destruct Haedge as [_ Ha2a]. apply eqb_eq in Hwa2. rewrite <- Hwa2 in Ha2a. rewrite Ha2a.
+            + simpl. destruct Haedge as [_ Ha2a]. apply eqb_eq in Hwa2. rewrite <- Hwa2 in Ha2a. rewrite Ha2a.
               apply split_and_true in Hawbcol. destruct Hawbcol as [Haw _]. rewrite Haw. reflexivity.
           - reflexivity. }
         assert (Ha2w': w = a2).
@@ -14342,7 +14755,7 @@ Proof.
         { unfold is_collider_bool in Hawbcol. destruct (w =? b1) as [|] eqn:Hwb1.
           - unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (b, b, [w])) in HG.
             + unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-            + apply directed_path_is_path. simpl. destruct Hbedge as [Hb1w _]. apply eqb_eq in Hwb1. rewrite <- Hwb1 in Hb1w. rewrite Hb1w.
+            + simpl. destruct Hbedge as [Hb1w _]. apply eqb_eq in Hwb1. rewrite <- Hwb1 in Hb1w. rewrite Hb1w.
               apply split_and_true in Hawbcol. destruct Hawbcol as [_ Hwb]. rewrite Hwb. reflexivity.
           - reflexivity. }
         assert (Hb1w': w = b1).
@@ -14810,7 +15223,7 @@ Proof.
 
                            unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [HG' HG]]. apply contains_cycle_false_correct with (p := (h, h, [u])) in HG.
                            +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                           +++ apply directed_path_is_path. simpl.
+                           +++ simpl.
 
                                rewrite <- Hwb in Hih. apply nth_error_In in Hih. apply edge_from_parent_to_child in Hih. apply edge_in_graph_then_is_edge in Hih. rewrite Hih.
                                apply nth_error_In in Haxix. apply edge_from_parent_to_child in Haxix. apply edge_in_graph_then_is_edge in Haxix. rewrite <- Hav. rewrite Haxix.
@@ -15365,7 +15778,7 @@ Proof.
           { apply concat_directed_paths. split. apply Hlu. apply Hlv. }
           destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (concat u v u lu lv)) in HG.
           * unfold concat in HG. unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
-          * apply directed_path_is_path. apply Hcycle.
+          * apply Hcycle.
         + (* v -> ...l... -> u is d-connected path *) left. clear Hancu. clear Hancv.
           apply unblocked_ancestors_have_unblocked_directed_path in Heqancv. destruct Heqancv as [Hancu | Hancu]. exfalso. apply Huv. rewrite Hancu. reflexivity.
           destruct Hancu as [l [Hdir [Hcycu HlZ]]]. exists l.
@@ -15748,6 +16161,8 @@ Proof.
                           apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
                           ** apply HlxZ. right. apply Hmem.
                           ** apply HluZ. simpl in Hmem. destruct Hmem as [Hmem | Hmem]. left. symmetry. apply Hmem. right. left. apply Hmem.
+                       ++ (* otherwise, x is shared unblocked ancestor of v and u *)
+                          intros F. apply Hover. left. symmetry. apply F.
                   + apply Hxv.
                 - reflexivity. }
               apply Hconn_col in Heqvancu'.
@@ -15793,7 +16208,7 @@ Proof.
                               apply subpath_still_directed_2 with (v := u) (l2 := lu2'') (l3 := lu2). split. apply Hlu2.
                               apply subpath_still_directed with (w := ancu') (l1 := lu1) (l3 := lu). split. apply Hxlu. apply Hdirlu. }
                             destruct HG as [_ [_ HG]]. apply contains_cycle_false_correct with (p := (concat x' x x' lv1'' lu2')) in HG. unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-                            apply directed_path_is_path. apply Hcycle.
+                            apply Hcycle.
                           * reflexivity.
                       - intros w Hw. destruct Hw as [Hw | Hw]. apply HlvZ. left. apply Hw. apply membership_append_or in Hw. destruct Hw as [Hw | Hw].
                         + apply HlvZ. right. apply membership_append with (l2 := [x] ++ lv2) in Hw. rewrite <- Hx. apply Hw.
@@ -16356,7 +16771,7 @@ Proof.
       - apply HedgePath. }
     assert (contra: acyclic_path_2 (concat X P X l [])).
     { apply contains_cycle_false_correct with (p:=(concat X P X l [])) in Hacyc. apply Hacyc.
-      apply directed_path_is_path. apply HnewPath. }
+      apply HnewPath. }
     simpl in contra. destruct contra as [contra _].
     apply eqb_neq in contra. rewrite eqb_refl in contra. discriminate contra.
   - (* For each path, the second node is a parent P (since the path is backdoor).
