@@ -862,6 +862,10 @@ Proof.
       * apply IH. apply H2.
 Qed.
 
+
+
+
+
 Fixpoint prefix (l1 l2: list nat): bool :=
   match l1 with
   | [] => true
@@ -877,6 +881,7 @@ Fixpoint sublist (l1 l2: list nat) : bool :=
   | h1 :: t1 => prefix l1 l2 || sublist l1 t1
   end.
 
+
 Example sublist_1: sublist [2;3] [1;2;3;4] = true.
 Proof. reflexivity. Qed.
 
@@ -891,6 +896,54 @@ Proof.
   destruct l as [| h t].
   - simpl. reflexivity.
   - simpl. reflexivity.
+Qed.
+
+Class EqType (X : Type) := {
+  eqb : X -> X -> bool;
+  eqb_refl' : forall x, eqb x x = true;
+  eqb_sym' : forall x y, eqb x y = eqb y x;
+  eqb_eq' : forall x y, eqb x y = true <-> x = y
+}.
+
+Fixpoint eqblistX {X: Type} `{EqType X} (l1 l2 : list X) : bool
+  := match l1, l2 with
+      | nil, nil => true
+      | nil, _ => false
+      | _, nil => false
+      | h1 :: t1, h2 :: t2 => if (eqb h1 h2) then eqblistX t1 t2 else false
+end.
+
+
+Fixpoint prefixX {X: Type} `{EqType X} (l1 l2: list X): bool :=
+  match l1 with
+  | [] => true
+  | h1 :: t1 => match l2 with
+                | [] => false
+                | h2 :: t2 => (eqb h1 h2) && prefixX t1 t2
+                end
+  end.
+
+Fixpoint sublistX {X: Type} `{EqType X} (l1 l2: list X) : bool :=
+  match l2 with
+  | [] => eqblistX l1 []
+  | h1 :: t1 => prefixX l1 l2 || sublistX l1 t1
+  end.
+
+Lemma prefix_member_X {X: Type} `{EqType X}: forall (l1 l2: list X) (x: X),
+  In x l1 /\ prefixX l1 l2 = true -> In x l2.
+Proof.
+  intros l1.
+  induction l1 as [| h1 t1 IH].
+  - intros l2 x. intros [Hmem Hpre]. exfalso. apply Hmem.
+  - intros l2 x. intros [Hmem Hpre]. destruct l2 as [| h2 t2].
+    + simpl in Hpre. discriminate Hpre.
+    + simpl in Hpre. simpl in Hmem. simpl.
+      apply split_and_true in Hpre. destruct Hpre as [H12 Hpre].
+      destruct Hmem as [Hhx | Hmem].
+      * apply eqb_eq' in H12. rewrite H12 in Hhx. left. apply Hhx.
+      * right. apply IH with (l2 := t2). split.
+        -- apply Hmem.
+        -- apply Hpre.
 Qed.
 
 Lemma prefix_member: forall (l1 l2: list nat) (x: nat),
@@ -909,6 +962,7 @@ Proof.
         -- apply Hmem.
         -- apply Hpre.
 Qed.
+
 
 Theorem sublist_member: forall (l1 l2: list nat) (x: nat),
   In x l1 /\ sublist l1 l2 = true -> In x l2.
