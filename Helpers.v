@@ -1752,3 +1752,23 @@ Proof.
   apply forallb_true_iff_mem. intros x H. apply member_In_equiv. apply H.
 Qed.
 
+
+Lemma last_suffix {X: Type}: forall (L: list X) (u h a b: X),
+  last (u :: h :: L) a = last (h :: L) b.
+Proof.
+  intros L u h a b.
+  simpl. generalize dependent h. induction L as [| h' t' IH].
+  - reflexivity.
+  - intros h. simpl. apply IH.
+Qed.
+
+Lemma last_mem {X: Type}: forall (L: list X) (u h a: X),
+  In (last (u :: h :: L) a) (h :: L).
+Proof.
+  intros L u h a.
+  generalize dependent u. generalize dependent h. induction L as [| h' t'].
+  - intros h u. simpl. left. reflexivity.
+  - intros h u. rewrite last_suffix with (b := a). right. apply IHt'.
+Qed.
+
+
