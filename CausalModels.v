@@ -15885,6 +15885,16 @@ Proof.
         * simpl in Hover. rewrite Hover in Hz. apply IH. apply HAZ. apply Hz. }
 Qed.
 
+Fixpoint get_conditioned_nodes_that_change_in_seq_simpler {X: Type} `{EqType X} (L: list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph): nodes :=
+  match L with
+  | U1 :: L' => match L' with
+                | U2 :: U3 :: L''' => find_unblocked_ancestors_in_Z_contributors G Z AZ (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) U1 U2)
+                                                       ++ get_conditioned_nodes_that_change_in_seq_simpler L' Z AZ G
+                | _ => []
+                end
+  | _ => []
+  end.
+
 Fixpoint get_conditioned_nodes_that_change_in_seq {X: Type} `{EqType X} (L: list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph): nodes :=
   match L with
   | [] => []
@@ -15898,6 +15908,20 @@ Fixpoint get_conditioned_nodes_that_change_in_seq {X: Type} `{EqType X} (L: list
                                            end
                       end
   end.
+
+Lemma get_conditioned_nodes_that_change_in_seq_equiv {X: Type} `{EqType X}: forall (L: list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph),
+  get_conditioned_nodes_that_change_in_seq_simpler L Z AZ G = get_conditioned_nodes_that_change_in_seq L Z AZ G.
+Proof.
+  intros L Z AZ G.
+  induction L as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct t as [| h' t'].
+    + reflexivity.
+    + destruct t' as [| h'' t''].
+      * reflexivity.
+      * reflexivity.
+Qed.
+
 
 Lemma conditioned_nodes_that_change_in_Z {X: Type} `{EqType X}: forall (L: list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph) (z: node),
   In z (get_conditioned_nodes_that_change_in_seq L Z AZ G)
