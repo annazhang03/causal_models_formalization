@@ -3,6 +3,7 @@ CausalModels/Helpers.v
 CausalModels/DAG_Basics_Constr.v
 CausalModels/DAG_Basics_Proofs.v
 CausalModels/DAG_Basics.v
+CausalModels/DAG_PathFinding.v
 
 # if want to run CausalModels.v, uncomment the code below:
 # -Q . FCM
