@@ -1,2 +1,10 @@
--Q . FCM
-./Helpers.v
+-Q CausalModels FCM
+CausalModels/Helpers.v
+CausalModels/DAG_Basics_Constr.v
+CausalModels/DAG_Basics_Proofs.v
+CausalModels/DAG_Basics.v
+
+# if want to run CausalModels.v, uncomment the code below:
+# -Q . FCM
+# ./Helpers.v
+# ./CausalModels.v
