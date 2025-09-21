@@ -132,13 +132,31 @@ Qed.
 Lemma G_well_formed_corollary : forall (V: nodes) (E: edges),
   G_well_formed (V, E) = true -> forall (u v :node), In (u, v) E -> In u V /\ In v V.
 Proof.
-  intros V E Hwf u v Hin.
-  unfold G_well_formed in Hwf.
+  intros V E Hwf u v Hin. unfold G_well_formed in Hwf.
   apply andb_prop in Hwf. destruct Hwf as [Hwf _].
   apply andb_prop in Hwf. destruct Hwf as [Hwf _].
   rewrite forallb_forall in Hwf. pose proof (Hwf (u,v) Hin); simpl in H.
   apply andb_true_iff in H. repeat rewrite <- member_In_equiv. exact H.
 Qed.
+
+(*helper 1.6*)
+Lemma G_well_formed_induction : forall (V:nodes) (E:edges) (e:edge),
+  G_well_formed (V, e :: E) = true -> G_well_formed (V, E)=true.
+Proof. intros V E e Hwf. unfold G_well_formed in *.
+  apply andb_prop in Hwf. destruct Hwf as [H12 H3].
+  apply andb_prop in H12. destruct H12 as [H1 H2].
+  apply andb_true_intro; split. apply andb_true_intro; split.
+  - apply forallb_forall. intros [u v] Hin. rewrite forallb_forall in H1.
+    assert (Hin' : In (u,v) (e::E)). right. exact Hin. pose proof (H1 (u,v) Hin');
+    simpl in H1. apply andb_true_iff in H. apply andb_true_iff. exact H.
+  - exact H2.
+  - apply forallb_forall. intros x Hin. rewrite forallb_forall in H3.
+    assert (Hin' : In x (e::E)). right. exact Hin.
+    pose proof (H3 x Hin'). clear H1 H2 H3.
+    case (eqbedge e x) eqn: Heq.
+    + exfalso. unfold count_edge in H. rewrite Heq in H. simpl in H.
+    apply Nat.eqb_eq in H.
+Admitted.
 
 (*helper 1: edges_as_paths_from_start u E => is path in graph*)
 Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) (E:edges),
@@ -146,26 +164,25 @@ Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) 
   In (u, v, l) (edges_as_paths_from_start u E) -> is_path_in_graph (u, v, l) (V,E) = true.
 Proof. intros u v l V E Hwf Hin. induction E. simpl in Hin. exfalso; assumption.
   destruct a as [x y].
-  assert (Hwf': G_well_formed (V, (x, y) :: E) = true -> G_well_formed (V, E)=true).
-  admit.
+  pose proof (G_well_formed_induction V E (x,y) Hwf) as Hwf'.
   case (u =? x) eqn:Hx. simpl in Hin. rewrite Hx in Hin. simpl in Hin.
   destruct Hin as [Hin | Hin].
   (*u=x case*)
   - inversion Hin; subst; clear Hin.
   destruct (G_well_formed_corollary V ((u,v)::E) Hwf u v (or_introl eq_refl)) as [Hu Hv].
   rewrite edges_as_paths; [reflexivity | exact Hu | exact Hv].
-  - specialize (IHE (Hwf' Hwf) Hin). now apply path_monotone_edges with (a := (x,y)).
+  - specialize (IHE (Hwf') Hin). now apply path_monotone_edges with (a := (x,y)).
   (*u=y case*)
   - destruct (u =? y) eqn:Hy. simpl in Hin. rewrite Hy in Hin. rewrite Hx in Hin.
   simpl in Hin. destruct Hin as [Hin | Hin].
     + inversion Hin; subst; clear Hin.
     pose proof (G_well_formed_corollary V ((v,u)::E) Hwf v u (or_introl eq_refl)) as [Hu Hv].
     rewrite edges_as_paths2; [reflexivity | exact Hu | exact Hv].
-    + specialize (IHE (Hwf' Hwf) Hin). now apply path_monotone_edges with (a := (x,y)).
+    + specialize (IHE (Hwf') Hin). now apply path_monotone_edges with (a := (x,y)).
   (*u!=x and u!=y case*)
-    + simpl in Hin. rewrite Hx in Hin. rewrite Hy in Hin. specialize (IHE (Hwf' Hwf) Hin).
+    + simpl in Hin. rewrite Hx in Hin. rewrite Hy in Hin. specialize (IHE (Hwf') Hin).
   eapply path_monotone_edges with (a := (x,y)) in IHE. exact IHE.
-Admitted.
+Qed.
 (* Qed. *)
 
 Example edges_from_1: edges_as_paths_from_start 1 E = [(1, 2, []); (1, 3, []); (1, 4, [])].
