@@ -67,7 +67,7 @@ Fixpoint edges_as_paths_from_start (u: node) (E: edges) : paths :=
               end
   end.
 
-
+(*helper 1.1*)
 Lemma edge_in_extended_graph :
   forall V E a x y,
     is_edge (x, y) (V, E) = true ->
@@ -81,6 +81,7 @@ Proof.
   destruct h1 as [h1 h2]. rewrite h1. rewrite h2. rewrite H0. trivial.
 Qed.
 
+(*helper 1.2*)
 Lemma is_path_in_graph_helper_monotone_edges :
   forall V E a l,
     is_path_in_graph_helper l (V, E) = true ->
@@ -96,6 +97,7 @@ Proof.
         -- apply (IH Hrest).
 Qed.
 
+(*helper 1.3*)
 Lemma path_monotone_edges :
   forall V E a p,
     is_path_in_graph p (V,E) = true ->
@@ -104,40 +106,54 @@ Proof. intros V E a p H. destruct p as [[u v] l]. unfold is_path_in_graph in *.
   apply (is_path_in_graph_helper_monotone_edges V E a ((u :: l) ++ [v]) H).
 Qed.
 
-(*!!! problem: how ot guarantee x,y\in V !!!*)
-Lemma new_edge_in_graph :
-  forall V x y (E: edges), (* In x V -> In y V -> *)
+(*helper 1.4*)
+Lemma edges_as_paths :
+  forall V x y (E: edges), In x V -> In y V ->
     is_path_in_graph (x,y,[]) (V, (x,y)::E) = true.
-Proof. intros V x y E. unfold is_path_in_graph. simpl.
-Admitted.
-Lemma new_edge_in_graph2 :
-  forall V x y E,
+Proof. intros V x y E Hx Hy. unfold is_path_in_graph. simpl.
+  apply andb_true_iff. split.
+  - apply orb_true_iff. left. apply andb_true_iff. split.
+    apply andb_true_iff. split; rewrite member_In_equiv; assumption.
+    apply orb_true_iff. left. apply andb_true_iff; split; apply Nat.eqb_refl.
+  - reflexivity.
+Qed.
+Lemma edges_as_paths2 :
+  forall V x y E, In x V -> In y V ->
     is_path_in_graph (y,x,[]) (V, (x,y)::E) = true.
-Proof.
-Admitted.
+Proof. intros V x y E Hx Hy. unfold is_path_in_graph. simpl.
+  apply andb_true_iff. split.
+  - apply orb_true_iff. right. apply andb_true_iff. split.
+    apply andb_true_iff. split; rewrite member_In_equiv; assumption.
+    apply orb_true_iff. left. apply andb_true_iff; split; apply Nat.eqb_refl.
+  - reflexivity.
+Qed.
+
+(*helper 1.5*)
+Lemma G_well_formed_corollary : forall (V: nodes) (E: edges),
+  G_well_formed (V, E) = true -> forall (u v :node), In (u, v) E -> In u V /\ In v V.
+Proof. Admitted.
 
 (*helper 1: edges_as_paths_from_start u E => is path in graph*)
 Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) (E:edges),
   G_well_formed (V, E) = true ->
   In (u, v, l) (edges_as_paths_from_start u E) -> is_path_in_graph (u, v, l) (V,E) = true.
 Proof. intros u v l V E Hwf Hin. induction E. simpl in Hin. exfalso; assumption.
-  destruct a as [x y]. assert (Hwf': G_well_formed (V, (x, y) :: E) = true -> G_well_formed (V, E)=true).
+  destruct a as [x y].
+  assert (Hwf': G_well_formed (V, (x, y) :: E) = true -> G_well_formed (V, E)=true).
   admit.
   case (u =? x) eqn:Hx. simpl in Hin. rewrite Hx in Hin. simpl in Hin.
   destruct Hin as [Hin | Hin].
   (*u=x case*)
   - inversion Hin; subst; clear Hin.
-  rewrite new_edge_in_graph.
-  (*"relies on G well-formed"*)
-  reflexivity.
+  destruct (G_well_formed_corollary V ((u,v)::E) Hwf u v (or_introl eq_refl)) as [Hu Hv].
+  rewrite edges_as_paths; [reflexivity | exact Hu | exact Hv].
   - specialize (IHE (Hwf' Hwf) Hin). now apply path_monotone_edges with (a := (x,y)).
   (*u=y case*)
   - destruct (u =? y) eqn:Hy. simpl in Hin. rewrite Hy in Hin. rewrite Hx in Hin.
   simpl in Hin. destruct Hin as [Hin | Hin].
     + inversion Hin; subst; clear Hin.
-    rewrite new_edge_in_graph2.
-    (*"relies on G well-formed"*)
-    reflexivity.
+    pose proof (G_well_formed_corollary V ((v,u)::E) Hwf v u (or_introl eq_refl)) as [Hu Hv].
+    rewrite edges_as_paths2; [reflexivity | exact Hu | exact Hv].
     + specialize (IHE (Hwf' Hwf) Hin). now apply path_monotone_edges with (a := (x,y)).
   (*u!=x and u!=y case*)
     + simpl in Hin. rewrite Hx in Hin. rewrite Hy in Hin. specialize (IHE (Hwf' Hwf) Hin).
@@ -262,7 +278,7 @@ Proof.
 Qed.
 
 Theorem paths_start_to_end_valid : forall u v: node, forall l: nodes, forall G: graph,
-  G_well_formed G = true            (*"??? Need to: add G-well-formed premise ???"*)
+  G_well_formed G = true            (*"??? Need to add G-well-formed premise ???"*)
   -> In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true.
 Proof. intros u v l G Hwf Hin. unfold find_all_paths_from_start_to_end in Hin.
   destruct G as [V E]; simpl in Hin. apply filter_In in Hin.
