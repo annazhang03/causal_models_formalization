@@ -131,7 +131,14 @@ Qed.
 (*helper 1.5*)
 Lemma G_well_formed_corollary : forall (V: nodes) (E: edges),
   G_well_formed (V, E) = true -> forall (u v :node), In (u, v) E -> In u V /\ In v V.
-Proof. Admitted.
+Proof.
+  intros V E Hwf u v Hin.
+  unfold G_well_formed in Hwf.
+  apply andb_prop in Hwf. destruct Hwf as [Hwf _].
+  apply andb_prop in Hwf. destruct Hwf as [Hwf _].
+  rewrite forallb_forall in Hwf. pose proof (Hwf (u,v) Hin); simpl in H.
+  apply andb_true_iff in H. repeat rewrite <- member_In_equiv. exact H.
+Qed.
 
 (*helper 1: edges_as_paths_from_start u E => is path in graph*)
 Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) (E:edges),
