@@ -1,4 +1,4 @@
-From FCM Require Import DAG_Basics_Constr.
+From FCM Require Import DAG_Basics.
 From FCM Require Import Helpers.
 
 Import ListNotations.
@@ -8,6 +8,27 @@ Import ListNotations.
 (* add p to end of l if p is not already in l *)
 Definition add_path_no_repeats (p: path) (l: paths) : paths :=
   if (member_path p l) then l else l ++ [p].
+
+(* helper 2.1 *)
+Lemma In_add_path_no_repeats :
+  forall (p q : path) (l : paths),
+    In p (add_path_no_repeats q l) <-> In p l \/ p = q.
+Proof.
+  (* intros p q l. unfold add_path_no_repeats.
+  destruct (member_path q l) eqn:Hmem.
+  - split; intro H; [now left| destruct H as [H|->]; [assumption|]].
+    (* If q is already in l we never append, so p=q can’t appear “new”. *)
+    (* ‘p = q’ implies In q l because member_path said true; you may have a lemma
+       linking member_path=true to In; if not, prove it once *)
+    admit.
+  - split; intro H.
+    + apply in_app_or in H. destruct H as [H|H]; [now left|].
+      destruct H as [->|[]]; right; reflexivity.
+    + destruct H as [H|->].
+      * apply in_or_app; left; assumption.
+      * apply in_or_app; right; simpl; auto. *)
+Admitted.
+
 
 Fixpoint add_nodes_no_repeats (S: nodes) (V: nodes) : nodes :=
   match S with
@@ -45,6 +66,84 @@ Fixpoint edges_as_paths_from_start (u: node) (E: edges) : paths :=
                           else edges_as_paths_from_start u t
               end
   end.
+
+
+Lemma edge_in_extended_graph :
+  forall V E a x y,
+    is_edge (x, y) (V, E) = true ->
+    is_edge (x, y) (V, a :: E) = true.
+Proof.
+  intros V E a x y H. unfold is_edge in *; simpl.
+  assert ((eqbedge a (x, y) || member_edge (x, y) E)=true).
+  apply orb_true_intro. right. apply andb_true_iff in H.
+  destruct H as [h1 h3]. exact h3. apply andb_true_iff in H.
+  destruct H as [h1 h3]. apply andb_true_iff in h1.
+  destruct h1 as [h1 h2]. rewrite h1. rewrite h2. rewrite H0. trivial.
+Qed.
+
+Lemma is_path_in_graph_helper_monotone_edges :
+  forall V E a l,
+    is_path_in_graph_helper l (V, E) = true ->
+    is_path_in_graph_helper l (V, a :: E) = true.
+Proof.
+  intros V E a l H. induction l as [|h l' IH]. simpl. reflexivity. destruct l' as [|h' l''].
+    - simpl. reflexivity.
+    - simpl in *. apply andb_prop in H. destruct H as [Hedge Hrest].
+      apply andb_true_intro. split. unfold is_edge in *. simpl in *.
+      apply orb_prop in Hedge. destruct Hedge as [H1 | H2].
+        -- apply orb_true_intro. left. apply (edge_in_extended_graph V E a h h' H1).
+        -- apply orb_true_intro. right. apply (edge_in_extended_graph V E a h' h H2).
+        -- apply (IH Hrest).
+Qed.
+
+Lemma path_monotone_edges :
+  forall V E a p,
+    is_path_in_graph p (V,E) = true ->
+    is_path_in_graph p (V, a::E) = true.
+Proof. intros V E a p H. destruct p as [[u v] l]. unfold is_path_in_graph in *.
+  apply (is_path_in_graph_helper_monotone_edges V E a ((u :: l) ++ [v]) H).
+Qed.
+
+(*!!! problem: how ot guarantee x,y\in V !!!*)
+Lemma new_edge_in_graph :
+  forall V x y (E: edges), (* In x V -> In y V -> *)
+    is_path_in_graph (x,y,[]) (V, (x,y)::E) = true.
+Proof. intros V x y E. unfold is_path_in_graph. simpl.
+Admitted.
+Lemma new_edge_in_graph2 :
+  forall V x y E,
+    is_path_in_graph (y,x,[]) (V, (x,y)::E) = true.
+Proof.
+Admitted.
+
+(*helper 1: edges_as_paths_from_start u E => is path in graph*)
+Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) (E:edges),
+  G_well_formed (V, E) = true ->
+  In (u, v, l) (edges_as_paths_from_start u E) -> is_path_in_graph (u, v, l) (V,E) = true.
+Proof. intros u v l V E Hwf Hin. induction E. simpl in Hin. exfalso; assumption.
+  destruct a as [x y]. assert (Hwf': G_well_formed (V, (x, y) :: E) = true -> G_well_formed (V, E)=true).
+  admit.
+  case (u =? x) eqn:Hx. simpl in Hin. rewrite Hx in Hin. simpl in Hin.
+  destruct Hin as [Hin | Hin].
+  (*u=x case*)
+  - inversion Hin; subst; clear Hin.
+  rewrite new_edge_in_graph.
+  (*"relies on G well-formed"*)
+  reflexivity.
+  - specialize (IHE (Hwf' Hwf) Hin). now apply path_monotone_edges with (a := (x,y)).
+  (*u=y case*)
+  - destruct (u =? y) eqn:Hy. simpl in Hin. rewrite Hy in Hin. rewrite Hx in Hin.
+  simpl in Hin. destruct Hin as [Hin | Hin].
+    + inversion Hin; subst; clear Hin.
+    rewrite new_edge_in_graph2.
+    (*"relies on G well-formed"*)
+    reflexivity.
+    + specialize (IHE (Hwf' Hwf) Hin). now apply path_monotone_edges with (a := (x,y)).
+  (*u!=x and u!=y case*)
+    + simpl in Hin. rewrite Hx in Hin. rewrite Hy in Hin. specialize (IHE (Hwf' Hwf) Hin).
+  eapply path_monotone_edges with (a := (x,y)) in IHE. exact IHE.
+Admitted.
+(* Qed. *)
 
 Example edges_from_1: edges_as_paths_from_start 1 E = [(1, 2, []); (1, 3, []); (1, 4, [])].
 Proof. reflexivity. Qed.
@@ -99,6 +198,16 @@ Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
 
 Compute extend_paths_from_start_iter E (edges_as_paths_from_start 1 E) 4.
 
+(* helper 2: extend_paths_from_start_iter E (paths in graph) (any n??) => is path in graph*)
+Lemma extend_paths_from_start_iter_valid :
+  forall (V:nodes) (E:edges) (n:nat) (ps:list path) (p:path),
+    G_well_formed (V,E) = true -> (forall q, In q ps -> is_path_in_graph q (V,E) = true) ->
+    In p (extend_paths_from_start_iter E ps n) -> is_path_in_graph p (V,E) = true.
+Proof.
+Admitted.
+
+
+(*??? add G-well-formed premise ???*)
 (* determine all paths existing in the graph made up of edges E *)
 Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
   match G with
@@ -131,10 +240,48 @@ Example paths_from_4_to_2: find_all_paths_from_start_to_end 4 2 G = [(4, 2, [1])
 Proof. reflexivity. Qed.
 
 (* a path outputted in the find_all_paths_from_start_to_end function is a valid path in G *)
+
+(* original theorem that might be flawed:
 Theorem paths_start_to_end_valid : forall u v: node, forall l: nodes, forall G: graph,
-  In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true.
+  In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true. *)
+
+Lemma edges_as_paths_from_start_helper : forall (u u' v' : node) (l' : nodes) (E : edges),
+    In (u', v', l') (edges_as_paths_from_start u E) -> u' = u.
 Proof.
-Admitted.
+  intros u u' v' l' E; induction E as [| [a b] E IH]; simpl; intro Hin.
+  - contradiction.
+  - destruct (u =? a) eqn:HuA; simpl in Hin.
+    + destruct Hin as [Hin | Hin].
+      * inversion Hin; subst; clear Hin. now apply Nat.eqb_eq in HuA.
+      * now apply IH in Hin.
+    + destruct (u =? b) eqn:HuB; simpl in Hin.
+      * destruct Hin as [Hin | Hin].
+        { inversion Hin; subst; clear Hin. now apply Nat.eqb_eq in HuB. }
+        { now apply IH in Hin. }
+      * now apply IH in Hin.
+Qed.
+
+Theorem paths_start_to_end_valid : forall u v: node, forall l: nodes, forall G: graph,
+  G_well_formed G = true            (*"??? Need to: add G-well-formed premise ???"*)
+  -> In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true.
+Proof. intros u v l G Hwf Hin. unfold find_all_paths_from_start_to_end in Hin.
+  destruct G as [V E]; simpl in Hin. apply filter_In in Hin.
+  destruct Hin as [Hin Hend]. apply Nat.eqb_eq in Hend.
+  induction (length V) in Hin.
+    (*base case: edges_as_paths_from_start u E => is path in graph*)
+  - unfold extend_paths_from_start_iter in Hin.
+    apply (edges_as_paths_from_start_valid u v l V E Hwf Hin).
+    (*ind case: extend_paths_from_start_iter E (paths in graph) (any n) => is path in graph *)
+  - clear IHn. eapply extend_paths_from_start_iter_valid
+        with (ps := edges_as_paths_from_start u E); eauto.
+    intro q. destruct q as [[u' v'] l']. case (u =? u') eqn:Heq.
+    (* subcase 1: q starts with u *)
+    + apply Nat.eqb_eq in Heq; subst.
+      apply (edges_as_paths_from_start_valid u' v' l' V E Hwf).
+    (* subcase 2: ~ q starts with u -> impossible *)
+    + intros Hin0. pose proof (edges_as_paths_from_start_helper u u' v' l' E Hin0) as Hu.
+      rewrite Hu in Heq. rewrite Nat.eqb_refl in Heq. discriminate.
+Qed.
 
 (* a path outputted in the find_all_paths_from_start_to_end function is acyclic *)
 Theorem paths_start_to_end_acyclic : forall u v: node, forall l: nodes, forall G: graph,
