@@ -152,11 +152,19 @@ Proof. intros V E e Hwf. unfold G_well_formed in *.
   - exact H2.
   - apply forallb_forall. intros x Hin. rewrite forallb_forall in H3.
     assert (Hin' : In x (e::E)). right. exact Hin.
-    pose proof (H3 x Hin'). clear H1 H2 H3.
-    case (eqbedge e x) eqn: Heq.
-    + exfalso. unfold count_edge in H. rewrite Heq in H. simpl in H.
-    apply Nat.eqb_eq in H.
-Admitted.
+    pose proof (H3 x Hin'). clear H1 H2 H3 Hin'. apply Nat.eqb_eq.
+
+    apply Nat.eqb_eq in H. inversion H. case (eqbedge e x) eqn: Heq.
+    + (*false statement*) exfalso; clear H Heq. injection H1 as H1.
+      induction E as [|h t IH]; simpl in *.
+      -- contradiction.
+      -- destruct Hin as [Hx | Hin].
+        ++ subst h. rewrite <- eqbedge_refl in H1. discriminate H1.
+        ++ destruct (eqbedge h x) eqn:Heq.
+          * discriminate H1.
+          * simpl in H1. eapply IH; eauto.
+    + reflexivity.
+Qed.
 
 (*helper 1: edges_as_paths_from_start u E => is path in graph*)
 Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) (E:edges),
@@ -247,7 +255,6 @@ Proof.
 Admitted.
 
 
-(*??? add G-well-formed premise ???*)
 (* determine all paths existing in the graph made up of edges E *)
 Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
   match G with
@@ -302,7 +309,7 @@ Proof.
 Qed.
 
 Theorem paths_start_to_end_valid : forall u v: node, forall l: nodes, forall G: graph,
-  G_well_formed G = true            (*"??? Need to add G-well-formed premise ???"*)
+  G_well_formed G = true
   -> In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true.
 Proof. intros u v l G Hwf Hin. unfold find_all_paths_from_start_to_end in Hin.
   destruct G as [V E]; simpl in Hin. apply filter_In in Hin.
