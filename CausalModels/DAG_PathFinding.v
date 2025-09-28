@@ -5,28 +5,26 @@ Import ListNotations.
 
 (* Finding paths in a graph *)
 
+(*helper function for paths-finding validity*)
+Definition PathsValid (G: graph) (ps: paths) : Prop :=
+  Forall (fun p => is_path_in_graph p G = true) ps.
+
+Lemma In_PathsValid_implies_valid :
+  forall (G: graph) (ps: paths) (p: path),
+    PathsValid G ps -> In p ps -> is_path_in_graph p G = true.
+Proof.
+  intros G ps p H HIn.
+  eapply Forall_forall in H; eauto.
+Qed.
+
 (* add p to end of l if p is not already in l *)
 Definition add_path_no_repeats (p: path) (l: paths) : paths :=
   if (member_path p l) then l else l ++ [p].
 
-(* helper 2.1 *)
-Lemma In_add_path_no_repeats :
-  forall (p q : path) (l : paths),
-    In p (add_path_no_repeats q l) <-> In p l \/ p = q.
-Proof.
-  (* intros p q l. unfold add_path_no_repeats.
-  destruct (member_path q l) eqn:Hmem.
-  - split; intro H; [now left| destruct H as [H|->]; [assumption|]].
-    (* If q is already in l we never append, so p=q can’t appear “new”. *)
-    (* ‘p = q’ implies In q l because member_path said true; you may have a lemma
-       linking member_path=true to In; if not, prove it once *)
-    admit.
-  - split; intro H.
-    + apply in_app_or in H. destruct H as [H|H]; [now left|].
-      destruct H as [->|[]]; right; reflexivity.
-    + destruct H as [H|->].
-      * apply in_or_app; left; assumption.
-      * apply in_or_app; right; simpl; auto. *)
+(* helper 2.1 adding an edge to a path is still path*)
+Lemma add_path_no_repeats_valid :
+  forall (G: graph) (p: path) (l: paths),
+    is_path_in_graph p G = true -> PathsValid G l -> PathsValid G (add_path_no_repeats p l).
 Admitted.
 
 
@@ -228,6 +226,13 @@ Example no_extend_edges_from_1: extend_paths_from_start_by_edge (3, 1) [(1, 2, [
   = [(1, 2, []); (1, 3, []); (1, 4, [])].
 Proof. reflexivity. Qed.
 
+(* helper 2.2 growing edges is valid *)
+Lemma extend_paths_from_start_by_edge_valid :
+  forall (G: graph) (e: (nat*nat)) (ps: paths),
+    G_well_formed G = true -> PathsValid G ps ->
+    PathsValid G (extend_paths_from_start_by_edge e ps).
+Admitted.
+
 (* given a path p, add all concatenations of p with paths in l to the list of paths *)
 Fixpoint extend_paths_from_start_by_edges (E : edges) (l: paths) : paths :=
   match E with
@@ -236,6 +241,13 @@ Fixpoint extend_paths_from_start_by_edges (E : edges) (l: paths) : paths :=
   end.
 
 Compute extend_paths_from_start_by_edges E (edges_as_paths_from_start 1 E).
+
+(* helper 2.3 Folding over the whole edge set preserves validity. *)
+Lemma extend_paths_from_start_by_edges_preserves_valid :
+  forall (G: graph) (E: edges) (ps: paths),
+    G_well_formed G = true -> PathsValid G ps ->
+    PathsValid G (extend_paths_from_start_by_edges E ps).
+Admitted.
 
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
@@ -246,13 +258,31 @@ Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
 
 Compute extend_paths_from_start_iter E (edges_as_paths_from_start 1 E) 4.
 
-(* helper 2: extend_paths_from_start_iter E (paths in graph) (any n??) => is path in graph*)
+(* helper 2.4 Iterating k times preserves validity. *)
+Lemma extend_paths_from_start_iter_preserves_valid :
+  forall (G: graph) (E: edges) (ps: paths) (k: nat),
+    G_well_formed G = true -> PathsValid G ps ->
+    PathsValid G (extend_paths_from_start_iter E ps k).
+Admitted.
+
+(* helper 2: extend_paths_from_start_iter E (paths in graph) (any n) => is path in graph*)
 Lemma extend_paths_from_start_iter_valid :
   forall (V:nodes) (E:edges) (n:nat) (ps:list path) (p:path),
     G_well_formed (V,E) = true -> (forall q, In q ps -> is_path_in_graph q (V,E) = true) ->
     In p (extend_paths_from_start_iter E ps n) -> is_path_in_graph p (V,E) = true.
 Proof.
-Admitted.
+    intros V E n ps p Hwf Hinit Hin.
+  (* Package the initial hypothesis into Forall form *)
+  assert (Hall : PathsValid (V,E) ps).
+  { unfold PathsValid. apply Forall_forall. intros q Hq. apply (Hinit q Hq). }
+
+  (* Use iteration-preservation to lift validity to the output list *)
+  assert (Hall' : PathsValid (V,E) (extend_paths_from_start_iter E ps n)).
+  { eapply extend_paths_from_start_iter_preserves_valid; eauto. }
+
+  (* Conclude by picking out the specific element by In *)
+  now apply (In_PathsValid_implies_valid (V,E) _ p Hall' Hin).
+Qed.
 
 
 (* determine all paths existing in the graph made up of edges E *)
