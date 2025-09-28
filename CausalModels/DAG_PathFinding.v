@@ -25,7 +25,13 @@ Definition add_path_no_repeats (p: path) (l: paths) : paths :=
 Lemma add_path_no_repeats_valid :
   forall (G: graph) (p: path) (l: paths),
     is_path_in_graph p G = true -> PathsValid G l -> PathsValid G (add_path_no_repeats p l).
-Admitted.
+Proof. intros G p l Hp Hps. unfold add_path_no_repeats.
+  destruct (member_path p l) eqn:Hmem.
+  - exact Hps.
+  - unfold PathsValid in *. apply Forall_app; split.
+    + exact Hps.
+    + constructor; [exact Hp| constructor].
+Qed.
 
 
 Fixpoint add_nodes_no_repeats (S: nodes) (V: nodes) : nodes :=
