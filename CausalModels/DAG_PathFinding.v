@@ -235,8 +235,36 @@ Proof. reflexivity. Qed.
 (* helper 2.2 growing edges is valid *)
 Lemma extend_paths_from_start_by_edge_valid :
   forall (G: graph) (e: (nat*nat)) (ps: paths),
-    G_well_formed G = true -> PathsValid G ps ->
+    G_well_formed G = true -> is_edge e G = true -> PathsValid G ps ->
     PathsValid G (extend_paths_from_start_by_edge e ps).
+Proof. intros G e ps Hwf He Hps. revert e He.
+  induction ps as [| a ps IH]; intros e He; simpl.
+  - constructor.
+  - destruct a as [[u1 v1] l1]. destruct e as [u2 v2].
+  (* destruct the function case by case. *)
+
+    destruct (orb (u1 =? u2) (u1 =? v2)) eqn:Hcase1.
+    {inversion Hps as [| ? ? Hhd Htl]; subst. constructor. exact Hhd.
+    unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
+
+    destruct (orb (member u2 l1) (member v2 l1)) eqn:Hcase2.
+    {inversion Hps as [| ? ? Hhd Htl]; subst. constructor. exact Hhd.
+    unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
+
+    destruct (v1 =? u2) eqn:Hv1u2.
+    inversion Hps as [| ? ? Hhd Htl]; subst. clear Hcase1 Hcase2.
+    apply add_path_no_repeats_valid.
+    {admit. } (*v1 = u2 -> is_edge (v1,v2) -> is_path (u1,v2, l1++v1)*)
+    {constructor. exact Hhd. unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
+
+    destruct (v1 =? v2) eqn:Hv1v2.
+    inversion Hps as [| ? ? Hhd Htl]; subst. clear Hcase1 Hcase2.
+    apply add_path_no_repeats_valid.
+    {admit. } (*v1 = v2 -> is_edge (u2,v1) -> is_path (u1,u2, l1++v1)*)
+    {constructor. exact Hhd. unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
+
+    {inversion Hps as [| ? ? Hhd Htl]; subst. constructor. exact Hhd.
+    unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
 Admitted.
 
 (* given a path p, add all concatenations of p with paths in l to the list of paths *)
@@ -249,10 +277,16 @@ Fixpoint extend_paths_from_start_by_edges (E : edges) (l: paths) : paths :=
 Compute extend_paths_from_start_by_edges E (edges_as_paths_from_start 1 E).
 
 (* helper 2.3 Folding over the whole edge set preserves validity. *)
-Lemma extend_paths_from_start_by_edges_preserves_valid :
-  forall (G: graph) (E: edges) (ps: paths),
-    G_well_formed G = true -> PathsValid G ps ->
-    PathsValid G (extend_paths_from_start_by_edges E ps).
+Lemma extend_paths_from_start_by_edges_valid :
+  forall (V: nodes) (E: edges) (ps: paths),
+    G_well_formed (V, E) = true -> PathsValid (V, E) ps ->
+    PathsValid (V, E) (extend_paths_from_start_by_edges E ps).
+Proof. induction E.
+  - intros ps Hwf Hvalid. unfold extend_paths_from_start_by_edges. exact Hvalid.
+  - intros ps Hwf Hvalid.
+  unfold extend_paths_from_start_by_edges.
+  assert (Hedge: is_edge a (V, a :: E) = true). {admit. }
+  pose proof (extend_paths_from_start_by_edge_valid (V, a::E) a ps Hwf Hedge Hvalid) as Hpose.
 Admitted.
 
 (* iteratively extend paths k times, like a for loop *)
@@ -264,30 +298,21 @@ Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
 
 Compute extend_paths_from_start_iter E (edges_as_paths_from_start 1 E) 4.
 
-(* helper 2.4 Iterating k times preserves validity. *)
-Lemma extend_paths_from_start_iter_preserves_valid :
-  forall (G: graph) (E: edges) (ps: paths) (k: nat),
-    G_well_formed G = true -> PathsValid G ps ->
-    PathsValid G (extend_paths_from_start_iter E ps k).
-Admitted.
-
 (* helper 2: extend_paths_from_start_iter E (paths in graph) (any n) => is path in graph*)
 Lemma extend_paths_from_start_iter_valid :
   forall (V:nodes) (E:edges) (n:nat) (ps:list path) (p:path),
     G_well_formed (V,E) = true -> (forall q, In q ps -> is_path_in_graph q (V,E) = true) ->
     In p (extend_paths_from_start_iter E ps n) -> is_path_in_graph p (V,E) = true.
-Proof.
-    intros V E n ps p Hwf Hinit Hin.
-  (* Package the initial hypothesis into Forall form *)
-  assert (Hall : PathsValid (V,E) ps).
-  { unfold PathsValid. apply Forall_forall. intros q Hq. apply (Hinit q Hq). }
-
-  (* Use iteration-preservation to lift validity to the output list *)
-  assert (Hall' : PathsValid (V,E) (extend_paths_from_start_iter E ps n)).
-  { eapply extend_paths_from_start_iter_preserves_valid; eauto. }
-
-  (* Conclude by picking out the specific element by In *)
-  now apply (In_PathsValid_implies_valid (V,E) _ p Hall' Hin).
+Proof. induction n.
+    - unfold extend_paths_from_start_iter. intros ps p Hwf Hall. exact (Hall p).
+    - intros paths path H1 H2 H3. simpl in H3.
+    pose proof (IHn (extend_paths_from_start_by_edges E paths) path H1) as Hpose.
+    apply Hpose.
+    + intros q Hin. pose proof (extend_paths_from_start_by_edges_valid V E paths H1) as Hvalid.
+    assert (PathsValid (V, E) paths) as Hvalid'. unfold PathsValid. rewrite Forall_forall.
+    exact (H2). pose proof (Hvalid Hvalid') as Hvalid; clear Hvalid'.
+    apply (In_PathsValid_implies_valid (V,E) _ _ Hvalid Hin).
+    + exact H3.
 Qed.
 
 
