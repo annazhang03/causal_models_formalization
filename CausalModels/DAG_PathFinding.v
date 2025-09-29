@@ -278,16 +278,20 @@ Compute extend_paths_from_start_by_edges E (edges_as_paths_from_start 1 E).
 
 (* helper 2.3 Folding over the whole edge set preserves validity. *)
 Lemma extend_paths_from_start_by_edges_valid :
-  forall (V: nodes) (E: edges) (ps: paths),
-    G_well_formed (V, E) = true -> PathsValid (V, E) ps ->
-    PathsValid (V, E) (extend_paths_from_start_by_edges E ps).
+  forall (E:edges) (G:graph) (ps: paths), G_well_formed G = true ->
+    (forall e, In e E -> is_edge e G = true) -> PathsValid G ps ->
+      PathsValid G (extend_paths_from_start_by_edges E ps).
 Proof. induction E.
-  - intros ps Hwf Hvalid. unfold extend_paths_from_start_by_edges. exact Hvalid.
-  - intros ps Hwf Hvalid.
-  unfold extend_paths_from_start_by_edges.
-  assert (Hedge: is_edge a (V, a :: E) = true). {admit. }
-  pose proof (extend_paths_from_start_by_edge_valid (V, a::E) a ps Hwf Hedge Hvalid) as Hpose.
-Admitted.
+  - intros G ps Hwf Hedge Hvalid. simpl. exact Hvalid.
+  - intros G ps Hwf Hedge Hvalid. simpl.
+    apply IHE.
+    + exact Hwf.
+    + intros e Hin. apply Hedge. right. exact Hin.
+    + apply extend_paths_from_start_by_edge_valid.
+      * exact Hwf.
+      * apply Hedge. left. reflexivity.
+      * exact Hvalid.
+Qed.
 
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
@@ -308,7 +312,8 @@ Proof. induction n.
     - intros paths path H1 H2 H3. simpl in H3.
     pose proof (IHn (extend_paths_from_start_by_edges E paths) path H1) as Hpose.
     apply Hpose.
-    + intros q Hin. pose proof (extend_paths_from_start_by_edges_valid V E paths H1) as Hvalid.
+    + intros q Hin. pose proof (extend_paths_from_start_by_edges_valid E (V,E) paths H1) as Hvalid.
+    (*need one more proof here*)
     assert (PathsValid (V, E) paths) as Hvalid'. unfold PathsValid. rewrite Forall_forall.
     exact (H2). pose proof (Hvalid Hvalid') as Hvalid; clear Hvalid'.
     apply (In_PathsValid_implies_valid (V,E) _ _ Hvalid Hin).
@@ -348,10 +353,6 @@ Example paths_from_4_to_2: find_all_paths_from_start_to_end 4 2 G = [(4, 2, [1])
 Proof. reflexivity. Qed.
 
 (* a path outputted in the find_all_paths_from_start_to_end function is a valid path in G *)
-
-(* original theorem that might be flawed:
-Theorem paths_start_to_end_valid : forall u v: node, forall l: nodes, forall G: graph,
-  In (u, v, l) (find_all_paths_from_start_to_end u v G) -> is_path_in_graph (u, v, l) G = true. *)
 
 Lemma edges_as_paths_from_start_helper : forall (u u' v' : node) (l' : nodes) (E : edges),
     In (u', v', l') (edges_as_paths_from_start u E) -> u' = u.
