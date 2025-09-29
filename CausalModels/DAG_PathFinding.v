@@ -232,6 +232,22 @@ Example no_extend_edges_from_1: extend_paths_from_start_by_edge (3, 1) [(1, 2, [
   = [(1, 2, []); (1, 3, []); (1, 4, [])].
 Proof. reflexivity. Qed.
 
+(*helper 2.2.1*)
+Lemma is_path_in_graph_helper_app_one :
+  forall (G: graph) (x: list node) (y z: node),
+    is_path_in_graph_helper (x ++ [y]) G = true ->
+    (is_edge (y, z) G || is_edge (z, y) G) = true ->
+    is_path_in_graph_helper (x ++ [y; z]) G = true.
+Proof.
+  intros [V E] x; induction x as [|a x IH]; intros y z Hxy Hor; simpl in *.
+  - now rewrite Hor.
+  - destruct x as [|a2 x']; simpl in *.
+    + apply Bool.andb_true_iff in Hxy as [A _].
+      apply Bool.andb_true_iff; split; [exact A| now rewrite Hor].
+    + apply Bool.andb_true_iff in Hxy as [A B].
+      apply Bool.andb_true_iff; split; [exact A| now apply IH].
+Qed.
+
 (* helper 2.2 growing edges is valid *)
 Lemma extend_paths_from_start_by_edge_valid :
   forall (G: graph) (e: (nat*nat)) (ps: paths),
@@ -254,18 +270,28 @@ Proof. intros G e ps Hwf He Hps. revert e He.
     destruct (v1 =? u2) eqn:Hv1u2.
     inversion Hps as [| ? ? Hhd Htl]; subst. clear Hcase1 Hcase2.
     apply add_path_no_repeats_valid.
-    {admit. } (*v1 = u2 -> is_edge (v1,v2) -> is_path (u1,v2, l1++v1)*)
+    { apply Nat.eqb_eq in Hv1u2. subst u2. unfold is_path_in_graph in *.
+    pose proof (is_path_in_graph_helper_app_one G _ v1 v2 Hhd).
+    rewrite orb_true_iff in H. assert (is_edge (v1, v2) G = true \/ is_edge (v2, v1) G = true).
+    left. exact He. apply H in H0. rewrite <- H0. f_equal.
+    simpl. rewrite <- app_assoc. reflexivity.
+    } (*v1 = u2 -> is_edge (v1,v2) -> is_path (u1,v2, l1++v1)*)
     {constructor. exact Hhd. unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
 
     destruct (v1 =? v2) eqn:Hv1v2.
     inversion Hps as [| ? ? Hhd Htl]; subst. clear Hcase1 Hcase2.
     apply add_path_no_repeats_valid.
-    {admit. } (*v1 = v2 -> is_edge (u2,v1) -> is_path (u1,u2, l1++v1)*)
+    { apply Nat.eqb_eq in Hv1v2. subst v2. unfold is_path_in_graph in *.
+    pose proof (is_path_in_graph_helper_app_one G _ v1 u2 Hhd).
+    rewrite orb_true_iff in H. assert (is_edge (v1, u2) G = true \/ is_edge (u2, v1) G = true).
+    right. exact He. apply H in H0. rewrite <- H0. f_equal.
+    simpl. rewrite <- app_assoc. reflexivity.
+    } (*v1 = v2 -> is_edge (u2,v1) -> is_path (u1,u2, l1++v1)*)
     {constructor. exact Hhd. unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
 
     {inversion Hps as [| ? ? Hhd Htl]; subst. constructor. exact Hhd.
     unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
-Admitted.
+Qed.
 
 (* given a path p, add all concatenations of p with paths in l to the list of paths *)
 Fixpoint extend_paths_from_start_by_edges (E : edges) (l: paths) : paths :=
@@ -313,9 +339,15 @@ Proof. induction n.
     pose proof (IHn (extend_paths_from_start_by_edges E paths) path H1) as Hpose.
     apply Hpose.
     + intros q Hin. pose proof (extend_paths_from_start_by_edges_valid E (V,E) paths H1) as Hvalid.
-    (*need one more proof here*)
+    assert (forall e : edge, In e E -> is_edge e (V, E) = true).
+    { intros e Hin'. unfold is_edge. simpl. destruct e as [u v].
+    pose proof ((G_well_formed_corollary V E H1 u v) Hin'). apply andb_true_iff. split.
+      - apply andb_true_iff. split.
+        + rewrite member_In_equiv. exact (proj1 H).
+        + rewrite member_In_equiv. exact (proj2 H).
+      - rewrite member_edge_In_equiv. exact Hin'. }
     assert (PathsValid (V, E) paths) as Hvalid'. unfold PathsValid. rewrite Forall_forall.
-    exact (H2). pose proof (Hvalid Hvalid') as Hvalid; clear Hvalid'.
+    exact (H2). pose proof (Hvalid H Hvalid') as Hvalid; clear Hvalid'.
     apply (In_PathsValid_implies_valid (V,E) _ _ Hvalid Hin).
     + exact H3.
 Qed.
