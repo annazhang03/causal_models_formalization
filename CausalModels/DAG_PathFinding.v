@@ -21,7 +21,7 @@ Qed.
 Definition add_path_no_repeats (p: path) (l: paths) : paths :=
   if (member_path p l) then l else l ++ [p].
 
-(* helper 2.1 adding an edge to a path is still path*)
+
 Lemma add_path_no_repeats_valid :
   forall (G: graph) (p: path) (l: paths),
     is_path_in_graph p G = true -> PathsValid G l -> PathsValid G (add_path_no_repeats p l).
@@ -71,7 +71,6 @@ Fixpoint edges_as_paths_from_start (u: node) (E: edges) : paths :=
               end
   end.
 
-(*helper 1.1*)
 Lemma edge_in_extended_graph :
   forall V E a x y,
     is_edge (x, y) (V, E) = true ->
@@ -85,7 +84,7 @@ Proof.
   destruct h1 as [h1 h2]. rewrite h1. rewrite h2. rewrite H0. trivial.
 Qed.
 
-(*helper 1.2*)
+
 Lemma is_path_in_graph_helper_monotone_edges :
   forall V E a l,
     is_path_in_graph_helper l (V, E) = true ->
@@ -101,7 +100,7 @@ Proof.
         -- apply (IH Hrest).
 Qed.
 
-(*helper 1.3*)
+
 Lemma path_monotone_edges :
   forall V E a p,
     is_path_in_graph p (V,E) = true ->
@@ -110,7 +109,7 @@ Proof. intros V E a p H. destruct p as [[u v] l]. unfold is_path_in_graph in *.
   apply (is_path_in_graph_helper_monotone_edges V E a ((u :: l) ++ [v]) H).
 Qed.
 
-(*helper 1.4*)
+
 Lemma edges_as_paths :
   forall V x y (E: edges), In x V -> In y V ->
     is_path_in_graph (x,y,[]) (V, (x,y)::E) = true.
@@ -132,7 +131,7 @@ Proof. intros V x y E Hx Hy. unfold is_path_in_graph. simpl.
   - reflexivity.
 Qed.
 
-(*helper 1.5*)
+
 Lemma G_well_formed_corollary : forall (V: nodes) (E: edges),
   G_well_formed (V, E) = true -> forall (u v :node), In (u, v) E -> In u V /\ In v V.
 Proof.
@@ -143,7 +142,7 @@ Proof.
   apply andb_true_iff in H. repeat rewrite <- member_In_equiv. exact H.
 Qed.
 
-(*helper 1.6*)
+
 Lemma G_well_formed_induction : forall (V:nodes) (E:edges) (e:edge),
   G_well_formed (V, e :: E) = true -> G_well_formed (V, E)=true.
 Proof. intros V E e Hwf. unfold G_well_formed in *.
@@ -170,7 +169,7 @@ Proof. intros V E e Hwf. unfold G_well_formed in *.
     + reflexivity.
 Qed.
 
-(*helper 1: edges_as_paths_from_start u E => is path in graph*)
+
 Lemma edges_as_paths_from_start_valid : forall (u v: node) (l: nodes) (V:nodes) (E:edges),
   G_well_formed (V, E) = true ->
   In (u, v, l) (edges_as_paths_from_start u E) -> is_path_in_graph (u, v, l) (V,E) = true.
@@ -195,7 +194,7 @@ Proof. intros u v l V E Hwf Hin. induction E. simpl in Hin. exfalso; assumption.
     + simpl in Hin. rewrite Hx in Hin. rewrite Hy in Hin. specialize (IHE (Hwf') Hin).
   eapply path_monotone_edges with (a := (x,y)) in IHE. exact IHE.
 Qed.
-(* Qed. *)
+
 
 Example edges_from_1: edges_as_paths_from_start 1 E = [(1, 2, []); (1, 3, []); (1, 4, [])].
 Proof. reflexivity. Qed.
@@ -232,7 +231,7 @@ Example no_extend_edges_from_1: extend_paths_from_start_by_edge (3, 1) [(1, 2, [
   = [(1, 2, []); (1, 3, []); (1, 4, [])].
 Proof. reflexivity. Qed.
 
-(*helper 2.2.1*)
+
 Lemma is_path_in_graph_helper_app_one :
   forall (G: graph) (x: list node) (y z: node),
     is_path_in_graph_helper (x ++ [y]) G = true ->
@@ -248,7 +247,7 @@ Proof.
       apply Bool.andb_true_iff; split; [exact A| now apply IH].
 Qed.
 
-(* helper 2.2 growing edges is valid *)
+
 Lemma extend_paths_from_start_by_edge_valid :
   forall (G: graph) (e: (nat*nat)) (ps: paths),
     G_well_formed G = true -> is_edge e G = true -> PathsValid G ps ->
@@ -302,7 +301,7 @@ Fixpoint extend_paths_from_start_by_edges (E : edges) (l: paths) : paths :=
 
 Compute extend_paths_from_start_by_edges E (edges_as_paths_from_start 1 E).
 
-(* helper 2.3 Folding over the whole edge set preserves validity. *)
+
 Lemma extend_paths_from_start_by_edges_valid :
   forall (E:edges) (G:graph) (ps: paths), G_well_formed G = true ->
     (forall e, In e E -> is_edge e G = true) -> PathsValid G ps ->
@@ -328,7 +327,7 @@ Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
 
 Compute extend_paths_from_start_iter E (edges_as_paths_from_start 1 E) 4.
 
-(* helper 2: extend_paths_from_start_iter E (paths in graph) (any n) => is path in graph*)
+
 Lemma extend_paths_from_start_iter_valid :
   forall (V:nodes) (E:edges) (n:nat) (ps:list path) (p:path),
     G_well_formed (V,E) = true -> (forall q, In q ps -> is_path_in_graph q (V,E) = true) ->
