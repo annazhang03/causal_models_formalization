@@ -195,6 +195,29 @@ Proof. intros u v l V E Hwf Hin. induction E. simpl in Hin. exfalso; assumption.
   eapply path_monotone_edges with (a := (x,y)) in IHE. exact IHE.
 Qed.
 
+(*helper 1 (In (u, v, l) (edges_as_paths_from_start u E) -> acyclic_path_2 (u, v, l))*)
+Lemma edges_as_paths_from_start_acyclic : forall u v: node, forall l: nodes, forall E: edges,
+  no_one_cycles E = true ->
+  In (u, v, l) (edges_as_paths_from_start u E) -> acyclic_path_2 (u, v, l).
+Proof. intros u v l E Hloop Hin. induction E.
+    + simpl in *. exfalso. assumption.
+    + destruct a as [a1 a2]. assert (IHloop: no_one_cycles E = true).
+      { unfold no_one_cycles in *. destruct (a1 =? a2). discriminate. assumption. }
+      simpl in Hin. destruct (u =? a1) eqn:Hua1.
+        { simpl in Hin. destruct Hin as [Hin | Hin].
+          - injection Hin as Hu Hv Hl; subst. split.
+            simpl in Hloop. destruct (u =? v) eqn:H. discriminate. apply Nat.eqb_neq in H. assumption.
+            split; simpl; tauto.
+          - apply IHE; assumption. }
+        { destruct (u =? a2) eqn:Hua2.
+        simpl in Hin. destruct Hin as [Hin | Hin].
+          - injection Hin as Hu Hv Hl; subst. split.
+            simpl in Hloop. destruct (u =? v) eqn:H. discriminate. apply Nat.eqb_neq in H. assumption.
+            split; simpl; tauto.
+          - apply IHE; assumption.
+          - apply IHE; assumption. }
+Qed.
+
 
 Example edges_from_1: edges_as_paths_from_start 1 E = [(1, 2, []); (1, 3, []); (1, 4, [])].
 Proof. reflexivity. Qed.
@@ -425,6 +448,7 @@ Qed.
 
 (* a path outputted in the find_all_paths_from_start_to_end function is acyclic *)
 Theorem paths_start_to_end_acyclic : forall u v: node, forall l: nodes, forall G: graph,
+  no_one_cycles (snd G) = true ->
   In (u, v, l) (find_all_paths_from_start_to_end u v G) -> acyclic_path_2 (u, v, l).
 Proof.
 Admitted.
