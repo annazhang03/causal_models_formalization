@@ -70,6 +70,7 @@ Fixpoint edges_as_paths_from_start (u: node) (E: edges) : paths :=
                           else edges_as_paths_from_start u t
               end
   end.
+Compute edges_as_paths_from_start 1 [(1,1); (1,2)]. (* = [(1, 1, []); (1, 2, [])] *)
 
 Lemma edge_in_extended_graph :
   forall V E a x y,
@@ -196,23 +197,27 @@ Proof. intros u v l V E Hwf Hin. induction E. simpl in Hin. exfalso; assumption.
 Qed.
 
 (*helper 1 (In (u, v, l) (edges_as_paths_from_start u E) -> acyclic_path_2 (u, v, l))*)
-Lemma edges_as_paths_from_start_acyclic : forall u v: node, forall l: nodes, forall E: edges,
+Lemma edges_as_paths_from_start_acyclic : forall (u: node) (p:path) (E: edges),
   no_one_cycles E = true ->
-  In (u, v, l) (edges_as_paths_from_start u E) -> acyclic_path_2 (u, v, l).
-Proof. intros u v l E Hloop Hin. induction E.
+  In p (edges_as_paths_from_start u E) -> acyclic_path_2 p.
+(* Admitted.
+Lemma edges_as_paths_from_start_acyclic1 : forall u v: node, forall l: nodes, forall E: edges,
+  no_one_cycles E = true ->
+  In (u, v, l) (edges_as_paths_from_start u E) -> acyclic_path_2 (u, v, l). *)
+Proof. intros u [[u' v] l] E Hloop Hin. induction E.
     + simpl in *. exfalso. assumption.
     + destruct a as [a1 a2]. assert (IHloop: no_one_cycles E = true).
       { unfold no_one_cycles in *. destruct (a1 =? a2). discriminate. assumption. }
       simpl in Hin. destruct (u =? a1) eqn:Hua1.
         { simpl in Hin. destruct Hin as [Hin | Hin].
-          - injection Hin as Hu Hv Hl; subst. split.
-            simpl in Hloop. destruct (u =? v) eqn:H. discriminate. apply Nat.eqb_neq in H. assumption.
+          - injection Hin as Hu Hv Hl; subst. split. apply Nat.eqb_eq in Hua1; subst.
+            simpl in Hloop. destruct (u' =? v) eqn:H. discriminate. apply Nat.eqb_neq in H. assumption.
             split; simpl; tauto.
           - apply IHE; assumption. }
         { destruct (u =? a2) eqn:Hua2.
         simpl in Hin. destruct Hin as [Hin | Hin].
-          - injection Hin as Hu Hv Hl; subst. split.
-            simpl in Hloop. destruct (u =? v) eqn:H. discriminate. apply Nat.eqb_neq in H. assumption.
+          - injection Hin as Hu Hv Hl; subst. split. apply Nat.eqb_eq in Hua2; subst.
+            simpl in Hloop. destruct (u' =? v) eqn:H. discriminate. apply Nat.eqb_neq in H. assumption.
             split; simpl; tauto.
           - apply IHE; assumption.
           - apply IHE; assumption. }
@@ -341,6 +346,13 @@ Proof. induction E.
       * exact Hvalid.
 Qed.
 
+(*helper 2*)
+Lemma extend_paths_from_start_by_edges_acyclic:
+  forall (E:edges) (p:path) (ps:paths), (forall p', In p' ps -> acyclic_path_2 p') ->
+  In p (extend_paths_from_start_by_edges E ps) ->
+  acyclic_path_2 p.
+Admitted.
+
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
   match k with
@@ -374,6 +386,13 @@ Proof. induction n.
     + exact H3.
 Qed.
 
+(*helper 3*)
+Lemma extend_paths_from_start_iter_acyclic:
+  forall (E: edges) (p:path) (l: paths) (k: nat),
+  (forall p', In p' l -> acyclic_path_2 p') ->
+  In p (extend_paths_from_start_iter E l k) ->
+  acyclic_path_2 p.
+Admitted.
 
 (* determine all paths existing in the graph made up of edges E *)
 Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
@@ -451,7 +470,14 @@ Theorem paths_start_to_end_acyclic : forall u v: node, forall l: nodes, forall G
   no_one_cycles (snd G) = true ->
   In (u, v, l) (find_all_paths_from_start_to_end u v G) -> acyclic_path_2 (u, v, l).
 Proof.
-Admitted.
+  intros u v l G Hloop Hin. unfold find_all_paths_from_start_to_end in Hin.
+  destruct G as [V E]; simpl in Hin. apply filter_In in Hin. simpl in Hin, Hloop. destruct Hin as [Hin _].
+  revert Hin. induction (length V).
+  - intro Hin. simpl in Hin. eapply edges_as_paths_from_start_acyclic; eauto.
+  - intro Hin. simpl in Hin. eapply extend_paths_from_start_iter_acyclic; eauto.
+    intro p1. eapply extend_paths_from_start_by_edges_acyclic; eauto.
+    intro p2. eapply edges_as_paths_from_start_acyclic; eauto.
+Qed.
 
 (* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
 Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G: graph,
