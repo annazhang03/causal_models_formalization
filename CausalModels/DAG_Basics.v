@@ -1,3 +1,3 @@
-(** Basics.v — umbrella file *)
+(** Basics.v \u2014 umbrella file *)
 
-From FCM Require Export DAG_Basics_Constr DAG_Basics_Proofs.
+From CausalModels Require Export DAG_Basics_Constr DAG_Basics_Proofs.

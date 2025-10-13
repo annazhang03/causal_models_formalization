@@ -1,8 +1,9 @@
 (** DAG_CycleDetection.v *)
 
-From FCM Require Import DAG_Basics.
-From FCM Require Import DAG_PathFinding.
-From FCM Require Import Helpers.
+From CausalModels Require Import DAG_Basics.
+From CausalModels Require Import DAG_PathFinding.
+From Utils Require Import Lists.
+From Utils Require Import Logic.
 
 From Coq Require Import Classical.
 Import ListNotations.
@@ -111,48 +112,6 @@ Proof.
   - assert (H: (exists p' : path, is_directed_path_in_graph p' G = true /\ ~ acyclic_path_2 p')).
     { exists p. split. apply Hpath. apply HC. }
     apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc.
-Qed.
-
-Lemma remove_node_preserves_directed_path: forall (G: graph) (p: path) (u: node),
-  is_directed_path_in_graph p (remove_node_from_graph G u) = true
-  -> is_directed_path_in_graph p G = true.
-Proof.
-  intros G p u H.
-  destruct p as [[s e] l]. generalize dependent s. induction l as [| h t IH].
-  - intros s H. simpl in H. simpl. destruct G as [V E]. simpl in H. simpl.
-    assert (member s V = true).
-    { destruct (member s (remove_node u V)) as [|] eqn:Hmem.
-      - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-      - discriminate H. }
-    rewrite H0.
-    assert (member e V = true).
-    { destruct (member e (remove_node u V)) as [|] eqn:Hmem.
-      - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-      - rewrite <- andb_assoc in H. rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-    rewrite H1. simpl.
-    assert (member_edge (s, e) E = true).
-    { destruct (member_edge (s, e) (remove_associated_edges u E)) as [|] eqn:Hmem.
-      - apply member_edge_In_equiv in Hmem. apply filter_true in Hmem. apply member_edge_In_equiv. apply Hmem.
-      - rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-    rewrite H2. reflexivity.
-  - intros s H. simpl. apply split_and_true. split.
-    + destruct G as [V E]. simpl in H. simpl.
-      assert (member s V = true).
-      { destruct (member s (remove_node u V)) as [|] eqn:Hmem.
-        - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-        - discriminate H. }
-      rewrite H0.
-      assert (member h V = true).
-      { destruct (member h (remove_node u V)) as [|] eqn:Hmem.
-        - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-        - rewrite <- andb_assoc in H. rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-      rewrite H1. simpl.
-      assert (member_edge (s, h) E = true).
-      { destruct (member_edge (s, h) (remove_associated_edges u E)) as [|] eqn:Hmem.
-        - apply member_edge_In_equiv in Hmem. apply filter_true in Hmem. apply member_edge_In_equiv. apply Hmem.
-        - rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-      rewrite H2. reflexivity.
-    + apply IH. simpl in H. apply split_and_true in H. apply H.
 Qed.
 
 Lemma remove_node_preserves_acyclic: forall (G: graph) (u: node),

@@ -1,5 +1,11 @@
--Q CausalModels FCM
-CausalModels/Helpers.v
+-Q CausalModels CausalModels
+-Q Utils Utils
+
+Utils/Lists.v
+Utils/List_Basics.v
+Utils/Logic.v
+Utils/List_Relations.v
+Utils/Sublists.v
 CausalModels/DAG_Basics_Constr.v
 CausalModels/DAG_Basics_Proofs.v
 CausalModels/DAG_Basics.v

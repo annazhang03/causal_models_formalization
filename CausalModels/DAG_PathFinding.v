@@ -1,5 +1,6 @@
-From FCM Require Import DAG_Basics_Constr.
-From FCM Require Import Helpers.
+From CausalModels Require Import DAG_Basics.
+From Utils Require Import Lists.
+From Utils Require Import Logic.
 
 Import ListNotations.
 
@@ -148,17 +149,3 @@ Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G:
   <-> In p (find_all_paths_from_start_to_end u v G).
 Proof.
 Admitted.
-
-Theorem intermediate_node_not_endpoint: forall u v x: node, forall l: nodes,
-  In x l /\ acyclic_path_2 (u, v, l) -> (x <> u /\ x <> v).
-Proof.
-  intros u v x l. intros [Hmem Hacyc].
-  unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [Hxu [Hxv _]]].
-  split.
-  - destruct (x =? u) as [|] eqn:Hxueq.
-    + apply Nat.eqb_eq in Hxueq. rewrite Hxueq in Hmem. unfold not in Hxu. apply Hxu in Hmem. exfalso. apply Hmem.
-    + apply Nat.eqb_neq. apply Hxueq.
-  - destruct (x =? v) as [|] eqn:Hxveq.
-    + apply Nat.eqb_eq in Hxveq. rewrite Hxveq in Hmem. unfold not in Hxv. apply Hxv in Hmem. exfalso. apply Hmem.
-    + apply Nat.eqb_neq. apply Hxveq.
-Qed.
