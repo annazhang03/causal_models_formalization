@@ -563,3 +563,22 @@ Proof.
         exists (h :: l1). exists l2. simpl. rewrite <- H. simpl. reflexivity.
   - intros [l1 [l2 H]]. rewrite <- H. apply membership_append_r. apply membership_append. left. reflexivity.
 Qed.
+
+(* if x is a member of l, then there is some prefix of l that is immediately
+   before x that does not contain x *)
+Lemma list_has_first_appearance_of_elt: forall (l: list nat) (x: nat),
+  In x l -> exists (l1 l2: list nat), l = l1 ++ [x] ++ l2 /\ ~In x l1.
+Proof.
+  intros l x H.
+  induction l as [| h t IH].
+  - exfalso. apply H.
+  - destruct (h =? x) as [|] eqn:Hhx.
+    + apply eqb_eq in Hhx. exists []. exists t. split.
+      * simpl. rewrite Hhx. reflexivity.
+      * intros F. exfalso. apply F.
+    + destruct H as [H | H]. rewrite H in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+      apply IH in H. destruct H as [l1 [l2 H]]. exists (h :: l1). exists l2. split.
+      * simpl. destruct H as [H _]. rewrite H. simpl. reflexivity.
+      * intros [Hx | Hx]. rewrite Hx in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
+        apply H. apply Hx.
+Qed.

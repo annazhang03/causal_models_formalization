@@ -9,6 +9,11 @@ From Coq Require Import Lia.
 From Coq Require Classical.
 Require Import Coq.Logic.FunctionalExtensionality.
 
+
+(* this file proves theorems about the types and functions defined in DAG_Basic_Constr *)
+
+
+(* simple theorems about edges *)
 Theorem eqbedge_refl : forall e: edge,
   true = eqbedge e e.
 Proof.
@@ -17,7 +22,6 @@ Proof.
   rewrite -> eqb_refl. rewrite -> eqb_refl. simpl.
   reflexivity.
 Qed.
-
 
 Lemma member_edge_In_equiv :
   forall (l : edges) (x: edge), member_edge x l = true <-> In x l.
@@ -51,6 +55,173 @@ Proof.
     + reflexivity.
 Qed.
 
+Theorem eqbpath_refl : forall p: path,
+  true = eqbpath p p.
+Proof.
+  intros p.
+  destruct p as [[u v] l]. simpl.
+  rewrite -> eqb_refl. rewrite -> eqb_refl. simpl.
+  rewrite <- eqblist_refl.
+  reflexivity.
+Qed.
+
+Lemma count_edge_filter: forall (l: edges) (x: edge) (test : edge -> bool),
+  test x = true -> count_edge x l = count_edge x (filter test l).
+Proof.
+  intros l x test H.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. destruct (eqbedge h x) as [|] eqn:Hhx.
+    + destruct h as [h1 h2]. destruct x as [x1 x2]. simpl in Hhx. apply split_and_true in Hhx. destruct Hhx as [H1 H2].
+      apply eqb_eq in H1. rewrite H1 in *. apply eqb_eq in H2. rewrite H2 in *. rewrite H. simpl. rewrite eqb_refl. rewrite eqb_refl. simpl.
+      f_equal. apply IH.
+    + destruct (test h) as [|] eqn:Hh.
+      * simpl. rewrite Hhx. apply IH.
+      * apply IH.
+Qed.
+
+
+
+(* theorems about the well-formedness of graphs, as well as relating graphs to
+   their corresponding nodes and edges *)
+Lemma remove_node_from_well_formed: forall (V: nodes) (E: edges) (u: node),
+  node_in_graph u (V, E) = true /\ G_well_formed (V, E) = true -> length V = S (length (remove_node u V)).
+Proof.
+  intros V E u [Hu HG].
+  unfold G_well_formed in HG. apply count_length. apply split_and_true in HG. destruct HG as [HG _]. apply split_and_true in HG. destruct HG as [_ HG]. apply forallb_true with (x := u) in HG.
+  - apply eqb_eq. apply HG.
+  - simpl in Hu. apply member_In_equiv. apply Hu.
+Qed.
+
+Lemma remove_node_preserves_well_formed: forall (G: graph) (u: node),
+  G_well_formed G = true -> G_well_formed (remove_node_from_graph G u) = true.
+Proof.
+  intros [V E] u H.
+  unfold G_well_formed. simpl.
+  unfold G_well_formed in H. apply split_and_true in H. destruct H as [He Hec]. apply split_and_true in He. destruct He as [He Hv].
+  assert (He': forallb
+    (fun e : nat * nat =>
+     let (u0, v) := e in
+     member u0 (remove_node u V) && member v (remove_node u V))
+    (remove_associated_edges u E) = true).
+  { apply forallb_true_iff_mem. intros [e1 e2]. intros Hmem.
+    unfold remove_associated_edges in Hmem. apply filter_true in Hmem.
+    destruct Hmem as [Hmem Heq].
+    simpl in Heq. apply split_and_true in Heq. destruct Heq as [He2 He1].
+    unfold remove_node.
+    assert (HVmem: forall x: nat * nat, In x E -> (let (u, v) := x in member u V && member v V) = true).
+    { apply forallb_true_iff_mem. apply He. }
+    specialize HVmem with (x := (e1, e2)). apply HVmem in Hmem.
+    apply split_and_true in Hmem. destruct Hmem as [He1V He2V].
+    assert (He1mem: In e1 (filter (fun v : nat => negb (v =? u)) V)).
+    { apply filter_true. split.
+      - apply member_In_equiv. apply He1V.
+      - apply He1. }
+    assert (He2mem: In e2 (filter (fun v : nat => negb (v =? u)) V)).
+    { apply filter_true. split.
+      - apply member_In_equiv. apply He2V.
+      - apply He2. }
+    apply member_In_equiv in He1mem. apply member_In_equiv in He2mem.
+    rewrite He1mem. rewrite He2mem. reflexivity. }
+  rewrite He'. simpl. apply split_and_true. split.
+  { apply forallb_true_iff_mem. intros x Hmem.
+    unfold remove_node in Hmem. apply filter_true in Hmem. destruct Hmem as [Hmem Hxu].
+    unfold remove_node.
+    assert (H: count x V = count x (filter (fun v : nat => negb (v =? u)) V)).
+    { apply count_filter. apply Hxu. }
+    rewrite <- H.
+    assert (HVc: forall x: nat, In x V -> (count x V =? 1) = true).
+    { apply forallb_true_iff_mem. apply Hv. }
+    specialize HVc with (x := x). apply HVc in Hmem. apply Hmem. }
+  apply forallb_true_iff_mem. intros x Hmem.
+  apply filter_true in Hmem. destruct Hmem as [Hmem Hxu].
+  unfold remove_associated_edges.
+  assert (H: count_edge x E = count_edge x
+   (filter
+      (fun edg : nat * nat =>
+       negb (snd edg =? u) && negb (fst edg =? u)) E)).
+  { apply count_edge_filter. apply Hxu. }
+  rewrite <- H.
+  assert (HVc: forall x: edge, In x E -> (count_edge x E =? 1) = true).
+  { apply forallb_true_iff_mem. apply Hec. }
+  specialize HVc with (x := x). apply HVc in Hmem. apply Hmem.
+Qed.
+
+Theorem edge_corresponds_to_nodes_in_well_formed: forall (G: graph) (u v: node),
+  G_well_formed G = true /\ edge_in_graph (u, v) G = true
+  -> node_in_graph u G = true /\ node_in_graph v G = true.
+Proof.
+  intros [V E] u v [HG Hedge].
+  unfold G_well_formed in HG. apply split_and_true in HG. destruct HG as [HG _]. apply split_and_true in HG. destruct HG as [HG _].
+  apply forallb_true with (x:=(u,v)) in HG.
+  - apply split_and_true in HG. destruct HG as [Hu Hv]. simpl.
+    rewrite Hu. rewrite Hv. split. reflexivity. reflexivity.
+  - simpl in Hedge. apply member_edge_In_equiv. apply Hedge.
+Qed.
+
+Theorem no_self_loops : forall E: edges, forall u v: node,
+  member_edge (u, v) E = true -> no_one_cycles E = true -> u <> v.
+Proof.
+  intros E u v Hmem Hcyc.
+  induction E as [| h t IH].
+  - simpl in Hmem. discriminate Hmem.
+  - simpl in Hmem. destruct (eqbedge h (u, v)) as [|] eqn:Hedge.
+    + simpl in Hcyc. destruct (u =? v) as [|] eqn:Huv.
+      * destruct h as [a b]. simpl in Hedge. apply split_and_true in Hedge.
+        destruct Hedge as [Hau Hbv].
+        apply eqb_eq in Huv. rewrite <- Huv in Hbv.
+        apply eqb_eq in Hbv. rewrite <-  Hbv in Hau.
+        rewrite Hau in Hcyc. discriminate Hcyc.
+      * apply eqb_neq in Huv. apply Huv.
+    + simpl in Hcyc. destruct (u =? v) as [|] eqn:Huv.
+      * destruct h as [a b]. simpl in Hedge. destruct (a =? b) as [|] eqn:Hab.
+        -- discriminate Hcyc.
+        -- apply IH. apply Hmem. apply Hcyc.
+      * apply eqb_neq in Huv. apply Huv.
+Qed.
+
+Theorem is_edge_then_node_in_graph: forall (G: graph) (u v: node),
+  is_edge (u, v) G = true \/ is_edge (v, u) G = true
+  -> node_in_graph u G = true.
+Proof.
+  intros G u v [Huv | Hvu].
+  - destruct G as [V E]. unfold is_edge in Huv. apply split_and_true in Huv. destruct Huv as [Huv _].
+    apply split_and_true in Huv. destruct Huv as [Huv _]. simpl. apply Huv.
+  - destruct G as [V E]. unfold is_edge in Hvu. apply split_and_true in Hvu. destruct Hvu as [Huv _].
+    apply split_and_true in Huv. destruct Huv as [_ Huv]. simpl. apply Huv.
+Qed.
+
+
+(* the following two theorems are for convenience, allowing us to switch between
+   the edge_in_graph and is_edge functions easily *)
+Theorem edge_in_graph_then_is_edge: forall (G: graph) (u v: node),
+  G_well_formed G = true
+  -> edge_in_graph (u, v) G = true
+  -> is_edge (u, v) G = true.
+Proof.
+  intros G u v HG Huv.
+  unfold is_edge.
+  assert (Hnode: node_in_graph u G = true /\ node_in_graph v G = true).
+  { apply edge_corresponds_to_nodes_in_well_formed. split. apply HG. apply Huv. }
+  destruct G as [V E].
+  simpl in Huv. rewrite Huv.
+  simpl in Hnode. destruct Hnode as [H1 H2]. rewrite H1. rewrite H2. reflexivity.
+Qed.
+
+Theorem edge_in_graph_equiv: forall (G: graph) (u v: node),
+  G_well_formed G = true
+  -> is_edge (u, v) G = edge_in_graph (u, v) G.
+Proof.
+  intros G u v HG.
+  destruct (edge_in_graph (u, v) G) as [|] eqn:Huv.
+  - apply edge_in_graph_then_is_edge in Huv. apply Huv. apply HG.
+  - unfold is_edge. destruct G as [V E]. simpl in Huv. rewrite Huv. rewrite andb_comm. simpl. reflexivity.
+Qed.
+
+
+
+
+(* simple theorems about paths and the nodes that they include *)
 
 Theorem path_start_end_refl: forall u v: node, forall l: nodes,
   path_start_and_end (u, v, l) u v = true.
@@ -68,7 +239,6 @@ Proof.
   simpl in H0. apply eqb_eq in H0.
   split. apply H. apply H0.
 Qed.
-
 
 Lemma node_in_path_equiv: forall (u v x: node) (l: nodes),
   node_in_path x (u, v, l) = member x (u :: l ++ [v]).
@@ -96,7 +266,184 @@ Proof.
   - simpl. rewrite eqb_sym in Hwh. rewrite Hwh. reflexivity.
 Qed.
 
+Lemma first_node_in_path_in_graph: forall (G: graph) (l: nodes) (s e: node),
+  is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph s G = true.
+Proof.
+  intros G l s e Hpath.
+  destruct G as [V E].
+  simpl in Hpath. destruct (l ++ [e]) as [| h t] eqn:Hl.
+  * destruct l as [| h' t'].
+    -- simpl in Hl. discriminate Hl.
+    -- simpl in Hl. discriminate Hl.
+  * apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+    apply split_orb_true in Hpath as [Hpath | Hpath].
+    -- apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+       apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+       simpl. apply Hpath.
+    -- apply split_and_true in Hpath. destruct Hpath as [Hpath _].
+       apply split_and_true in Hpath. destruct Hpath as [_ Hpath].
+       simpl. apply Hpath.
+Qed.
 
+Lemma last_node_in_path_in_graph: forall (G: graph) (l: nodes) (s e: node),
+  (length ((s :: l) ++ [e]) > 1) /\ is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph e G = true.
+Proof.
+  intros G l s e [Hlen Hpath].
+  induction (s :: l) as [| h t IH].
+  - simpl in Hlen. lia.
+  - destruct t as [| h' t'].
+    + simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [H _].
+      apply split_orb_true in H. destruct H as [H | H].
+      * unfold is_edge in H. apply split_and_true in H. destruct H as [H _].
+        apply split_and_true in H. destruct H as [_ H]. simpl. apply H.
+      * unfold is_edge in H. apply split_and_true in H. destruct H as [H _].
+        apply split_and_true in H. destruct H as [H _]. simpl. apply H.
+    + apply IH.
+      * simpl. rewrite length_app. simpl. lia.
+      * simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ H]. apply H.
+Qed.
+
+Lemma middle_node_in_path_in_graph: forall (G: graph) (l: nodes) (s x e: node),
+  In x (s :: l) -> (length ((s :: l) ++ [e]) > 1) /\ is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph x G = true.
+Proof.
+  intros G l s x e Hmem [Hlen Hpath].
+  induction (s :: l) as [| h t IH].
+  - simpl in Hlen. lia.
+  - simpl in Hmem. destruct Hmem as [Hhx | Hmem].
+    + rewrite <- Hhx. apply first_node_in_path_in_graph with (s := h) (l := t) (e := e). apply Hpath.
+    + destruct t as [| h1 t1].
+      * simpl in Hmem. exfalso. apply Hmem.
+      * apply IH.
+        -- apply Hmem.
+        -- simpl. rewrite length_app. simpl. lia.
+        -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ H].
+           apply H.
+Qed.
+
+Lemma nodes_in_graph_in_V: forall (G: graph) (p: path) (u: node),
+  node_in_path u p = true /\ is_path_in_graph p G = true -> node_in_graph u G = true.
+Proof.
+  intros G [[s e] l] u. intros [Hnode Hpath].
+  unfold node_in_path in Hnode. apply split_orb_true in Hnode. destruct Hnode as [Hse | Hint].
+  - apply split_orb_true in Hse. destruct Hse as [Hs | He].
+    + simpl in Hs. unfold is_path_in_graph in Hpath. destruct G as [V E].
+      apply eqb_eq in Hs. rewrite Hs.
+      apply first_node_in_path_in_graph with (l := l) (e := e). apply Hpath.
+    + simpl in He. unfold is_path_in_graph in Hpath. destruct G as [V E].
+      apply eqb_eq in He. rewrite He.
+      apply last_node_in_path_in_graph with (s := s) (l := l). split.
+      * simpl. rewrite length_app. simpl. lia.
+      * apply Hpath.
+  - simpl in Hint. unfold is_path_in_graph in Hpath. destruct G as [V E].
+    apply middle_node_in_path_in_graph with (x := u) (s := s) (l := l) (e := e).
+    + simpl. right. apply member_In_equiv. apply Hint.
+    + split.
+      * simpl. rewrite length_app. simpl. lia.
+      * apply Hpath.
+Qed.
+
+
+
+(* the following show that other paths based on the given path are also paths in the graph,
+   useful for induction proofs *)
+Lemma is_path_in_graph_induction: forall (G: graph) (u h v: node) (t: nodes),
+  is_path_in_graph (u, v, h :: t) G = true -> is_path_in_graph (h, v, t) G = true.
+Proof.
+  intros G u h v t Hp.
+  simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
+Qed.
+
+Theorem concat_paths_still_a_path: forall u1 mid v2: node, forall l1 l2: nodes, forall G: graph,
+  is_path_in_graph (u1, mid, l1) G = true /\ is_path_in_graph (mid, v2, l2) G = true
+  -> is_path_in_graph (concat u1 mid v2 l1 l2) G = true.
+Proof.
+  intros u m v l1 l2 G.
+  intros [H1 H2].
+  unfold concat.
+  generalize dependent u. induction l1 as [| hl1 tl1 IH].
+  - intros u H1. simpl. destruct G as [V E]. apply split_and_true. split.
+    + simpl in H1. apply split_and_true in H1. apply H1.
+    + apply H2.
+  - intros u H1. simpl. destruct G as [V E]. apply split_and_true. split.
+    + simpl in H1. apply split_and_true in H1. apply H1.
+    + apply IH. simpl in H1. apply split_and_true in H1. apply H1.
+Qed.
+
+Lemma reverse_path_in_graph: forall (G: graph) (u v: node) (l: nodes),
+  is_path_in_graph (u, v, l) G = true -> is_path_in_graph (v, u, rev l) G = true.
+Proof.
+  intros G u v l. intros H.
+  generalize dependent u. induction l as [| h t IH].
+  - intros u H. simpl. simpl in H. rewrite orb_comm. apply H.
+  - intros u H. specialize IH with (u := h).
+    assert (Hind: is_path_in_graph (v, h, rev t) G = true). { apply IH. simpl in H. destruct G as [V E]. apply split_and_true in H. apply H. }
+    assert (Hrew: is_path_in_graph (v, u, rev (h :: t)) G = is_path_in_graph (v, u, rev t ++ [h]) G). { simpl. reflexivity. }
+    rewrite Hrew.
+    apply concat_paths_still_a_path. split. apply Hind. simpl. simpl in H. destruct G as [V E]. apply split_and_true in H. apply split_and_true.
+    split. rewrite orb_comm. apply H. reflexivity.
+Qed.
+
+Theorem subpath_still_path: forall (w u v: node) (l1 l2 l3: nodes) (G: graph),
+  l1 ++ [u] ++ l2 = l3 /\ is_path_in_graph (w, v, l3) G = true
+  -> is_path_in_graph (u, v, l2) G = true.
+Proof.
+  intros w u v l1 l2 l3 G. intros [Hl Hdir].
+  generalize dependent l3. generalize dependent w. induction l1 as [| h t IH].
+  - intros w l3 Hl Hdir. simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [_ Hdir].
+    apply Hdir.
+  - intros w l3 Hl Hdir. specialize IH with (w := h) (l3 := (t ++ [u] ++ l2)). apply IH.
+    + reflexivity.
+    + simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [_ Hdir]. apply Hdir.
+Qed.
+
+Theorem subpath_still_path_2: forall (w u v: node) (l1 l2 l3: nodes) (G: graph),
+  l1 ++ [u] ++ l2 = l3 /\ is_path_in_graph (w, v, l3) G = true
+  -> is_path_in_graph (w, u, l1) G = true.
+Proof.
+  intros w u v l1 l2 l3 G. intros [Hl Hdir].
+  generalize dependent l3. generalize dependent w. induction l1 as [| h t IH].
+  - intros w l3 Hl Hdir. simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [Hdir _].
+    simpl. simpl in Hdir. rewrite Hdir. reflexivity.
+  - intros w l3 Hl Hdir. specialize IH with (w := h) (l3 := (t ++ [u] ++ l2)). simpl.
+    rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [Hdir1 Hdir2]. rewrite Hdir1. simpl. apply IH.
+    + reflexivity.
+    + apply Hdir2.
+Qed.
+
+(* if a node w is in a path of G, then there is a node x such that x->w or w->x is an edge *)
+Theorem node_in_path_has_edge: forall (u v w: node) (l: nodes) (G: graph),
+  is_path_in_graph (u, v, l) G = true
+  -> node_in_path w (u, v, l) = true
+  -> exists (x: node), node_in_path x (u, v, l) = true /\ (is_edge (x, w) G = true \/ is_edge (w, x) G = true).
+Proof.
+  intros u v w l G H.
+  generalize dependent u. induction l as [| h t IH].
+  - intros u H Hw. unfold node_in_path in Hw. simpl in Hw. apply split_orb_true in Hw. destruct Hw as [Hw | Hw].
+    2: { discriminate Hw. } apply split_orb_true in Hw. destruct Hw as [Hw | Hw].
+    + exists v. split. unfold node_in_path. simpl. rewrite eqb_refl. rewrite <- orb_assoc. rewrite orb_comm. reflexivity.
+      simpl in H. destruct G as [V E]. apply split_and_true in H. apply eqb_eq in Hw. rewrite Hw in *. apply split_orb_true. rewrite orb_comm. apply H.
+    + exists u. split. unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
+      simpl in H. destruct G as [V E]. apply split_and_true in H. apply eqb_eq in Hw. rewrite Hw in *. apply split_orb_true. apply H.
+  - intros u H Hw. destruct (u =? w) as [|] eqn:Huw.
+    + exists h. split. unfold node_in_path. simpl. rewrite eqb_refl. rewrite orb_comm. reflexivity. apply eqb_eq in Huw. rewrite <- Huw.
+      simpl in H. destruct G as [V E]. apply split_and_true in H. apply split_orb_true. rewrite orb_comm. apply H.
+    + assert (Hind: exists x : node,
+       node_in_path x (h, v, t) = true /\
+       (is_edge (x, w) G = true \/ is_edge (w, x) G = true)).
+      { apply IH. apply is_path_in_graph_induction with (u := u). apply H. rewrite node_in_path_equiv. rewrite node_in_path_equiv in Hw.
+        simpl in Hw. rewrite Huw in Hw. simpl. apply Hw. }
+      destruct Hind as [x Hind]. exists x. split.
+      * rewrite node_in_path_equiv. destruct Hind as [Hind _]. rewrite node_in_path_equiv in Hind. simpl. destruct (u =? x) as [|]. reflexivity.
+        apply Hind.
+      * apply Hind.
+Qed.
+
+
+
+
+(* theorems about acyclic paths *)
+
+(* any node appears in an acyclic path either 0 or 1 times *)
 Theorem acyclic_path_intermediate_nodes :
   forall (p : nodes), (acyclic_path p = true) <-> forall (x: node), (count x p = 0) \/ (count x p = 1).
 Proof.
@@ -126,24 +473,7 @@ Proof.
         -- right. apply Hx. }
 Qed.
 
-Lemma acyclic_path_reverse: forall (p: nodes),
-  acyclic_path p = true -> acyclic_path (rev p) = true.
-Proof.
-  intros p H.
-  destruct p as [| h t].
-  - simpl. reflexivity.
-  - simpl. simpl in H. apply acyclic_path_intermediate_nodes. intros x. apply acyclic_path_intermediate_nodes with (p := h :: t) (x := x) in H.
-    destruct H as [H | H].
-    + simpl in H. destruct (h =? x) as [|] eqn:Hhx.
-      * lia.
-      * left. rewrite count_app. rewrite <- count_reverse. simpl. rewrite Hhx. rewrite H. reflexivity.
-    + simpl in H. destruct (h =? x) as [|] eqn:Hhx.
-      * inversion H. right. rewrite H1. rewrite count_app. rewrite <- count_reverse. rewrite H1. simpl. rewrite Hhx. reflexivity.
-      * right. rewrite count_app. rewrite <- count_reverse. simpl. rewrite Hhx. rewrite H. reflexivity.
-Qed.
-
-
-
+(* the following two theorems allow us to switch between acyclic_path_2 and acyclic_path *)
 Theorem acyclic_path_correct :
   forall (p : path),
     (acyclic_path_2 p) -> acyclic_path ([path_start p; path_end p] ++ (path_int p)) = true.
@@ -213,6 +543,26 @@ Proof.
         -- simpl in H. intros [Hv | Hv]. destruct H as [H]. apply H. apply Hv. destruct H as [_ [_ [H]]]. apply H. apply Hv.
         -- simpl in H. apply split_and_true. split. rewrite negb_true_iff. apply member_In_equiv_F. apply H.
            destruct t as [| h' t']. simpl. reflexivity. simpl. apply H. }
+Qed.
+
+
+
+(* the following theorems state several functions that preserve acyclicity,
+   including reversal, subpaths, and concatenation *)
+Lemma acyclic_path_reverse: forall (p: nodes),
+  acyclic_path p = true -> acyclic_path (rev p) = true.
+Proof.
+  intros p H.
+  destruct p as [| h t].
+  - simpl. reflexivity.
+  - simpl. simpl in H. apply acyclic_path_intermediate_nodes. intros x. apply acyclic_path_intermediate_nodes with (p := h :: t) (x := x) in H.
+    destruct H as [H | H].
+    + simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+      * lia.
+      * left. rewrite count_app. rewrite <- count_reverse. simpl. rewrite Hhx. rewrite H. reflexivity.
+    + simpl in H. destruct (h =? x) as [|] eqn:Hhx.
+      * inversion H. right. rewrite H1. rewrite count_app. rewrite <- count_reverse. rewrite H1. simpl. rewrite Hhx. reflexivity.
+      * right. rewrite count_app. rewrite <- count_reverse. simpl. rewrite Hhx. rewrite H. reflexivity.
 Qed.
 
 Theorem reverse_path_still_acyclic: forall (u v: node) (l: nodes),
@@ -416,6 +766,36 @@ Proof.
 Qed.
 
 
+(* theorems about nodes within acyclic paths *)
+
+Lemma node_in_subpath_not_acyclic: forall (u h v: node) (t: nodes),
+  node_in_path u (h, v, t) = true
+  -> acyclic_path_2 (u, v, h :: t)
+  -> False.
+Proof.
+  intros u h v t H1 H2.
+  unfold node_in_path in H1. unfold acyclic_path_2 in H2. simpl in H1.
+  apply split_orb_true in H1. destruct H1 as [H1 | H1].
+  - apply split_orb_true in H1. destruct H1 as [H1 | H1].
+    + destruct H2 as [_ [H2 _]]. apply H2. left. apply eqb_eq in H1. rewrite H1. reflexivity.
+    + destruct H2 as [H2 _]. apply H2. apply eqb_eq. apply H1.
+  - destruct H2 as [_ [H2 _]]. apply H2. right. apply member_In_equiv. apply H1.
+Qed.
+
+Theorem intermediate_node_not_endpoint: forall u v x: node, forall l: nodes,
+  In x l /\ acyclic_path_2 (u, v, l) -> (x <> u /\ x <> v).
+Proof.
+  intros u v x l. intros [Hmem Hacyc].
+  unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [Hxu [Hxv _]]].
+  split.
+  - destruct (x =? u) as [|] eqn:Hxueq.
+    + apply Nat.eqb_eq in Hxueq. rewrite Hxueq in Hmem. unfold not in Hxu. apply Hxu in Hmem. exfalso. apply Hmem.
+    + apply Nat.eqb_neq. apply Hxueq.
+  - destruct (x =? v) as [|] eqn:Hxveq.
+    + apply Nat.eqb_eq in Hxveq. rewrite Hxveq in Hmem. unfold not in Hxv. apply Hxv in Hmem. exfalso. apply Hmem.
+    + apply Nat.eqb_neq. apply Hxveq.
+Qed.
+
 Lemma acyclic_path_count: forall (u v x: node) (l: nodes),
   In x (u :: l ++ [v])
   -> acyclic_path_2 (u, v, l)
@@ -446,331 +826,29 @@ Proof.
            ++ apply Hcyc.
 Qed.
 
-Lemma node_in_subpath_not_acyclic: forall (u h v: node) (t: nodes),
-  node_in_path u (h, v, t) = true
-  -> acyclic_path_2 (u, v, h :: t)
-  -> False.
+
+
+
+
+(* theorems about directed paths *)
+
+Theorem directed_path_is_path: forall (p: path) (G: graph),
+  is_directed_path_in_graph p G = true -> is_path_in_graph p G = true.
 Proof.
-  intros u h v t H1 H2.
-  unfold node_in_path in H1. unfold acyclic_path_2 in H2. simpl in H1.
-  apply split_orb_true in H1. destruct H1 as [H1 | H1].
-  - apply split_orb_true in H1. destruct H1 as [H1 | H1].
-    + destruct H2 as [_ [H2 _]]. apply H2. left. apply eqb_eq in H1. rewrite H1. reflexivity.
-    + destruct H2 as [H2 _]. apply H2. apply eqb_eq. apply H1.
-  - destruct H2 as [_ [H2 _]]. apply H2. right. apply member_In_equiv. apply H1.
-Qed.
-
-
-
-Theorem eqbpath_refl : forall p: path,
-  true = eqbpath p p.
-Proof.
-  intros p.
-  destruct p as [[u v] l]. simpl.
-  rewrite -> eqb_refl. rewrite -> eqb_refl. simpl.
-  rewrite <- eqblist_refl.
-  reflexivity.
-Qed.
-
-
-
-Lemma count_edge_filter: forall (l: edges) (x: edge) (test : edge -> bool),
-  test x = true -> count_edge x l = count_edge x (filter test l).
-Proof.
-  intros l x test H.
-  induction l as [| h t IH].
+  intros [[u v] l] [V E] Hdir.
+  unfold is_directed_path_in_graph in Hdir.
+  unfold is_path_in_graph.
+  induction ((u :: l) ++ [v]) as [| h t IH].
   - simpl. reflexivity.
-  - simpl. destruct (eqbedge h x) as [|] eqn:Hhx.
-    + destruct h as [h1 h2]. destruct x as [x1 x2]. simpl in Hhx. apply split_and_true in Hhx. destruct Hhx as [H1 H2].
-      apply eqb_eq in H1. rewrite H1 in *. apply eqb_eq in H2. rewrite H2 in *. rewrite H. simpl. rewrite eqb_refl. rewrite eqb_refl. simpl.
-      f_equal. apply IH.
-    + destruct (test h) as [|] eqn:Hh.
-      * simpl. rewrite Hhx. apply IH.
-      * apply IH.
+  - destruct t as [| h1 t1].
+    + simpl. reflexivity.
+    + simpl. simpl in Hdir. apply split_and_true in Hdir. destruct Hdir as [Hedge Hind].
+      rewrite Hedge. simpl.
+      apply IH. apply Hind.
 Qed.
 
-Lemma remove_node_from_well_formed: forall (V: nodes) (E: edges) (u: node),
-  node_in_graph u (V, E) = true /\ G_well_formed (V, E) = true -> length V = S (length (remove_node u V)).
-Proof.
-  intros V E u [Hu HG].
-  unfold G_well_formed in HG. apply count_length. apply split_and_true in HG. destruct HG as [HG _]. apply split_and_true in HG. destruct HG as [_ HG]. apply forallb_true with (x := u) in HG.
-  - apply eqb_eq. apply HG.
-  - simpl in Hu. apply member_In_equiv. apply Hu.
-Qed.
-
-
-
-Lemma remove_node_preserves_well_formed: forall (G: graph) (u: node),
-  G_well_formed G = true -> G_well_formed (remove_node_from_graph G u) = true.
-Proof.
-  intros [V E] u H.
-  unfold G_well_formed. simpl.
-  unfold G_well_formed in H. apply split_and_true in H. destruct H as [He Hec]. apply split_and_true in He. destruct He as [He Hv].
-  assert (He': forallb
-    (fun e : nat * nat =>
-     let (u0, v) := e in
-     member u0 (remove_node u V) && member v (remove_node u V))
-    (remove_associated_edges u E) = true).
-  { apply forallb_true_iff_mem. intros [e1 e2]. intros Hmem.
-    unfold remove_associated_edges in Hmem. apply filter_true in Hmem.
-    destruct Hmem as [Hmem Heq].
-    simpl in Heq. apply split_and_true in Heq. destruct Heq as [He2 He1].
-    unfold remove_node.
-    assert (HVmem: forall x: nat * nat, In x E -> (let (u, v) := x in member u V && member v V) = true).
-    { apply forallb_true_iff_mem. apply He. }
-    specialize HVmem with (x := (e1, e2)). apply HVmem in Hmem.
-    apply split_and_true in Hmem. destruct Hmem as [He1V He2V].
-    assert (He1mem: In e1 (filter (fun v : nat => negb (v =? u)) V)).
-    { apply filter_true. split.
-      - apply member_In_equiv. apply He1V.
-      - apply He1. }
-    assert (He2mem: In e2 (filter (fun v : nat => negb (v =? u)) V)).
-    { apply filter_true. split.
-      - apply member_In_equiv. apply He2V.
-      - apply He2. }
-    apply member_In_equiv in He1mem. apply member_In_equiv in He2mem.
-    rewrite He1mem. rewrite He2mem. reflexivity. }
-  rewrite He'. simpl. apply split_and_true. split.
-  { apply forallb_true_iff_mem. intros x Hmem.
-    unfold remove_node in Hmem. apply filter_true in Hmem. destruct Hmem as [Hmem Hxu].
-    unfold remove_node.
-    assert (H: count x V = count x (filter (fun v : nat => negb (v =? u)) V)).
-    { apply count_filter. apply Hxu. }
-    rewrite <- H.
-    assert (HVc: forall x: nat, In x V -> (count x V =? 1) = true).
-    { apply forallb_true_iff_mem. apply Hv. }
-    specialize HVc with (x := x). apply HVc in Hmem. apply Hmem. }
-  apply forallb_true_iff_mem. intros x Hmem.
-  apply filter_true in Hmem. destruct Hmem as [Hmem Hxu].
-  unfold remove_associated_edges.
-  assert (H: count_edge x E = count_edge x
-   (filter
-      (fun edg : nat * nat =>
-       negb (snd edg =? u) && negb (fst edg =? u)) E)).
-  { apply count_edge_filter. apply Hxu. }
-  rewrite <- H.
-  assert (HVc: forall x: edge, In x E -> (count_edge x E =? 1) = true).
-  { apply forallb_true_iff_mem. apply Hec. }
-  specialize HVc with (x := x). apply HVc in Hmem. apply Hmem.
-Qed.
-
-
-Theorem edge_corresponds_to_nodes_in_well_formed: forall (G: graph) (u v: node),
-  G_well_formed G = true /\ edge_in_graph (u, v) G = true
-  -> node_in_graph u G = true /\ node_in_graph v G = true.
-Proof.
-  intros [V E] u v [HG Hedge].
-  unfold G_well_formed in HG. apply split_and_true in HG. destruct HG as [HG _]. apply split_and_true in HG. destruct HG as [HG _].
-  apply forallb_true with (x:=(u,v)) in HG.
-  - apply split_and_true in HG. destruct HG as [Hu Hv]. simpl.
-    rewrite Hu. rewrite Hv. split. reflexivity. reflexivity.
-  - simpl in Hedge. apply member_edge_In_equiv. apply Hedge.
-Qed.
-
-
-Theorem no_self_loops : forall E: edges, forall u v: node,
-  member_edge (u, v) E = true -> no_one_cycles E = true -> u <> v.
-Proof.
-  intros E u v Hmem Hcyc.
-  induction E as [| h t IH].
-  - simpl in Hmem. discriminate Hmem.
-  - simpl in Hmem. destruct (eqbedge h (u, v)) as [|] eqn:Hedge.
-    + simpl in Hcyc. destruct (u =? v) as [|] eqn:Huv.
-      * destruct h as [a b]. simpl in Hedge. apply split_and_true in Hedge.
-        destruct Hedge as [Hau Hbv].
-        apply eqb_eq in Huv. rewrite <- Huv in Hbv.
-        apply eqb_eq in Hbv. rewrite <-  Hbv in Hau.
-        rewrite Hau in Hcyc. discriminate Hcyc.
-      * apply eqb_neq in Huv. apply Huv.
-    + simpl in Hcyc. destruct (u =? v) as [|] eqn:Huv.
-      * destruct h as [a b]. simpl in Hedge. destruct (a =? b) as [|] eqn:Hab.
-        -- discriminate Hcyc.
-        -- apply IH. apply Hmem. apply Hcyc.
-      * apply eqb_neq in Huv. apply Huv.
-Qed.
-
-
-
-Theorem is_edge_then_node_in_graph: forall (G: graph) (u v: node),
-  is_edge (u, v) G = true \/ is_edge (v, u) G = true
-  -> node_in_graph u G = true.
-Proof.
-  intros G u v [Huv | Hvu].
-  - destruct G as [V E]. unfold is_edge in Huv. apply split_and_true in Huv. destruct Huv as [Huv _].
-    apply split_and_true in Huv. destruct Huv as [Huv _]. simpl. apply Huv.
-  - destruct G as [V E]. unfold is_edge in Hvu. apply split_and_true in Hvu. destruct Hvu as [Huv _].
-    apply split_and_true in Huv. destruct Huv as [_ Huv]. simpl. apply Huv.
-Qed.
-
-Theorem edge_in_graph_then_is_edge: forall (G: graph) (u v: node),
-  G_well_formed G = true
-  -> edge_in_graph (u, v) G = true
-  -> is_edge (u, v) G = true.
-Proof.
-  intros G u v HG Huv.
-  unfold is_edge.
-  assert (Hnode: node_in_graph u G = true /\ node_in_graph v G = true).
-  { apply edge_corresponds_to_nodes_in_well_formed. split. apply HG. apply Huv. }
-  destruct G as [V E].
-  simpl in Huv. rewrite Huv.
-  simpl in Hnode. destruct Hnode as [H1 H2]. rewrite H1. rewrite H2. reflexivity.
-Qed.
-
-Theorem edge_in_graph_equiv: forall (G: graph) (u v: node),
-  G_well_formed G = true
-  -> is_edge (u, v) G = edge_in_graph (u, v) G.
-Proof.
-  intros G u v HG.
-  destruct (edge_in_graph (u, v) G) as [|] eqn:Huv.
-  - apply edge_in_graph_then_is_edge in Huv. apply Huv. apply HG.
-  - unfold is_edge. destruct G as [V E]. simpl in Huv. rewrite Huv. rewrite andb_comm. simpl. reflexivity.
-Qed.
-
-
-
-Lemma first_node_in_path_in_graph: forall (G: graph) (l: nodes) (s e: node),
-  is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph s G = true.
-Proof.
-  intros G l s e Hpath.
-  destruct G as [V E].
-  simpl in Hpath. destruct (l ++ [e]) as [| h t] eqn:Hl.
-  * destruct l as [| h' t'].
-    -- simpl in Hl. discriminate Hl.
-    -- simpl in Hl. discriminate Hl.
-  * apply split_and_true in Hpath. destruct Hpath as [Hpath _].
-    apply split_orb_true in Hpath as [Hpath | Hpath].
-    -- apply split_and_true in Hpath. destruct Hpath as [Hpath _].
-       apply split_and_true in Hpath. destruct Hpath as [Hpath _].
-       simpl. apply Hpath.
-    -- apply split_and_true in Hpath. destruct Hpath as [Hpath _].
-       apply split_and_true in Hpath. destruct Hpath as [_ Hpath].
-       simpl. apply Hpath.
-Qed.
-
-Lemma last_node_in_path_in_graph: forall (G: graph) (l: nodes) (s e: node),
-  (length ((s :: l) ++ [e]) > 1) /\ is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph e G = true.
-Proof.
-  intros G l s e [Hlen Hpath].
-  induction (s :: l) as [| h t IH].
-  - simpl in Hlen. lia.
-  - destruct t as [| h' t'].
-    + simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [H _].
-      apply split_orb_true in H. destruct H as [H | H].
-      * unfold is_edge in H. apply split_and_true in H. destruct H as [H _].
-        apply split_and_true in H. destruct H as [_ H]. simpl. apply H.
-      * unfold is_edge in H. apply split_and_true in H. destruct H as [H _].
-        apply split_and_true in H. destruct H as [H _]. simpl. apply H.
-    + apply IH.
-      * simpl. rewrite length_app. simpl. lia.
-      * simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ H]. apply H.
-Qed.
-
-Lemma middle_node_in_path_in_graph: forall (G: graph) (l: nodes) (s x e: node),
-  In x (s :: l) -> (length ((s :: l) ++ [e]) > 1) /\ is_path_in_graph_helper ((s :: l) ++ [e]) G = true -> node_in_graph x G = true.
-Proof.
-  intros G l s x e Hmem [Hlen Hpath].
-  induction (s :: l) as [| h t IH].
-  - simpl in Hlen. lia.
-  - simpl in Hmem. destruct Hmem as [Hhx | Hmem].
-    + rewrite <- Hhx. apply first_node_in_path_in_graph with (s := h) (l := t) (e := e). apply Hpath.
-    + destruct t as [| h1 t1].
-      * simpl in Hmem. exfalso. apply Hmem.
-      * apply IH.
-        -- apply Hmem.
-        -- simpl. rewrite length_app. simpl. lia.
-        -- simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ H].
-           apply H.
-Qed.
-
-
-
-Lemma is_path_in_graph_induction: forall (G: graph) (u h v: node) (t: nodes),
-  is_path_in_graph (u, v, h :: t) G = true -> is_path_in_graph (h, v, t) G = true.
-Proof.
-  intros G u h v t Hp.
-  simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
-Qed.
-
-Lemma nodes_in_graph_in_V: forall (G: graph) (p: path) (u: node),
-  node_in_path u p = true /\ is_path_in_graph p G = true -> node_in_graph u G = true.
-Proof.
-  intros G [[s e] l] u. intros [Hnode Hpath].
-  unfold node_in_path in Hnode. apply split_orb_true in Hnode. destruct Hnode as [Hse | Hint].
-  - apply split_orb_true in Hse. destruct Hse as [Hs | He].
-    + simpl in Hs. unfold is_path_in_graph in Hpath. destruct G as [V E].
-      apply eqb_eq in Hs. rewrite Hs.
-      apply first_node_in_path_in_graph with (l := l) (e := e). apply Hpath.
-    + simpl in He. unfold is_path_in_graph in Hpath. destruct G as [V E].
-      apply eqb_eq in He. rewrite He.
-      apply last_node_in_path_in_graph with (s := s) (l := l). split.
-      * simpl. rewrite length_app. simpl. lia.
-      * apply Hpath.
-  - simpl in Hint. unfold is_path_in_graph in Hpath. destruct G as [V E].
-    apply middle_node_in_path_in_graph with (x := u) (s := s) (l := l) (e := e).
-    + simpl. right. apply member_In_equiv. apply Hint.
-    + split.
-      * simpl. rewrite length_app. simpl. lia.
-      * apply Hpath.
-Qed.
-
-Theorem concat_paths_still_a_path: forall u1 mid v2: node, forall l1 l2: nodes, forall G: graph,
-  is_path_in_graph (u1, mid, l1) G = true /\ is_path_in_graph (mid, v2, l2) G = true
-  -> is_path_in_graph (concat u1 mid v2 l1 l2) G = true.
-Proof.
-  intros u m v l1 l2 G.
-  intros [H1 H2].
-  unfold concat.
-  generalize dependent u. induction l1 as [| hl1 tl1 IH].
-  - intros u H1. simpl. destruct G as [V E]. apply split_and_true. split.
-    + simpl in H1. apply split_and_true in H1. apply H1.
-    + apply H2.
-  - intros u H1. simpl. destruct G as [V E]. apply split_and_true. split.
-    + simpl in H1. apply split_and_true in H1. apply H1.
-    + apply IH. simpl in H1. apply split_and_true in H1. apply H1.
-Qed.
-
-
-Lemma reverse_path_in_graph: forall (G: graph) (u v: node) (l: nodes),
-  is_path_in_graph (u, v, l) G = true -> is_path_in_graph (v, u, rev l) G = true.
-Proof.
-  intros G u v l. intros H.
-  generalize dependent u. induction l as [| h t IH].
-  - intros u H. simpl. simpl in H. rewrite orb_comm. apply H.
-  - intros u H. specialize IH with (u := h).
-    assert (Hind: is_path_in_graph (v, h, rev t) G = true). { apply IH. simpl in H. destruct G as [V E]. apply split_and_true in H. apply H. }
-    assert (Hrew: is_path_in_graph (v, u, rev (h :: t)) G = is_path_in_graph (v, u, rev t ++ [h]) G). { simpl. reflexivity. }
-    rewrite Hrew.
-    apply concat_paths_still_a_path. split. apply Hind. simpl. simpl in H. destruct G as [V E]. apply split_and_true in H. apply split_and_true.
-    split. rewrite orb_comm. apply H. reflexivity.
-Qed.
-
-
-Lemma concat_directed_paths_helper: forall l1 l2: nodes, forall G: graph,
-  (is_dir_path_in_graph_helper l1 G = true) /\ (is_dir_path_in_graph_helper l2 G = true)
-  /\ first_and_last_elts_same l1 l2 = true
-  -> is_dir_path_in_graph_helper (l1 ++ (tl l2)) G = true.
-Proof.
-  intros l1 l2 G [H1 [H2 H12]].
-  induction l1 as [| h t IH].
-  - simpl in H12. destruct l2 as [| h2 t2]. discriminate H12. discriminate H12.
-  - destruct t as [| h' t'].
-    + simpl. destruct l2 as [| h2 t2] eqn:Hl2.
-      * simpl. reflexivity.
-      * simpl. simpl in H12. apply eqb_eq in H12.
-        simpl in H2. rewrite <- H12 in H2. apply H2.
-    + simpl in H12. destruct l2 as [| al2 bl2].
-      * discriminate H12.
-      * simpl. simpl in H1. apply split_and_true in H1.
-        destruct H1 as [Hedge Hrec]. rewrite Hedge. simpl.
-        destruct t' as [| at' bt'].
-        -- simpl in IH. apply IH. reflexivity. apply H12.
-        -- apply IH.
-           ++ apply Hrec.
-           ++ apply H12.
-Qed.
-
-
-
+(* the following theorems provide specific nodes that form edges with the
+   start or end nodes of a path *)
 Theorem directed_path_has_directed_edge: forall (u v: node) (l: nodes) (G: graph),
   is_directed_path_in_graph (u, v, l) G = true
   -> exists (x: node), node_in_path x (u, v, l) = true /\ is_edge (x, v) G = true.
@@ -788,33 +866,6 @@ Proof.
         -- rewrite H1. rewrite orb_comm. rewrite orb_assoc. rewrite orb_comm. reflexivity.
         -- rewrite H1. rewrite orb_comm. reflexivity.
     + apply H2.
-Qed.
-
-Theorem node_in_path_has_edge: forall (u v w: node) (l: nodes) (G: graph),
-  is_path_in_graph (u, v, l) G = true
-  -> node_in_path w (u, v, l) = true
-  -> exists (x: node), node_in_path x (u, v, l) = true /\ (is_edge (x, w) G = true \/ is_edge (w, x) G = true).
-Proof.
-  intros u v w l G H.
-  generalize dependent u. induction l as [| h t IH].
-  - intros u H Hw. unfold node_in_path in Hw. simpl in Hw. apply split_orb_true in Hw. destruct Hw as [Hw | Hw].
-    2: { discriminate Hw. } apply split_orb_true in Hw. destruct Hw as [Hw | Hw].
-    + exists v. split. unfold node_in_path. simpl. rewrite eqb_refl. rewrite <- orb_assoc. rewrite orb_comm. reflexivity.
-      simpl in H. destruct G as [V E]. apply split_and_true in H. apply eqb_eq in Hw. rewrite Hw in *. apply split_orb_true. rewrite orb_comm. apply H.
-    + exists u. split. unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
-      simpl in H. destruct G as [V E]. apply split_and_true in H. apply eqb_eq in Hw. rewrite Hw in *. apply split_orb_true. apply H.
-  - intros u H Hw. destruct (u =? w) as [|] eqn:Huw.
-    + exists h. split. unfold node_in_path. simpl. rewrite eqb_refl. rewrite orb_comm. reflexivity. apply eqb_eq in Huw. rewrite <- Huw.
-      simpl in H. destruct G as [V E]. apply split_and_true in H. apply split_orb_true. rewrite orb_comm. apply H.
-    + assert (Hind: exists x : node,
-       node_in_path x (h, v, t) = true /\
-       (is_edge (x, w) G = true \/ is_edge (w, x) G = true)).
-      { apply IH. apply is_path_in_graph_induction with (u := u). apply H. rewrite node_in_path_equiv. rewrite node_in_path_equiv in Hw.
-        simpl in Hw. rewrite Huw in Hw. simpl. apply Hw. }
-      destruct Hind as [x Hind]. exists x. split.
-      * rewrite node_in_path_equiv. destruct Hind as [Hind _]. rewrite node_in_path_equiv in Hind. simpl. destruct (u =? x) as [|]. reflexivity.
-        apply Hind.
-      * apply Hind.
 Qed.
 
 Theorem directed_path_has_directed_edge_end: forall (u v: node) (l: nodes) (G: graph),
@@ -849,19 +900,31 @@ Proof.
     + simpl in H. apply split_and_true in H. destruct H as [H _]. apply H.
 Qed.
 
-Theorem directed_path_is_path: forall (p: path) (G: graph),
-  is_directed_path_in_graph p G = true -> is_path_in_graph p G = true.
+
+(* theorems about functions that preserve directness of paths, such as concatenation of two
+   directed paths or a subpath of a directed path *)
+Lemma concat_directed_paths_helper: forall l1 l2: nodes, forall G: graph,
+  (is_dir_path_in_graph_helper l1 G = true) /\ (is_dir_path_in_graph_helper l2 G = true)
+  /\ first_and_last_elts_same l1 l2 = true
+  -> is_dir_path_in_graph_helper (l1 ++ (tl l2)) G = true.
 Proof.
-  intros [[u v] l] [V E] Hdir.
-  unfold is_directed_path_in_graph in Hdir.
-  unfold is_path_in_graph.
-  induction ((u :: l) ++ [v]) as [| h t IH].
-  - simpl. reflexivity.
-  - destruct t as [| h1 t1].
-    + simpl. reflexivity.
-    + simpl. simpl in Hdir. apply split_and_true in Hdir. destruct Hdir as [Hedge Hind].
-      rewrite Hedge. simpl.
-      apply IH. apply Hind.
+  intros l1 l2 G [H1 [H2 H12]].
+  induction l1 as [| h t IH].
+  - simpl in H12. destruct l2 as [| h2 t2]. discriminate H12. discriminate H12.
+  - destruct t as [| h' t'].
+    + simpl. destruct l2 as [| h2 t2] eqn:Hl2.
+      * simpl. reflexivity.
+      * simpl. simpl in H12. apply eqb_eq in H12.
+        simpl in H2. rewrite <- H12 in H2. apply H2.
+    + simpl in H12. destruct l2 as [| al2 bl2].
+      * discriminate H12.
+      * simpl. simpl in H1. apply split_and_true in H1.
+        destruct H1 as [Hedge Hrec]. rewrite Hedge. simpl.
+        destruct t' as [| at' bt'].
+        -- simpl in IH. apply IH. reflexivity. apply H12.
+        -- apply IH.
+           ++ apply Hrec.
+           ++ apply H12.
 Qed.
 
 Theorem concat_directed_paths: forall u1 mid v2: node, forall l1 l2: nodes, forall G: graph,
@@ -907,19 +970,6 @@ Proof.
     + simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. apply split_and_true in Hdir. destruct Hdir as [_ Hdir]. apply Hdir.
 Qed.
 
-Theorem subpath_still_path: forall (w u v: node) (l1 l2 l3: nodes) (G: graph),
-  l1 ++ [u] ++ l2 = l3 /\ is_path_in_graph (w, v, l3) G = true
-  -> is_path_in_graph (u, v, l2) G = true.
-Proof.
-  intros w u v l1 l2 l3 G. intros [Hl Hdir].
-  generalize dependent l3. generalize dependent w. induction l1 as [| h t IH].
-  - intros w l3 Hl Hdir. simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [_ Hdir].
-    apply Hdir.
-  - intros w l3 Hl Hdir. specialize IH with (w := h) (l3 := (t ++ [u] ++ l2)). apply IH.
-    + reflexivity.
-    + simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [_ Hdir]. apply Hdir.
-Qed.
-
 Theorem subpath_still_directed_2: forall (w u v: node) (l1 l2 l3: nodes) (G: graph),
   l1 ++ [u] ++ l2 = l3 /\ is_directed_path_in_graph (w, v, l3) G = true
   -> is_directed_path_in_graph (w, u, l1) G = true.
@@ -932,110 +982,6 @@ Proof.
     rewrite <- Hl in Hdir. simpl in Hdir. apply split_and_true in Hdir. destruct Hdir as [Hdir1 Hdir2]. rewrite Hdir1. simpl. apply IH.
     + reflexivity.
     + apply Hdir2.
-Qed.
-
-Theorem subpath_still_path_2: forall (w u v: node) (l1 l2 l3: nodes) (G: graph),
-  l1 ++ [u] ++ l2 = l3 /\ is_path_in_graph (w, v, l3) G = true
-  -> is_path_in_graph (w, u, l1) G = true.
-Proof.
-  intros w u v l1 l2 l3 G. intros [Hl Hdir].
-  generalize dependent l3. generalize dependent w. induction l1 as [| h t IH].
-  - intros w l3 Hl Hdir. simpl in Hl. rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [Hdir _].
-    simpl. simpl in Hdir. rewrite Hdir. reflexivity.
-  - intros w l3 Hl Hdir. specialize IH with (w := h) (l3 := (t ++ [u] ++ l2)). simpl.
-    rewrite <- Hl in Hdir. simpl in Hdir. destruct G as [V E]. apply split_and_true in Hdir. destruct Hdir as [Hdir1 Hdir2]. rewrite Hdir1. simpl. apply IH.
-    + reflexivity.
-    + apply Hdir2.
-Qed.
-
-
-
-Theorem one_paths_2_correct : forall G: graph, forall u v: node,
-  is_path_in_graph_2 (u, v, []) G = true <-> is_edge (u, v) G = true \/ is_edge (v, u) G = true.
-Proof.
-  intros G u v.
-  split.
-  - intros Hpath.
-    cbn in Hpath.
-    destruct (is_edge (u, v) G) as [|] eqn:Huv.
-    + left. reflexivity.
-    + right. simpl in Hpath. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
-      * reflexivity.
-      * destruct G as [V E]. apply Hpath.
-  - intros Hedge. destruct Hedge as [Huv | Hvu].
-    + cbn. rewrite Huv. simpl. destruct G as [V E]. reflexivity.
-    + cbn. rewrite Hvu. rewrite (orb_comm (is_edge (u, v) G) true). simpl. destruct G as [V E].
-      reflexivity.
-Qed.
-
-Theorem one_paths_correct : forall G: graph, forall u v: node,
-  is_path_in_graph (u, v, []) G = true <-> is_edge (u, v) G = true \/ is_edge (v, u) G = true.
-Proof.
-  intros G u v.
-  split.
-  - intros Hpath.
-    simpl in Hpath.
-    destruct (is_edge (u, v) G) as [|] eqn:Huv.
-    + left. reflexivity.
-    + right. simpl in Hpath. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
-      * reflexivity.
-      * simpl in Hpath. destruct G as [V E]. apply Hpath.
-  - intros Hedge. destruct Hedge as [Huv | Hvu].
-    + simpl. rewrite Huv. simpl. destruct G as [V E]. reflexivity.
-    + simpl. rewrite Hvu. rewrite (orb_comm (is_edge (u, v) G) true). simpl. destruct G as [V E].
-      reflexivity.
-Qed.
-
-Lemma two_paths_first_edge_correct : forall G: graph, forall a b c: node,
-  is_path_in_graph (a, b, [c]) G = true -> is_edge (a, c) G = true \/ is_edge (c, a) G = true.
-Proof.
-  intros G a b c.
-  intros Hpath.
-  destruct (is_edge (a, c) G) as [|] eqn:Hac.
-  - left. reflexivity.
-  - right. simpl in Hpath. rewrite Hac in Hpath. destruct G as [V E].
-    rewrite orb_false_l in Hpath. apply andb_true_elim2 in Hpath. apply Hpath.
-Qed.
-
-Lemma two_paths_second_edge_correct : forall G: graph, forall a b c: node,
-  is_path_in_graph (a, b, [c]) G = true -> is_edge (c, b) G = true \/ is_edge (b, c) G = true.
-Proof.
-  intros G a b c.
-  intros Hpath.
-  destruct (is_edge (c, b) G) as [|] eqn:Hcb.
-  - left. reflexivity.
-  - right. simpl in Hpath. rewrite Hcb in Hpath. destruct G as [V E].
-    rewrite andb_comm in Hpath.
-    apply andb_true_elim2 in Hpath.
-    apply andb_true_elim2 in Hpath.
-    rewrite orb_false_l in Hpath. apply Hpath.
-Qed.
-
-Theorem two_paths_correct : forall G: graph, forall a b c: node,
-  is_path_in_graph (a, b, [c]) G = true -> (is_edge (a, c) G = true \/ is_edge (c, a) G = true) /\
-                                             (is_edge (c, b) G = true \/ is_edge (b, c) G = true).
-Proof.
-  intros G a b c.
-  intros Hpath.
-  split.
-  - apply two_paths_first_edge_correct in Hpath. apply Hpath.
-  - apply two_paths_second_edge_correct in Hpath. apply Hpath.
-Qed.
-
-
-
-Theorem intermediate_node_not_endpoint: forall u v x: node, forall l: nodes,
-  In x l /\ acyclic_path_2 (u, v, l) -> (x <> u /\ x <> v).
-Proof.
-  intros u v x l. intros [Hmem Hacyc].
-  unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [Hxu [Hxv _]]].
-  split.
-  - destruct (x =? u) as [|] eqn:Hxueq.
-    + apply Nat.eqb_eq in Hxueq. rewrite Hxueq in Hmem. unfold not in Hxu. apply Hxu in Hmem. exfalso. apply Hmem.
-    + apply Nat.eqb_neq. apply Hxueq.
-  - destruct (x =? v) as [|] eqn:Hxveq.
-    + apply Nat.eqb_eq in Hxveq. rewrite Hxveq in Hmem. unfold not in Hxv. apply Hxv in Hmem. exfalso. apply Hmem.
-    + apply Nat.eqb_neq. apply Hxveq.
 Qed.
 
 Lemma remove_node_preserves_directed_path: forall (G: graph) (p: path) (u: node),

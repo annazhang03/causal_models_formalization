@@ -9,6 +9,21 @@ From Coq Require Import Lia.
 From Coq Require Import Lists.List. Import ListNotations.
 Require Import Classical.
 
+
+(* this file proves logic-related lemmas, often relating boolean functions
+   with their propositional equivalents, or allowing simplification of
+   boolean expressions *)
+
+Lemma negb_both_sides: forall b c: bool, negb b = c -> b = negb c.
+Proof.
+  intros b c H.
+  destruct b as [|]. destruct c as [|].
+  - simpl in H. discriminate H.
+  - simpl. reflexivity.
+  - destruct c as [|]. simpl. reflexivity. simpl in H. discriminate H.
+Qed.
+
+
 Theorem andb_true_elim2 : forall b c : bool,
   andb b c = true -> b = true.
 Proof.
@@ -21,16 +36,6 @@ Proof.
     + reflexivity.
 Qed.
 
-Lemma split_and_true : forall a b, a && b = true <-> a = true /\ b = true.
-Proof.
-  intros a b. split.
-  { intros H.
-    split.
-    - apply andb_true_elim2 in H. apply H.
-    - rewrite andb_comm in H. apply andb_true_elim2 in H. apply H. }
-  { intros H. destruct H as [H1 H2]. rewrite H1. rewrite H2. reflexivity. }
-Qed.
-
 Theorem orb_true_elim2 : forall b c : bool,
   orb b c = false -> b = false.
 Proof.
@@ -39,6 +44,16 @@ Proof.
   destruct b eqn:Eb.
   - simpl in H. discriminate H.
   - reflexivity.
+Qed.
+
+Lemma split_and_true : forall a b, a && b = true <-> a = true /\ b = true.
+Proof.
+  intros a b. split.
+  { intros H.
+    split.
+    - apply andb_true_elim2 in H. apply H.
+    - rewrite andb_comm in H. apply andb_true_elim2 in H. apply H. }
+  { intros H. destruct H as [H1 H2]. rewrite H1. rewrite H2. reflexivity. }
 Qed.
 
 Lemma split_orb_false : forall a b, a || b = false <-> a = false /\ b = false.
@@ -62,17 +77,8 @@ Proof.
     - rewrite H. rewrite orb_comm. simpl. reflexivity. }
 Qed.
 
-Lemma negb_both_sides: forall b c: bool, negb b = c -> b = negb c.
-Proof.
-  intros b c H.
-  destruct b as [|]. destruct c as [|].
-  - simpl in H. discriminate H.
-  - simpl. reflexivity.
-  - destruct c as [|]. simpl. reflexivity. simpl in H. discriminate H.
-Qed.
 
-(* logic functions *)
-
+(* several proofs of variations of demorgan's law *)
 Fixpoint All {T : Type} (P : T -> Prop) (l : list T) : Prop :=
   match l with
   | [] => True
@@ -144,7 +150,6 @@ Proof.
   - rewrite andb_comm. rewrite H. reflexivity. }
 Qed.
 
-
 Theorem demorgan_many_bool: forall (T: Type) (P: T -> bool) (l : list T), forallb P l = false 
   <-> exists x: T, In x l /\ (P x = false).
 Proof.
@@ -187,14 +192,8 @@ Proof.
       + apply IH. intros x Hx. apply H. right. apply Hx. }
 Qed.
 
-Theorem example_usage :
-  forall (T: Type) (P: T -> bool) (ls : list T), existsb P ls = false -> (forall x : T, In x ls -> P x = false).
-Proof.
-  intros T P ls H.
-  (* Apply the lemma with explicit arguments *)
-  destruct (demorgan_many_bool_2 T P ls) as [Hf Hb]. apply Hf. apply H.
-Qed.
 
+(* properties of forallb *)
 Theorem forallb_true_iff : forall X test (l : list X),
   forallb test l = true <-> All (fun x => test x = true) l.
 Proof.
@@ -237,6 +236,22 @@ Proof.
       apply H. simpl. right. apply Hind.
 Qed.
 
+Theorem forallb_true : forall (X : Type) (test : X -> bool) (x : X) (l: list X),
+  In x l -> (forallb test l = true -> test x = true).
+Proof.
+  intros X test.
+  intros x l. intros Hmem.
+  induction l as [| h t IHt].
+  - simpl in Hmem. exfalso. apply Hmem.
+  - simpl. intros H.
+    destruct (test h) as [|] eqn:Htesth.
+    + simpl in H. simpl in Hmem. destruct Hmem as [H1 | H1].
+      * rewrite <- H1. apply Htesth.
+      * apply IHt. apply H1. apply H.
+    + simpl in H. discriminate H.
+Qed.
+
+
 Theorem filter_true : forall (X : Type) (test : X -> bool) (x : X) (l: list X),
   In x (filter test l) <-> In x l /\ test x = true.
 Proof.
@@ -266,19 +281,4 @@ Proof.
     + simpl in H1. destruct H1 as [H1 | H1].
       * rewrite H1 in Htesth. rewrite H2 in Htesth. discriminate Htesth.
       * apply IHt. apply H1. }
-Qed.
-
-Theorem forallb_true : forall (X : Type) (test : X -> bool) (x : X) (l: list X),
-  In x l -> (forallb test l = true -> test x = true).
-Proof.
-  intros X test.
-  intros x l. intros Hmem.
-  induction l as [| h t IHt].
-  - simpl in Hmem. exfalso. apply Hmem.
-  - simpl. intros H.
-    destruct (test h) as [|] eqn:Htesth.
-    + simpl in H. simpl in Hmem. destruct Hmem as [H1 | H1].
-      * rewrite <- H1. apply Htesth.
-      * apply IHt. apply H1. apply H.
-    + simpl in H. discriminate H.
 Qed.

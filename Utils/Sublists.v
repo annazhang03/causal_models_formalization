@@ -11,6 +11,10 @@ Require Import Classical.
 From Utils Require Import List_Basics.
 From Utils Require Import Logic.
 
+
+(* this file defines and proves several useful properties of the sublist function,
+   which determines if one list appears as a sublist in another list. *)
+
 Fixpoint prefix (l1 l2: list nat): bool :=
   match l1 with
   | [] => true
@@ -20,12 +24,12 @@ Fixpoint prefix (l1 l2: list nat): bool :=
                 end
   end.
 
+(* recursively check if l1 is a prefix of l2 or if l1 is a sublist of the tail of l2 *)
 Fixpoint sublist (l1 l2: list nat) : bool :=
   match l2 with
   | [] => eqblist l1 []
   | h1 :: t1 => prefix l1 l2 || sublist l1 t1
   end.
-
 
 Example sublist_1: sublist [2;3] [1;2;3;4] = true.
 Proof. reflexivity. Qed.
@@ -36,100 +40,7 @@ Proof. reflexivity. Qed.
 Example sublist_3: sublist [2;3] [1;2;4;3] = false.
 Proof. reflexivity. Qed.
 
-Lemma sublist_empty: forall l: list nat, sublist [] l = true.
-Proof.
-  destruct l as [| h t].
-  - simpl. reflexivity.
-  - simpl. reflexivity.
-Qed.
 
-Class EqType (X : Type) := {
-  eqb : X -> X -> bool;
-  eqb_refl' : forall x, eqb x x = true;
-  eqb_sym' : forall x y, eqb x y = eqb y x;
-  eqb_eq' : forall x y, eqb x y = true <-> x = y
-}.
-
-Fixpoint eqblistX {X: Type} `{EqType X} (l1 l2 : list X) : bool
-  := match l1, l2 with
-      | nil, nil => true
-      | nil, _ => false
-      | _, nil => false
-      | h1 :: t1, h2 :: t2 => if (eqb h1 h2) then eqblistX t1 t2 else false
-end.
-
-
-Fixpoint prefixX {X: Type} `{EqType X} (l1 l2: list X): bool :=
-  match l1 with
-  | [] => true
-  | h1 :: t1 => match l2 with
-                | [] => false
-                | h2 :: t2 => (eqb h1 h2) && prefixX t1 t2
-                end
-  end.
-
-Fixpoint sublistX {X: Type} `{EqType X} (l1 l2: list X) : bool :=
-  match l2 with
-  | [] => eqblistX l1 []
-  | h1 :: t1 => prefixX l1 l2 || sublistX l1 t1
-  end.
-
-Lemma prefix_member_X {X: Type} `{EqType X}: forall (l1 l2: list X) (x: X),
-  In x l1 /\ prefixX l1 l2 = true -> In x l2.
-Proof.
-  intros l1.
-  induction l1 as [| h1 t1 IH].
-  - intros l2 x. intros [Hmem Hpre]. exfalso. apply Hmem.
-  - intros l2 x. intros [Hmem Hpre]. destruct l2 as [| h2 t2].
-    + simpl in Hpre. discriminate Hpre.
-    + simpl in Hpre. simpl in Hmem. simpl.
-      apply split_and_true in Hpre. destruct Hpre as [H12 Hpre].
-      destruct Hmem as [Hhx | Hmem].
-      * apply eqb_eq' in H12. rewrite H12 in Hhx. left. apply Hhx.
-      * right. apply IH with (l2 := t2). split.
-        -- apply Hmem.
-        -- apply Hpre.
-Qed.
-
-Lemma prefix_member: forall (l1 l2: list nat) (x: nat),
-  In x l1 /\ prefix l1 l2 = true -> In x l2.
-Proof.
-  intros l1.
-  induction l1 as [| h1 t1 IH].
-  - intros l2 x. intros [Hmem Hpre]. exfalso. apply Hmem.
-  - intros l2 x. intros [Hmem Hpre]. destruct l2 as [| h2 t2].
-    + simpl in Hpre. discriminate Hpre.
-    + simpl in Hpre. simpl in Hmem. simpl.
-      apply split_and_true in Hpre. destruct Hpre as [H12 Hpre].
-      destruct Hmem as [Hhx | Hmem].
-      * apply eqb_eq in H12. rewrite H12 in Hhx. left. apply Hhx.
-      * right. apply IH with (l2 := t2). split.
-        -- apply Hmem.
-        -- apply Hpre.
-Qed.
-
-
-Theorem sublist_member: forall (l1 l2: list nat) (x: nat),
-  In x l1 /\ sublist l1 l2 = true -> In x l2.
-Proof.
-  intros l1 l2 x.
-  intros [Hmem Hsub].
-  induction l2 as [| h2 t2 IH].
-  - destruct l1 as [| h1 t1].
-    + apply Hmem.
-    + simpl in Hsub. discriminate Hsub.
-  - simpl. simpl in Hsub.
-    apply split_orb_true in Hsub. destruct Hsub as [Hpre | Hind].
-    + destruct l1 as [| h1 t1].
-      * exfalso. apply Hmem.
-      * simpl in Hmem. simpl in Hpre. apply split_and_true in Hpre.
-        destruct Hpre as [H12 Hpre].
-        destruct Hmem as [Hhx | Hmem].
-        -- left. rewrite <- Hhx. apply eqb_eq in H12. rewrite H12. reflexivity.
-        -- right. apply prefix_member with (l1 := t1). split.
-           apply Hmem. apply Hpre.
-    + right. apply IH. apply Hind.
-Qed.
 
 Lemma prefix_identity: forall (l1 l2: list nat),
   prefix l1 (l1 ++ l2) = true.
@@ -153,6 +64,57 @@ Proof.
       simpl. rewrite Hh. rewrite Hpre. reflexivity.
 Qed.
 
+Lemma sublist_empty: forall l: list nat, sublist [] l = true.
+Proof.
+  destruct l as [| h t].
+  - simpl. reflexivity.
+  - simpl. reflexivity.
+Qed.
+
+
+(* if x is a member of l1, which is a prefix/sublist of l2, then x is a member of l2 *)
+Lemma prefix_member: forall (l1 l2: list nat) (x: nat),
+  In x l1 /\ prefix l1 l2 = true -> In x l2.
+Proof.
+  intros l1.
+  induction l1 as [| h1 t1 IH].
+  - intros l2 x. intros [Hmem Hpre]. exfalso. apply Hmem.
+  - intros l2 x. intros [Hmem Hpre]. destruct l2 as [| h2 t2].
+    + simpl in Hpre. discriminate Hpre.
+    + simpl in Hpre. simpl in Hmem. simpl.
+      apply split_and_true in Hpre. destruct Hpre as [H12 Hpre].
+      destruct Hmem as [Hhx | Hmem].
+      * apply eqb_eq in H12. rewrite H12 in Hhx. left. apply Hhx.
+      * right. apply IH with (l2 := t2). split.
+        -- apply Hmem.
+        -- apply Hpre.
+Qed.
+
+Theorem sublist_member: forall (l1 l2: list nat) (x: nat),
+  In x l1 /\ sublist l1 l2 = true -> In x l2.
+Proof.
+  intros l1 l2 x.
+  intros [Hmem Hsub].
+  induction l2 as [| h2 t2 IH].
+  - destruct l1 as [| h1 t1].
+    + apply Hmem.
+    + simpl in Hsub. discriminate Hsub.
+  - simpl. simpl in Hsub.
+    apply split_orb_true in Hsub. destruct Hsub as [Hpre | Hind].
+    + destruct l1 as [| h1 t1].
+      * exfalso. apply Hmem.
+      * simpl in Hmem. simpl in Hpre. apply split_and_true in Hpre.
+        destruct Hpre as [H12 Hpre].
+        destruct Hmem as [Hhx | Hmem].
+        -- left. rewrite <- Hhx. apply eqb_eq in H12. rewrite H12. reflexivity.
+        -- right. apply prefix_member with (l1 := t1). split.
+           apply Hmem. apply Hpre.
+    + right. apply IH. apply Hind.
+Qed.
+
+
+(* knowing that a list is a prefix/sublist of another list allows us to break down
+   the larger list into smaller pieces *)
 Lemma prefix_breaks_down_list: forall (l1 l: list nat),
   prefix l1 l = true <-> exists (l2: list nat), l1 ++ l2 = l.
 Proof.
@@ -196,24 +158,9 @@ Proof.
         simpl. rewrite Hsub. rewrite orb_comm. reflexivity. }
 Qed.
 
-Lemma not_first_node_has_sublist: forall (a h v: nat) (t: list nat),
-  (a =? h) = false /\ In a (t ++ [v])
-  -> exists b : nat, sublist [b; a] (h :: t ++ [v]) = true.
-Proof.
-  intros a h v t [H1 H2]. generalize dependent h. induction t as [| h' t' IH].
-  - intros h H1. exists h. simpl. simpl in H2. destruct H2 as [H2 | F].
-    + rewrite H2. repeat rewrite eqb_refl. reflexivity.
-    + exfalso. apply F.
-  - intros h H1. simpl. destruct (a =? h') as [|] eqn:Ha.
-    + exists h. rewrite eqb_refl. simpl. reflexivity.
-    + simpl. assert (Hind: exists b : nat, sublist [b; a] (h' :: t' ++ [v]) = true).
-      { apply IH. simpl in H2. destruct H2 as [F | H2].
-        - rewrite F in Ha. rewrite eqb_refl in Ha. discriminate Ha.
-        - apply H2.
-        - apply Ha. }
-      destruct Hind as [b Hb]. exists b. simpl in Hb. rewrite Hb. rewrite orb_comm. reflexivity.
-Qed.
 
+(* if l2 is a suffix of l3, and the part of l3 preceding l2 is nonempty, then
+   len(l2) < len(l3) *)
 Lemma sublist_length_less: forall (l1 l2 l3: list nat) (len': nat),
   length l3 < S len' /\ l1 ++ l2 = l3 /\ ~(l1 = []) -> length l2 < len'.
 Proof.
@@ -235,6 +182,27 @@ Proof.
           - rewrite <- app_assoc. simpl. reflexivity.
           - destruct t1 as [| h1' t1']. simpl. intros F. discriminate F. intros F. discriminate F. }
         lia.
+Qed.
+
+
+(* the following are properties that allow us to infer sublists from known members of the list
+   and vice versa *)
+Lemma not_first_node_has_sublist: forall (a h v: nat) (t: list nat),
+  (a =? h) = false /\ In a (t ++ [v])
+  -> exists b : nat, sublist [b; a] (h :: t ++ [v]) = true.
+Proof.
+  intros a h v t [H1 H2]. generalize dependent h. induction t as [| h' t' IH].
+  - intros h H1. exists h. simpl. simpl in H2. destruct H2 as [H2 | F].
+    + rewrite H2. repeat rewrite eqb_refl. reflexivity.
+    + exfalso. apply F.
+  - intros h H1. simpl. destruct (a =? h') as [|] eqn:Ha.
+    + exists h. rewrite eqb_refl. simpl. reflexivity.
+    + simpl. assert (Hind: exists b : nat, sublist [b; a] (h' :: t' ++ [v]) = true).
+      { apply IH. simpl in H2. destruct H2 as [F | H2].
+        - rewrite F in Ha. rewrite eqb_refl in Ha. discriminate Ha.
+        - apply H2.
+        - apply Ha. }
+      destruct Hind as [b Hb]. exists b. simpl in Hb. rewrite Hb. rewrite orb_comm. reflexivity.
 Qed.
 
 Lemma middle_elt_of_sublist_not_last_elt: forall (l: list nat) (a b c: nat),
@@ -306,6 +274,9 @@ Proof.
     + simpl in H1. right. apply IH with (h := hl). apply H1.
 Qed.
 
+
+(* if a and b appear exactly once in l as the sublist [b,a], then the index of b in l is
+   1 less than the index of a in l *)
 Lemma index_of_sublist: forall (a b: nat) (i: nat) (l: list nat),
   sublist [b; a] l = true
   -> count a l = 1
@@ -350,6 +321,8 @@ Proof.
 Qed.
 
 
+(* if a appears exactly once in l, then two sublists that begin and end at a, respectively, imply
+   the existence of the sublist that is their concatenation at a *)
 Lemma merge_two_sublists: forall (l: list nat) (a b x: nat),
   sublist [a; x] l = true
   -> sublist [b; a] l = true
@@ -388,6 +361,8 @@ Proof.
         -- simpl in Hc. rewrite eqb_sym in Hah. rewrite Hah in Hc. apply Hc.
 Qed.
 
+(* if a appears exactly once in l, then the sublists surrounding a on either side can
+   be equated *)
 Lemma two_sublists_the_same: forall (l: list nat) (a b b': nat),
   sublist [a; b] l = true
   -> sublist [a; b'] l = true
@@ -464,6 +439,8 @@ Proof.
   - apply Hc.
 Qed.
 
+
+(* the following lemmas infer smaller sublists from larger sublists *)
 Lemma end_of_sublist_still_sublist: forall (a1 a a2 h v: nat) (t: list nat),
   sublist [a1; a; a2] (h :: t ++ [v]) = true
   -> sublist [a; a2] (t ++ [v]) = true.
@@ -529,4 +506,55 @@ Proof.
   intros a w b l H.
   apply sublist_breaks_down_list in H. destruct H as [l1 [l2 H]].
   apply sublist_breaks_down_list. exists l1. exists (b :: l2). rewrite <- H. simpl. reflexivity.
+Qed.
+
+
+(* generalize some of the above properties to any types containing a decidable equality function
+   that satisfies reflexivity and symmetry *)
+Class EqType (X : Type) := {
+  eqb : X -> X -> bool;
+  eqb_refl' : forall x, eqb x x = true;
+  eqb_sym' : forall x y, eqb x y = eqb y x;
+  eqb_eq' : forall x y, eqb x y = true <-> x = y
+}.
+
+Fixpoint eqblistX {X: Type} `{EqType X} (l1 l2 : list X) : bool
+  := match l1, l2 with
+      | nil, nil => true
+      | nil, _ => false
+      | _, nil => false
+      | h1 :: t1, h2 :: t2 => if (eqb h1 h2) then eqblistX t1 t2 else false
+end.
+
+
+Fixpoint prefixX {X: Type} `{EqType X} (l1 l2: list X): bool :=
+  match l1 with
+  | [] => true
+  | h1 :: t1 => match l2 with
+                | [] => false
+                | h2 :: t2 => (eqb h1 h2) && prefixX t1 t2
+                end
+  end.
+
+Fixpoint sublistX {X: Type} `{EqType X} (l1 l2: list X) : bool :=
+  match l2 with
+  | [] => eqblistX l1 []
+  | h1 :: t1 => prefixX l1 l2 || sublistX l1 t1
+  end.
+
+Lemma prefix_member_X {X: Type} `{EqType X}: forall (l1 l2: list X) (x: X),
+  In x l1 /\ prefixX l1 l2 = true -> In x l2.
+Proof.
+  intros l1.
+  induction l1 as [| h1 t1 IH].
+  - intros l2 x. intros [Hmem Hpre]. exfalso. apply Hmem.
+  - intros l2 x. intros [Hmem Hpre]. destruct l2 as [| h2 t2].
+    + simpl in Hpre. discriminate Hpre.
+    + simpl in Hpre. simpl in Hmem. simpl.
+      apply split_and_true in Hpre. destruct Hpre as [H12 Hpre].
+      destruct Hmem as [Hhx | Hmem].
+      * apply eqb_eq' in H12. rewrite H12 in Hhx. left. apply Hhx.
+      * right. apply IH with (l2 := t2). split.
+        -- apply Hmem.
+        -- apply Hpre.
 Qed.

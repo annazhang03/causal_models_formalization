@@ -11,6 +11,10 @@ Require Import Classical.
 From Utils Require Import List_Basics.
 From Utils Require Import Logic.
 
+
+(* this file introduces and proves properties of several functions that
+   relate two lists, such as overlap, subset, union, and intersection *)
+
 Fixpoint overlap (s1 : list nat) (s2 : list nat) : bool
   := match s1 with 
       | nil => false
@@ -28,6 +32,37 @@ Proof.
   intros l. induction l as [| h t IH].
   - simpl. reflexivity.
   - simpl. apply IH.
+Qed.
+
+Lemma overlap_cat: forall (x: nat) (l1 l2: list nat),
+  overlap (x :: l1) l2 = false -> overlap l1 l2 = false.
+Proof.
+  intros x l1 l2 H. simpl in H. destruct (member x l2) as [|]. discriminate H. apply H.
+Qed.
+
+(* if two lists have overlap, there is an element x that belongs to both lists *)
+Theorem overlap_has_member_in_common: forall l1 l2: list nat,
+  overlap l1 l2 = true <-> exists x: nat, In x l1 /\ In x l2.
+Proof.
+  intros l1 l2. split.
+  - intros H. induction l1 as [| h1 t1 IH].
+    + simpl in H. discriminate H.
+    + simpl in H. destruct (member h1 l2) as [|] eqn:Hmem.
+      * simpl. exists h1. split.
+        -- left. reflexivity.
+        -- apply member_In_equiv. apply Hmem.
+      * apply IH in H. destruct H as [x [H1 H2]].
+        exists x. split.
+        -- simpl. right. apply H1.
+        -- apply H2.
+  - intros [x [H1 H2]]. induction l1 as [| h1 t1 IH].
+    + simpl in H1. exfalso. apply H1.
+    + simpl. destruct (member h1 l2) as [|] eqn:Hmem.
+      * reflexivity.
+      * simpl in H1. destruct H1 as [H1 | H1].
+        -- rewrite <- H1 in H2. apply member_In_equiv in H2. rewrite H2 in Hmem.
+           discriminate Hmem.
+        -- apply IH. apply H1.
 Qed.
 
 Theorem no_overlap_non_member: forall l1 l2: list nat,
@@ -79,67 +114,6 @@ Proof.
       apply H. right. apply HIn. }
 Qed.
 
-Theorem overlap_has_member_in_common: forall l1 l2: list nat,
-  overlap l1 l2 = true <-> exists x: nat, In x l1 /\ In x l2.
-Proof.
-  intros l1 l2. split.
-  - intros H. induction l1 as [| h1 t1 IH].
-    + simpl in H. discriminate H.
-    + simpl in H. destruct (member h1 l2) as [|] eqn:Hmem.
-      * simpl. exists h1. split.
-        -- left. reflexivity.
-        -- apply member_In_equiv. apply Hmem.
-      * apply IH in H. destruct H as [x [H1 H2]].
-        exists x. split.
-        -- simpl. right. apply H1.
-        -- apply H2.
-  - intros [x [H1 H2]]. induction l1 as [| h1 t1 IH].
-    + simpl in H1. exfalso. apply H1.
-    + simpl. destruct (member h1 l2) as [|] eqn:Hmem.
-      * reflexivity.
-      * simpl in H1. destruct H1 as [H1 | H1].
-        -- rewrite <- H1 in H2. apply member_In_equiv in H2. rewrite H2 in Hmem.
-           discriminate Hmem.
-        -- apply IH. apply H1.
-Qed.
-
-(* return true iff last elt of l1 is the same as first elt of l2 *)
-Fixpoint first_and_last_elts_same (l1 l2: list nat) : bool :=
-  match l2 with
-  | [] => false
-  | h2 :: t2 => match l1 with
-                | [] => false
-                | [h1] => h1 =? h2
-                | h1 :: t => (first_and_last_elts_same t l2)
-                end
-  end.
-
-Example same_fl_elt: first_and_last_elts_same [1;2;3;4] [4;5;6;1] = true.
-Proof. reflexivity. Qed.
-
-Example diff_fl_elt: first_and_last_elts_same [1;2;3;4] [1;5;6;1] = false.
-Proof. reflexivity. Qed.
-
-Example trivial_l2: first_and_last_elts_same [1;2;3;4] [] = false.
-Proof. reflexivity. Qed.
-
-Theorem first_and_last_same: forall (l1 l2: list nat) (x: nat),
-  first_and_last_elts_same (l1 ++ [x]) (x :: l2) = true.
-Proof.
-  intros l1 l2 x.
-  induction l1 as [| h t IH].
-  - simpl. apply eqb_refl.
-  - simpl. destruct (t ++ [x]) as [| h' t'].
-    + simpl in IH. discriminate IH.
-    + apply IH.
-Qed.
-
-Lemma overlap_cat: forall (x: nat) (l1 l2: list nat),
-  overlap (x :: l1) l2 = false -> overlap l1 l2 = false.
-Proof.
-  intros x l1 l2 H. simpl in H. destruct (member x l2) as [|]. discriminate H. apply H.
-Qed.
-
 Lemma overlap_rev: forall (l1 l2: list nat),
   overlap l1 l2 = false -> overlap l1 (rev l2) = false.
 Proof.
@@ -164,6 +138,16 @@ Proof.
     + apply membership_rev. apply Hx2.
 Qed.
 
+Lemma overlap_flip: forall (l1 l2: list nat),
+  overlap l1 l2 = false -> overlap l2 l1 = false.
+Proof.
+  intros l1 l2 H.
+  apply no_overlap_non_member. intros x Hxl1 Hxl2.
+  apply no_overlap_non_member with (x := x) in H.
+  - apply H. apply Hxl1.
+  - apply Hxl2.
+Qed.
+
 Lemma overlap_flip_2: forall (l1 l2: list nat),
   overlap l1 l2 = overlap l2 l1.
 Proof.
@@ -176,17 +160,9 @@ Proof.
     - apply Hxl2. }
 Qed.
 
-Lemma overlap_flip: forall (l1 l2: list nat),
-  overlap l1 l2 = false -> overlap l2 l1 = false.
-Proof.
-  intros l1 l2 H.
-  apply no_overlap_non_member. intros x Hxl1 Hxl2.
-  apply no_overlap_non_member with (x := x) in H.
-  - apply H. apply Hxl1.
-  - apply Hxl2.
-Qed.
 
-(* output true if l1 is subset of l2 *)
+
+(* return true if l1 is subset of l2 *)
 Definition subset (l1 l2 : list nat) : bool :=
   forallb (fun x => member x l2) l1.
 
@@ -196,18 +172,12 @@ Proof. reflexivity. Qed.
 Example test_subset_false: subset [1; 2; 3] [3; 4; 2; 5] = false.
 Proof. reflexivity. Qed.
 
-(* set subtraction: elements in l1 that are not in l2 *)
-Definition set_subtract (l1 l2 : list nat) : list nat :=
-  filter (fun x => negb (member x l2)) l1.
-
-Example test_set_subtract: set_subtract [3; 4; 2; 5; 1] [4; 3] = [2; 5; 1].
-Proof. reflexivity. Qed.
-
-Example test_set_subtract_not_in_set: set_subtract [3; 4] [1; 2; 3] = [4].
-Proof. reflexivity. Qed.
-
-Example test_set_subtract_duplicates: set_subtract [3; 4] [4; 4] = [3].
-Proof. reflexivity. Qed.
+Lemma subset_identity: forall (l: list nat),
+  subset l l = true.
+Proof.
+  unfold subset. intros l.
+  apply forallb_true_iff_mem. intros x H. apply member_In_equiv. apply H.
+Qed.
 
 Theorem subset_larger_set_membership: forall l1 l2: list nat, forall x: nat,
   subset l1 l2 = true /\ In x l1 -> In x l2.
@@ -221,6 +191,21 @@ Proof.
     + apply member_In_equiv. rewrite <- Hhx. apply Hhl2.
     + apply IH in Hsubt. apply Hsubt. apply Hmem.
 Qed.
+
+
+
+(* return elements in l1 that are not in l2 *)
+Definition set_subtract (l1 l2 : list nat) : list nat :=
+  filter (fun x => negb (member x l2)) l1.
+
+Example test_set_subtract: set_subtract [3; 4; 2; 5; 1] [4; 3] = [2; 5; 1].
+Proof. reflexivity. Qed.
+
+Example test_set_subtract_not_in_set: set_subtract [3; 4] [1; 2; 3] = [4].
+Proof. reflexivity. Qed.
+
+Example test_set_subtract_duplicates: set_subtract [3; 4] [4; 4] = [3].
+Proof. reflexivity. Qed.
 
 Theorem set_subtract_membership: forall l1 l2: list nat, forall x: nat,
   ~(In x l2) /\ (In x l1) -> In x (set_subtract l1 l2).
@@ -237,6 +222,33 @@ Proof.
       * simpl. apply IH. apply H2.
       * simpl. right. apply IH. apply H2.
 Qed.
+
+(* l1 \ l2 is always a subset of l1 *)
+Theorem set_subtract_subset: forall l1 sub: list nat,
+  subset (set_subtract l1 sub) l1 = true.
+Proof.
+  intros l1 sub.
+  induction l1 as [| h t IH].
+  - simpl. reflexivity.
+  - destruct (member h sub) as [|] eqn:Hmem.
+    + simpl. rewrite Hmem. simpl. unfold subset in IH. unfold subset. simpl.
+      apply forallb_true_iff. apply forallb_true_iff in IH.
+      induction (set_subtract t sub) as [| x xs IHxs].
+      * simpl. apply I.
+      * constructor.
+        -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
+        -- apply IHxs. apply IH.
+    + simpl. rewrite Hmem. simpl. rewrite eqb_refl. simpl.
+      unfold subset in IH. unfold subset. simpl.
+      apply forallb_true_iff. apply forallb_true_iff in IH.
+      induction (set_subtract t sub) as [| x xs IHxs].
+      * simpl. apply I.
+      * constructor.
+        -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
+        -- apply IHxs. apply IH.
+Qed.
+
+
 
 Fixpoint union (l1 l2: list nat) : list nat :=
   match l2 with
@@ -274,6 +286,9 @@ Proof.
         -- simpl. left. apply H.
         -- simpl. right. apply IH. right. apply H.
 Qed.
+
+
+
 
 Fixpoint intersect (l1 l2: list nat) : list nat :=
   match l2 with
@@ -320,6 +335,11 @@ Proof.
       * apply IH. apply H2.
 Qed.
 
+
+
+(* if two lists have overlap, then we can pinpoint the first element of overlap, x, such that
+   the two sublists that precede x in each of the lists do not overlap.
+   example: [1, 2, 3, 4] and [5, 4, 3] -> x = 4 or 3 both satisfy the requirement *)
 Theorem lists_have_first_elt_in_common: forall (l1 l2: list nat),
   overlap l1 l2 = true
   -> exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2'' /\ overlap l1' l2' = false.
@@ -340,23 +360,10 @@ Proof.
         -- apply Hover.
 Qed.
 
-Lemma list_has_first_appearance_of_elt: forall (l: list nat) (x: nat),
-  In x l -> exists (l1 l2: list nat), l = l1 ++ [x] ++ l2 /\ ~In x l1.
-Proof.
-  intros l x H.
-  induction l as [| h t IH].
-  - exfalso. apply H.
-  - destruct (h =? x) as [|] eqn:Hhx.
-    + apply eqb_eq in Hhx. exists []. exists t. split.
-      * simpl. rewrite Hhx. reflexivity.
-      * intros F. exfalso. apply F.
-    + destruct H as [H | H]. rewrite H in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
-      apply IH in H. destruct H as [l1 [l2 H]]. exists (h :: l1). exists l2. split.
-      * simpl. destruct H as [H _]. rewrite H. simpl. reflexivity.
-      * intros [Hx | Hx]. rewrite Hx in Hhx. rewrite eqb_refl in Hhx. discriminate Hhx.
-        apply H. apply Hx.
-Qed.
-
+(* if two lists have overlap, then we can pinpoint an element x such that all elements preceding x
+   in the second list do not appear anywhere in the first list.
+   example: [1, 2, 3, 4] and [3, 3, 4, 4] -> 3, the prefix l2' = []
+            [1, 1, 2, 2] and [3, 2, 1, 4] -> 2, the prefix l2' = [3] *)
 Theorem list_has_first_elt_in_common_with_other_list: forall (l1 l2: list nat),
   overlap l1 l2 = true
   -> exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2''
@@ -377,6 +384,8 @@ Proof.
       * rewrite overlap_flip_2. simpl. rewrite Hmem. rewrite overlap_flip_2. apply H.
 Qed.
 
+
+(* below are several lemmas to relate the last elements of two lists *)
 Lemma last_elts_of_equal_lists: forall (l1 l2: list nat) (a b: nat),
   l1 ++ [a] = l2 ++ [b] -> a = b.
 Proof.
@@ -405,39 +414,6 @@ Proof.
     + inversion H. specialize IH with (l2 := t2). apply IH. apply H2.
 Qed.
 
-Theorem set_subtract_subset: forall l1 sub: list nat,
-  subset (set_subtract l1 sub) l1 = true.
-Proof.
-  intros l1 sub.
-  induction l1 as [| h t IH].
-  - simpl. reflexivity.
-  - destruct (member h sub) as [|] eqn:Hmem.
-    + simpl. rewrite Hmem. simpl. unfold subset in IH. unfold subset. simpl.
-      apply forallb_true_iff. apply forallb_true_iff in IH.
-      induction (set_subtract t sub) as [| x xs IHxs].
-      * simpl. apply I.
-      * constructor.
-        -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
-        -- apply IHxs. apply IH.
-    + simpl. rewrite Hmem. simpl. rewrite eqb_refl. simpl.
-      unfold subset in IH. unfold subset. simpl.
-      apply forallb_true_iff. apply forallb_true_iff in IH.
-      induction (set_subtract t sub) as [| x xs IHxs].
-      * simpl. apply I.
-      * constructor.
-        -- destruct (h =? x) as [|] eqn:Hhx. reflexivity. apply IH.
-        -- apply IHxs. apply IH.
-Qed.
-
-
-Lemma subset_identity: forall (l: list nat),
-  subset l l = true.
-Proof.
-  unfold subset. intros l.
-  apply forallb_true_iff_mem. intros x H. apply member_In_equiv. apply H.
-Qed.
-
-
 Lemma last_suffix {X: Type}: forall (L: list X) (u h a b: X),
   last (u :: h :: L) a = last (h :: L) b.
 Proof.
@@ -454,4 +430,37 @@ Proof.
   generalize dependent u. generalize dependent h. induction L as [| h' t'].
   - intros h u. simpl. left. reflexivity.
   - intros h u. rewrite last_suffix with (b := a). right. apply IHt'.
+Qed.
+
+
+
+(* return true iff last elt of l1 is the same as first elt of l2 *)
+Fixpoint first_and_last_elts_same (l1 l2: list nat) : bool :=
+  match l2 with
+  | [] => false
+  | h2 :: t2 => match l1 with
+                | [] => false
+                | [h1] => h1 =? h2
+                | h1 :: t => (first_and_last_elts_same t l2)
+                end
+  end.
+
+Example same_fl_elt: first_and_last_elts_same [1;2;3;4] [4;5;6;1] = true.
+Proof. reflexivity. Qed.
+
+Example diff_fl_elt: first_and_last_elts_same [1;2;3;4] [1;5;6;1] = false.
+Proof. reflexivity. Qed.
+
+Example trivial_l2: first_and_last_elts_same [1;2;3;4] [] = false.
+Proof. reflexivity. Qed.
+
+Theorem first_and_last_same: forall (l1 l2: list nat) (x: nat),
+  first_and_last_elts_same (l1 ++ [x]) (x :: l2) = true.
+Proof.
+  intros l1 l2 x.
+  induction l1 as [| h t IH].
+  - simpl. apply eqb_refl.
+  - simpl. destruct (t ++ [x]) as [| h' t'].
+    + simpl in IH. discriminate IH.
+    + apply IH.
 Qed.
