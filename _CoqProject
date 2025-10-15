@@ -11,6 +11,11 @@ CausalModels/DAG_Basics_Proofs.v
 CausalModels/DAG_Basics.v
 CausalModels/DAG_PathFinding.v
 CausalModels/DAG_CycleDetection.v
+CausalModels/DAG_Descendants.v
+CausalModels/DAG_Adjacency.v
+CausalModels/DAG_TopologicalSort.v
+
+
 
 # if want to run CausalModels.v, uncomment the code below:
 # -Q . FCM

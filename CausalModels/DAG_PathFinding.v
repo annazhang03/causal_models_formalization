@@ -162,3 +162,79 @@ Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G:
   <-> In p (find_all_paths_from_start_to_end u v G).
 Proof.
 Admitted.
+
+
+
+
+
+(* below we define functions to find all undirected acyclic paths in G, without a specific
+   start or end node. They follow the same structure as the above process to find all paths in a graph
+   from a given start node to a given end node. The below functions are not used further in this
+   repository, but are included for future work. *)
+
+(* return list of 1-paths (each edge becomes two 1-paths) *)
+Fixpoint edges_as_paths (E: edges) : paths :=
+  match E with
+  | [] => []
+  | h :: t => match h with 
+              | (u, v) => (u, v, []) :: ((v, u, []) :: edges_as_paths t)
+              end
+  end.
+
+Theorem no_edges_no_paths: forall E: edges, edges_as_paths E = [] <-> E = [].
+Proof.
+  intros E.
+  split.
+  - intros H. induction E as [| h t IH].
+    + reflexivity.
+    + simpl in H. destruct h as [u v]. discriminate.
+  - intros H. rewrite H. simpl. reflexivity. 
+Qed.
+
+Example test_edges_as_paths: edges_as_paths E = 
+    (* this only works for exact order paths are added *)
+    [(1, 2, []); (2, 1, []); (3, 2, []); (2, 3, []); (3, 1, []); (1, 3, []); (4, 1, []); (1, 4, [])].
+Proof. reflexivity. Qed.
+
+
+(* given a path p, add all concatenations of p with paths in l to the list of paths *)
+Fixpoint extend_all_paths_one (p : path) (l: paths) : paths :=
+  match l with
+  | [] => []
+  | h :: t => match p, h with
+                | (u1, v1, l1), (u2, v2, l2) =>
+                      let t1 := add_path_no_repeats h (extend_all_paths_one p t) in
+                      if ((v1 =? u2) && (u1 =? v2)) then t1 (* cycle, don't add *)
+                      else if (overlap (l1 ++ [u1;v1]) l2 || overlap l1 (l2 ++ [u2;v2])) then t1 (* contains cycle, don't add *)
+                      else if (v1 =? u2) then (* p' concat h is a path from u1 to v2 *) 
+                        add_path_no_repeats (u1, v2, (l1 ++ v1 :: l2)) t1
+                      else if (u1 =? v2) then (* h concat p' is a path from u2 to v1 *)
+                        add_path_no_repeats (u2, v1, (l2 ++ v2 :: l1)) t1
+                      else t1
+               end
+end.
+
+Compute extend_all_paths_one (4, 1, []) (edges_as_paths E).
+
+(* given a list of paths l1, call extend_all_paths for each path in l1 on l2 *)
+Fixpoint extend_all_paths_mul (l1: paths) (l2: paths) : paths :=
+  match l1 with
+  | [] => l2
+  | h :: t => extend_all_paths_mul t (extend_all_paths_one h l2)
+end.
+
+(* iteratively extend paths k times, like a for loop *)
+Fixpoint extend_graph_paths_iter (l: paths) (k: nat) : paths :=
+  match k with
+  | 0 => l
+  | S k' => extend_graph_paths_iter (extend_all_paths_mul l l) k'
+  end.
+
+(* determine all paths existing in the graph made up of edges E *)
+Definition find_all_paths (G: graph) : paths :=
+  match G with
+  | (V, E) => let edge_paths := edges_as_paths E in 
+             extend_graph_paths_iter edge_paths (length V)  (* each path can have at most |V| vertices *)
+  end.
+
+Compute find_all_paths G.
