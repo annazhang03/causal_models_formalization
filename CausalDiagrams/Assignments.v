@@ -8,6 +8,8 @@ From Coq Require Import Arith.EqNat. Import Nat.
 From Coq Require Import Lia.
 
 Import ListNotations.
+From Utils Require Import EqType.
+
 
 Definition assignment (X : Type) : Type := node * X.
 Definition assignments (X : Type) : Type := list (assignment X).
@@ -62,6 +64,17 @@ Proof.
   - simpl in H. destruct H as [H | H].
     + simpl. rewrite H. simpl. rewrite eqb_refl. reflexivity.
     + apply IH in H. simpl. rewrite orb_comm. rewrite H. reflexivity. }
+Qed.
+
+Lemma is_assigned_iff_cat {X: Type}: forall (U: assignments X) (u w: node) (x: X),
+  is_assigned U u = true
+  -> is_assigned U w = true <-> is_assigned ((u, x) :: U) w = true.
+Proof.
+  intros U u w x Hu. split.
+  - intros H. simpl. rewrite H. rewrite orb_comm. reflexivity.
+  - intros H. simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + apply eqb_eq in H. rewrite H. apply Hu.
+    + apply H.
 Qed.
 
 Fixpoint get_assigned_value {X: Type} (A: assignments X) (u: node) : option X :=
@@ -406,6 +419,142 @@ Qed.
 Definition add_assignment {X: Type} (A: assignments X) (u: node) (x: X) : assignments X :=
   A ++ [(u, x)].
 
+Definition each_node_assigned_once {X: Type} (A: assignments X): Prop :=
+  forall (u: node), is_assigned A u = true -> length (filter (fun (x: node * X) => (fst x) =? u) A) = 1.
+
+Lemma each_node_assigned_once_cat {X: Type}: forall (A: assignments X) (u: node) (i: X),
+  each_node_assigned_once ((u, i) :: A)
+  -> each_node_assigned_once A.
+Proof.
+  intros A u i H.
+  induction A as [| h t IH].
+  - unfold each_node_assigned_once in *. intros w Hw. simpl in Hw. discriminate Hw.
+  - unfold each_node_assigned_once in *. intros w Hw. simpl in Hw. destruct (w =? fst h) as [|] eqn:Hwh.
+    + specialize H with (u := w). assert (Hl: length (filter (fun x : node * X => fst x =? w) ((u, i) :: h :: t)) = 1).
+      { apply H. simpl. rewrite Hwh. rewrite orb_comm. reflexivity. }
+      simpl. rewrite eqb_sym. rewrite Hwh. simpl. f_equal. simpl in Hl. destruct (u =? w) as [|] eqn:Huw. rewrite eqb_sym in Hl. rewrite Hwh in Hl.
+      simpl in Hl. lia. rewrite eqb_sym in Hl. rewrite Hwh in Hl. simpl in Hl. inversion Hl. reflexivity.
+    + simpl in Hw. simpl. rewrite eqb_sym. rewrite Hwh. apply IH.
+      2: { apply Hw. }
+      intros w' Hw'. simpl. simpl in Hw'. destruct (w' =? u) as [|] eqn:Huw.
+      * rewrite eqb_sym in Huw. rewrite Huw.
+        specialize H with (u := w'). assert (Hl: length (filter (fun x : node * X => fst x =? w') ((u, i) :: h :: t)) = 1).
+        { apply H. simpl. rewrite eqb_sym. rewrite Huw. reflexivity. }
+        simpl in Hl. rewrite Huw in Hl. destruct (fst h =? w') as [|] eqn:Hhw'. discriminate Hl. apply Hl.
+      * simpl in Hw'. rewrite eqb_sym in Huw. rewrite Huw.
+        specialize H with (u := w'). assert (Hl: length (filter (fun x : node * X => fst x =? w') ((u, i) :: h :: t)) = 1).
+        { apply H. simpl. rewrite Hw'. rewrite orb_assoc. rewrite orb_comm. reflexivity. }
+        simpl in Hl. rewrite Huw in Hl. destruct (fst h =? w') as [|] eqn:Hhw'. 2: { apply Hl. }
+        simpl in Hl. inversion Hl. exfalso.
+        clear IH. clear H. clear Hl. clear Hhw'. clear Huw. clear Hwh. clear Hw. induction t as [| h' t'].
+        -- simpl in Hw'. discriminate Hw'.
+        -- simpl in Hw'. destruct (w' =? fst h') as [|] eqn:Hw''.
+           ++ simpl in H1. rewrite eqb_sym in Hw''. rewrite Hw'' in H1. simpl in H1. lia.
+           ++ apply IHt'. simpl in Hw'. apply Hw'. simpl in H1. rewrite eqb_sym in Hw''. rewrite Hw'' in H1. apply H1.
+Qed.
+
+Lemma each_node_assigned_once_remove {X: Type}: forall (A: assignments X) (u: node),
+  each_node_assigned_once A
+  -> each_node_assigned_once (remove_assignment_for A u).
+Proof.
+  intros A u H.
+  induction A as [| h t IH].
+  - unfold each_node_assigned_once in *. intros w Hw. simpl in Hw. discriminate Hw.
+  - unfold each_node_assigned_once. intros w Hw. simpl. destruct (fst h =? u) as [|] eqn:Hhu.
+    + unfold nodes in *. unfold node in *. rewrite Hhu. simpl. apply IH.
+      * destruct h as [h1 h2]. apply each_node_assigned_once_cat in H. apply H.
+      * simpl in Hw. rewrite Hhu in Hw. simpl in Hw. apply Hw.
+    + unfold nodes in *. unfold node in *. rewrite Hhu. simpl. destruct (fst h =? w) as [|] eqn:Hhw.
+      * unfold nodes in *. unfold node in *. rewrite Hhw.
+        unfold each_node_assigned_once in H. specialize H with (u := w). simpl in H. unfold nodes in *. unfold node in *. rewrite Hhw in H.
+        simpl. f_equal.
+        assert (Hl: length (h :: filter (fun x : nat * X => fst x =? w) t) = 1).
+        { apply H. rewrite eqb_sym. rewrite Hhw. reflexivity. }
+        simpl in Hl.
+        destruct (filter (fun x : nat * X => fst x =? w) (remove_assignment_for t u)) as [| h' t'] eqn:Hf.
+        -- simpl. reflexivity.
+        -- exfalso. inversion Hl.
+           assert (Hh': In h' (filter (fun x : nat * X => fst x =? w)
+       (remove_assignment_for t u))). { rewrite Hf. left. reflexivity. }
+           apply filter_true in Hh'.
+           assert (Hh'': In h' (filter (fun x : nat * X => fst x =? w) t)).
+           { apply filter_true. split.
+             - destruct Hh' as [Hh' _]. apply filter_true in Hh'. apply Hh'.
+             - apply Hh'. }
+           destruct (filter (fun x : nat * X => fst x =? w) t) as [| h'' t'']. apply Hh''. discriminate Hl.
+      * unfold nodes in *. unfold node in *. rewrite Hhw. assert (Hind: each_node_assigned_once (remove_assignment_for t u)).
+        { apply IH. destruct h as [h1 h2]. apply each_node_assigned_once_cat with (u := h1) (i := h2). apply H. }
+        unfold each_node_assigned_once in Hind. apply Hind. simpl in Hw. rewrite Hhu in Hw. simpl in Hw. rewrite eqb_sym in Hhw.
+        unfold nodes in *. unfold node in *. rewrite Hhw in Hw. apply Hw.
+Qed.
+
+Lemma each_node_assigned_once_eq {X: Type}: forall (A: assignments X) (u: node) (i j: X),
+  In (u, i) A
+  -> In (u, j) A
+  -> each_node_assigned_once A
+  -> i = j.
+Proof.
+  intros A u i j. intros Hi Hj HA.
+  induction A as [| h t IH].
+  - exfalso. apply Hi.
+  - destruct Hi as [Hi | Hi].
+    + destruct Hj as [Hj | Hj].
+      * rewrite Hi in Hj. inversion Hj. reflexivity.
+      * unfold each_node_assigned_once in HA. specialize HA with (u := u). 
+        assert (Hc: length (filter (fun x : node * X => fst x =? u) (h :: t)) = 1).
+        { apply HA. simpl. rewrite Hi. simpl. rewrite eqb_refl. reflexivity. }
+        simpl in Hc. rewrite Hi in Hc. simpl in Hc. rewrite eqb_refl in Hc. simpl in Hc. inversion Hc.
+        assert (Hf: In (u, j) (filter (fun x : node * X => fst x =? u) t)).
+        { apply filter_true. split. apply Hj. simpl. apply eqb_refl. }
+        destruct (filter (fun x : node * X => fst x =? u) t) as [| h' t']. exfalso. apply Hf. discriminate H0.
+    + destruct Hj as [Hj | Hj].
+      * unfold each_node_assigned_once in HA. specialize HA with (u := u). 
+        assert (Hc: length (filter (fun x : node * X => fst x =? u) (h :: t)) = 1).
+        { apply HA. simpl. rewrite Hj. simpl. rewrite eqb_refl. reflexivity. }
+        simpl in Hc. rewrite Hj in Hc. simpl in Hc. rewrite eqb_refl in Hc. simpl in Hc. inversion Hc.
+        assert (Hf: In (u, i) (filter (fun x : node * X => fst x =? u) t)).
+        { apply filter_true. split. apply Hi. simpl. apply eqb_refl. }
+        destruct (filter (fun x : node * X => fst x =? u) t) as [| h' t']. exfalso. apply Hf. discriminate H0.
+      * apply IH. apply Hi. apply Hj. apply each_node_assigned_once_cat with (u := fst h) (i := snd h). destruct h as [h1 h2]. apply HA.
+Qed.
+
+Lemma exact_assignment_assigns_once {X: Type}: forall (Z: nodes) (x: X),
+  each_node_appears_once Z -> each_node_assigned_once (get_assignment_for Z x).
+Proof.
+  intros Z x HZ.
+  induction Z as [| h t IH].
+  - simpl. unfold each_node_assigned_once. intros u F. simpl in F. discriminate F.
+  - unfold each_node_assigned_once. intros u Hu. simpl.
+    destruct (h =? u) as [|] eqn:Hhu.
+    + unfold each_node_appears_once in HZ. specialize HZ with (u := h). simpl in HZ. rewrite eqb_refl in HZ.
+      assert (S (count h t) = 1). { apply HZ. left. reflexivity. } inversion H.
+      simpl. f_equal. rewrite H1.
+      destruct (member h t) as [|] eqn:Hmem.
+      * apply member_In_equiv in Hmem. apply member_count_at_least_1 in Hmem. rewrite H1 in Hmem. lia.
+      * rewrite length_0_list_empty.
+        assert (Hmem': ~(In h t)). { intros Hmem'. apply member_In_equiv in Hmem'. rewrite Hmem in Hmem'. discriminate Hmem'. }
+        apply node_maps_to_unassigned with (X := X) (a := x) in Hmem'.
+        destruct (filter (fun x0 : node * X => fst x0 =? u) (get_assignment_for t x)) as [| [h' x'] t'] eqn:Hfil.
+        -- reflexivity.
+        -- assert (Hh: is_assigned (get_assignment_for t x) h = true).
+           { apply is_assigned_membership. exists x'.
+             assert (In (h', x') (filter (fun x0 : node * X => fst x0 =? u) (get_assignment_for t x))). { rewrite Hfil. left. reflexivity. }
+             apply filter_In in H0. destruct H0 as [H0 H2]. simpl in H2. apply eqb_eq in H2. apply eqb_eq in Hhu. rewrite <- Hhu in H2.
+             rewrite H2 in H0. apply H0. }
+           rewrite Hh in Hmem'. discriminate Hmem'.
+    + pose proof HZ as HZ'. unfold each_node_appears_once in HZ. specialize HZ with (u := u). simpl in HZ. rewrite Hhu in HZ.
+      apply IH.
+      * unfold each_node_appears_once. intros v Hv. assert (h =? v = false). { apply first_node_appears_once with (Z := t). split. apply HZ'. apply Hv. }
+        unfold each_node_appears_once in HZ'. specialize HZ' with (u := v). simpl in HZ'. rewrite H in HZ'. apply HZ'. right. apply Hv.
+      * simpl in Hu. rewrite eqb_sym in Hu. rewrite Hhu in Hu. simpl in Hu. apply Hu.
+Qed.
+
+
+(* U and U' assign the same nodes, and only the assignments for nodes in S can change *)
+Definition assignments_change_only_for_subset {X: Type} (U U': assignments X) (S: nodes): Prop :=
+  forall (x: node), (is_assigned U x = true <-> is_assigned U' x = true)
+  /\ (~(In x S) -> get_assigned_value U x = get_assigned_value U' x).
+
 Lemma filter_preserves_relative_index {X: Type}: forall (test: (node * X) -> bool) (V: assignments X) (h: node * X) (i: nat),
   nth_error (filter test V) i = Some h -> exists (j: nat), nth_error V j = Some h /\ j >= i.
 Proof.
@@ -468,6 +617,22 @@ Proof.
         -- apply Hi.
 Qed.
 
+Lemma first_n_exists {X: Type}: forall (V: assignments X) (i: nat),
+  i < length V
+  -> exists V' : assignments X, first_n V i = Some V'.
+Proof.
+  intros V i H.
+  generalize dependent i. induction V as [| h t IH].
+  - intros i H. destruct i as [| i'].
+    + simpl in H. lia.
+    + simpl in H. lia.
+  - intros i H. destruct i as [| i'].
+    + simpl. exists []. reflexivity.
+    + assert (Hind: exists V' : assignments X, first_n t i' = Some V').
+      { apply IH. simpl in H. lia. }
+      destruct Hind as [V' Hind]. exists (h :: V'). simpl. rewrite Hind. reflexivity.
+Qed.
+
 
 Lemma first_n_preserves_index {X: Type}: forall (V V': assignments X) (i j: nat) (p: node) (x: X),
   first_n V i = Some V'
@@ -510,4 +675,108 @@ Proof.
       * destruct (first_n t i') as [r|] eqn:Hr.
         -- inversion Hi. simpl. rewrite Htest. apply IH with (i := i') (V' := r). apply Hr.
         -- discriminate Hi.
+Qed.
+
+Definition assignments_equiv {X: Type} (U U': assignments X): Prop :=
+  forall (u: node), get_assigned_value U u = get_assigned_value U' u.
+
+Fixpoint list_assignments_equiv {X: Type} (L L': list (assignments X)): Prop :=
+  match L with
+  | [] => match L' with
+          | [] => True
+          | h :: t => False
+          end
+  | h :: t => match L' with
+              | [] => False
+              | h' :: t' => assignments_equiv h h' /\ list_assignments_equiv t t'
+              end
+  end.
+
+Lemma list_assignments_equiv_identity {X: Type}: forall (L: list (assignments X)),
+  list_assignments_equiv L L.
+Proof.
+  induction L as [| h t IH].
+  - simpl. apply I.
+  - simpl. split.
+    + unfold assignments_equiv. reflexivity.
+    + apply IH.
+Qed.
+
+Lemma assignments_equiv_symmetry {X: Type}: forall (U U': assignments X),
+  assignments_equiv U U'
+  -> assignments_equiv U' U.
+Proof.
+  intros U U' H.
+  unfold assignments_equiv in *. intros u. symmetry. apply H.
+Qed.
+
+Lemma list_assignments_equiv_symmetry {X: Type}: forall (L L': list (assignments X)),
+  list_assignments_equiv L L'
+  -> list_assignments_equiv L' L.
+Proof.
+  intros L L' H.
+  generalize dependent L'. induction L as [| h t IH].
+  - intros L' H. simpl in H. destruct L' as [| h' t']. simpl. apply I.
+    exfalso. apply H.
+  - intros L' H. destruct L' as [| h' t']. simpl in H. exfalso. apply H.
+    simpl in H. simpl. split.
+    + apply assignments_equiv_symmetry. apply H.
+    + apply IH. apply H.
+Qed.
+
+Lemma equiv_list_assignments_length {X: Type}: forall (L L': list (assignments X)),
+  list_assignments_equiv L L'
+  ->
+  length L = length L'.
+Proof.
+  intros L L' H.
+  generalize dependent L'. induction L as [| h t IH].
+  - intros L' H. destruct L' as [| h' t'].
+    + simpl. lia.
+    + simpl in H. exfalso. apply H.
+  - intros L' H. simpl in H. destruct L' as [| h' t'].
+    + exfalso. apply H.
+    + simpl. f_equal. apply IH. apply H.
+Qed.
+
+Lemma equiv_assignment_still_assignment {X: Type}: forall (U U': assignments X) (L: nodes),
+  assignments_equiv U' U
+  -> is_assignment_for U L = true
+  -> is_assignment_for U' L = true.
+Proof.
+  intros U U' L H1 H2.
+  induction L as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. apply split_and_true. split.
+    + simpl in H2. apply split_and_true in H2. unfold assignments_equiv in H1. destruct H2 as [H2 H3].
+      apply assigned_is_true in H2. destruct H2 as [x' H2]. specialize H1 with (u := h). rewrite H2 in H1.
+      apply assigned_is_true. exists x'. apply H1.
+    + apply IH. simpl in H2. apply split_and_true in H2. apply H2.
+Qed.
+
+Lemma equiv_assignments_assigned {X: Type}: forall (U U': assignments X) (u: node),
+  assignments_equiv U' U
+  -> is_assigned U' u = is_assigned U u.
+Proof.
+  intros U U' u H.
+  unfold assignments_equiv in H. specialize H with (u := u).
+  destruct (is_assigned U u) as [|] eqn:HU.
+  - apply assigned_is_true in HU. destruct HU as [x HU]. rewrite HU in H. apply assigned_is_true. exists x. apply H.
+  - apply assigned_is_false. apply assigned_is_false in HU. rewrite HU in H. apply H.
+Qed.
+
+Lemma list_equiv_assignment_still_assignment {X: Type}: forall (L L': list (assignments X)) (N: nodes),
+  list_assignments_equiv L L'
+  -> (forall (U: assignments X), In U L' -> is_assignment_for U N = true)
+  -> forall (U: assignments X), In U L
+  -> is_assignment_for U N = true.
+Proof.
+  intros L L' N Heq HL' U HL.
+  generalize dependent L'. induction L as [| h t IH].
+  - intros L' Heq HL'. exfalso. apply HL.
+  - intros L' Heq HL'. simpl in Heq. destruct L' as [| h' t'].
+    + exfalso. apply Heq.
+    + destruct HL as [HL | HL].
+      * apply equiv_assignment_still_assignment with (U := h'). rewrite <- HL. apply Heq. apply HL'. left. reflexivity.
+      * apply IH with (L' := t'). apply HL. apply Heq. intros U' HU'. apply HL'. right. apply HU'.
 Qed.

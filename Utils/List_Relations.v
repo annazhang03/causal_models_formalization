@@ -433,6 +433,23 @@ Proof.
 Qed.
 
 
+(* a node (b) with at least one node (c) after in a list must be in the list minus
+   the last element (v) *)
+Lemma middle_node_not_end: forall (l l' l'': list nat) (b c v: nat),
+  l ++ [v] = l'' ++ b :: c :: l'
+  -> In b l.
+Proof.
+  intros l l' l'' b c v H.
+  destruct (rev l') as [| h t] eqn:Hl'.
+  - assert (Hl: l' = []). { rewrite reverse_list_twice with (l := l'). rewrite Hl'. reflexivity. }
+    rewrite Hl in *. clear Hl. assert (Hl: v :: rev l = rev (l'' ++ [b; c])). { rewrite <- H. rewrite reverse_list_append. simpl. reflexivity. }
+    rewrite reverse_list_append in Hl. simpl in Hl. inversion Hl. apply membership_rev. rewrite H2. left. reflexivity.
+  - assert (Hl: l' = rev t ++ [h]). { rewrite reverse_list_twice with (l := l'). rewrite Hl'. reflexivity. }
+    rewrite Hl in *. clear Hl. assert (Hl: v :: rev l = rev (l'' ++ b :: c :: rev t ++ [h])). { rewrite <- H. rewrite reverse_list_append. simpl. reflexivity. }
+    rewrite reverse_list_append in Hl. simpl in Hl. rewrite reverse_list_append in Hl. simpl in Hl. inversion Hl. apply membership_rev. rewrite H2. apply membership_append. apply membership_append_r. left. reflexivity.
+Qed.
+
+
 
 (* return true iff last elt of l1 is the same as first elt of l2 *)
 Fixpoint first_and_last_elts_same (l1 l2: list nat) : bool :=

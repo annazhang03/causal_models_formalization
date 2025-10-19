@@ -1,4 +1,5 @@
 From CausalDiagrams Require Import IntermediateNodes.
+From CausalDiagrams Require Import DSeparation.
 From DAGs Require Import Basics.
 From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
@@ -476,4 +477,47 @@ Proof.
       * simpl. apply IH.
         -- apply Hsub.
         -- intros F. apply Hmem. right. apply F.
+Qed.
+
+
+Lemma edge_out_not_in_Z: forall (u h v: node) (t: nodes) (G: graph) (Z: nodes),
+  d_connected_2 (u, v, h :: t) G Z
+  -> path_into_start (u, v, h :: t) G = true \/ path_out_of_h G u v h t = true
+  -> is_path_in_graph (u, v, h :: t) G = true
+  -> ~In h Z.
+Proof.
+  intros u h v t G Z Hconn Hedge Hpath HhZ.
+  (* since either u<-h or h->..., h cannot be a collider, so h not in Z *)
+  unfold d_connected_2 in Hconn.
+  assert (Hh: In h (find_mediators_in_path (u, v, h :: t) G) \/ In h (find_confounders_in_path (u, v, h :: t) G)).
+  { destruct Hedge as [Hedge | Hedge].
+    - simpl in Hedge.
+      destruct (path_out_of_h G u v h t) as [|] eqn:Hout.
+      + right. apply confounders_vs_edges_in_path. destruct t as [| h' t'].
+        * exists u. exists v. split. simpl. repeat rewrite eqb_refl. reflexivity. split. apply Hedge. simpl in Hout. apply Hout.
+        * exists u. exists h'. split. simpl. repeat rewrite eqb_refl. reflexivity. split. apply Hedge. simpl in Hout. apply Hout.
+      + left. apply mediators_vs_edges_in_path. destruct t as [| h' t'].
+        * exists u. exists v. split. simpl. repeat rewrite eqb_refl. reflexivity. right. split. apply Hedge.
+          simpl in Hout. simpl in Hpath. rewrite Hout in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply split_and_true in Hpath. apply Hpath.
+        * exists u. exists h'. split. simpl. repeat rewrite eqb_refl. reflexivity. right. split. apply Hedge.
+          simpl in Hout. simpl in Hpath. rewrite Hout in Hpath. destruct G as [V E]. apply split_and_true in Hpath. destruct Hpath as [_ Hpath]. apply split_and_true in Hpath. apply Hpath.
+    - destruct (path_into_start (u, v, h :: t) G) as [|] eqn:Hin.
+      + simpl in Hin. right. apply confounders_vs_edges_in_path. destruct t as [| h' t'].
+        * exists u. exists v. split. simpl. repeat rewrite eqb_refl. reflexivity. split. apply Hin. simpl in Hedge. apply Hedge.
+        * exists u. exists h'. split. simpl. repeat rewrite eqb_refl. reflexivity. split. apply Hin. simpl in Hedge. apply Hedge.
+      + simpl in Hin.
+        assert (Hout: is_edge (u, h) G = true). { simpl in Hpath. destruct G as [V E]. rewrite Hin in Hpath. apply split_and_true in Hpath. rewrite orb_comm in Hpath. apply Hpath. }
+        left. apply mediators_vs_edges_in_path. destruct t as [| h' t'].
+        * exists u. exists v. split. simpl. repeat rewrite eqb_refl. reflexivity. left. split. apply Hout.
+          simpl in Hedge. apply Hedge.
+        * exists u. exists h'. split. simpl. repeat rewrite eqb_refl. reflexivity. left. split. apply Hout.
+          simpl in Hedge. apply Hedge. }
+
+  destruct Hh as [Hh | Hh].
+  * destruct Hconn as [Hmed _]. apply no_overlap_non_member with (x := h) in Hmed.
+    -- apply Hmed. apply HhZ.
+    -- apply Hh.
+  * destruct Hconn as [_ [Hcon _]]. apply no_overlap_non_member with (x := h) in Hcon.
+    -- apply Hcon. apply HhZ.
+    -- apply Hh.
 Qed.
