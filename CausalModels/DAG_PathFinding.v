@@ -70,6 +70,8 @@ Fixpoint edges_as_paths_from_start (u: node) (E: edges) : paths :=
                           else edges_as_paths_from_start u t
               end
   end.
+  (* definition didn't avoid a = b
+    could have (a,a) *)
 Compute edges_as_paths_from_start 1 [(1,1); (1,2)]. (* = [(1, 1, []); (1, 2, [])] *)
 
 Lemma edge_in_extended_graph :
@@ -200,10 +202,6 @@ Qed.
 Lemma edges_as_paths_from_start_acyclic : forall (u: node) (p:path) (E: edges),
   no_one_cycles E = true ->
   In p (edges_as_paths_from_start u E) -> acyclic_path_2 p.
-(* Admitted.
-Lemma edges_as_paths_from_start_acyclic1 : forall u v: node, forall l: nodes, forall E: edges,
-  no_one_cycles E = true ->
-  In (u, v, l) (edges_as_paths_from_start u E) -> acyclic_path_2 (u, v, l). *)
 Proof. intros u [[u' v] l] E Hloop Hin. induction E.
     + simpl in *. exfalso. assumption.
     + destruct a as [a1 a2]. assert (IHloop: no_one_cycles E = true).
@@ -250,6 +248,8 @@ Fixpoint extend_paths_from_start_by_edge (e : edge) (l: paths) : paths :=
                end
 end.
 
+(* need e to be not selfloop *)
+Compute extend_paths_from_start_by_edge (1,1) [(0,1,[])].   (* [(0, 1, []); (0, 1, [1])] *)
 
 Example extend_edges_from_1: extend_paths_from_start_by_edge (3, 2) [(1, 2, []); (1, 3, []); (1, 4, [])]
   = [(1, 2, []); (1, 3, []); (1, 4, []); (1, 2, [3]); (1, 3, [2])].
@@ -348,10 +348,147 @@ Qed.
 
 (*helper 2*)
 Lemma extend_paths_from_start_by_edges_acyclic:
-  forall (E:edges) (p:path) (ps:paths), (forall p', In p' ps -> acyclic_path_2 p') ->
+  forall (E:edges) (p:path) (ps:paths), no_one_cycles E = true ->
+  (forall p', In p' ps -> acyclic_path_2 p') ->
   In p (extend_paths_from_start_by_edges E ps) ->
   acyclic_path_2 p.
-Admitted.
+Proof. induction E. (* the following proof can potentially be reduced by half with helper lemmas and customized tactics.*)
+  - simpl. eauto.
+  - destruct a as [a1 a2]. simpl. intros p ps Hacyc Hps. eapply IHE with (ps:= (extend_paths_from_start_by_edge _ ps)); eauto; clear IHE.
+    {case (a1 =? a2) in Hacyc. discriminate. assumption. }
+    intros pind Hin. induction ps; try auto. destruct a as [[u v] l]. simpl in Hin.
+      destruct (orb (u =? a1) (u =? a2)) eqn:case1. apply orb_prop in case1.
+        destruct case1.
+        { apply Nat.eqb_eq in H; subst. simpl in Hin. destruct Hin as [Heq | Hin].
+          - inversion Heq; subst. apply Hps. left. reflexivity.
+          - apply IHps.
+            + intros q Hinq. apply Hps. right. assumption.
+            + assumption. }
+        { apply Nat.eqb_eq in H; subst. simpl in Hin. destruct Hin as [Heq | Hin].
+          - inversion Heq; subst. apply Hps. left. reflexivity.
+          - apply IHps.
+            + intros q Hinq. apply Hps. right. assumption.
+            + assumption. }
+      destruct (orb (member a1 l) (member a2 l)) eqn:case2. apply orb_prop in case2.
+        destruct case2.
+        { simpl in Hin. destruct Hin as [Heq | Hin'].
+          - inversion Heq; subst. apply Hps. left. reflexivity.
+          - apply IHps.
+            + intros q Hinq. apply Hps. right. assumption.
+            + assumption.
+        }
+        { simpl in Hin. destruct Hin as [Heq | Hin'].
+          - inversion Heq; subst. apply Hps. left. reflexivity.
+          - apply IHps.
+            + intros q Hinq. apply Hps. right. assumption.
+            + assumption.
+        }
+      destruct (v =? a1) eqn:case3. apply Nat.eqb_eq in case3; subst.
+      { unfold add_path_no_repeats in Hin. simpl in Hin. assert (a1 <> a2).
+        intro Heq; subst. rewrite Nat.eqb_refl in Hacyc. discriminate Hacyc.
+        assert ((a1 =? a2) = false) as Ha12 by (apply Nat.eqb_neq; assumption).
+        rewrite Ha12 in Hin. rewrite andb_false_r in Hin. rewrite andb_false_l in Hin.
+        destruct (member_path (u, a2, l ++ [a1]) (extend_paths_from_start_by_edge (a1, a2) ps)) eqn:Hmem.
+          - simpl in Hin. destruct Hin as [Heq | Hin]; subst.
+            + eapply Hps with (p' := (u, a1, l)). simpl. left. reflexivity.
+            + apply IHps; simpl; auto. intros p' Hin'. apply Hps. right. exact Hin'.
+          - simpl in Hin. destruct Hin as [Heq | Hin].
+            + inversion Heq; subst; clear H0. eapply Hps with (p' := (u, a1, l)). simpl. left. reflexivity.
+            + apply in_app_or in Hin. destruct Hin as [Hin_tail | Hin_last].
+              * apply IHps; simpl; auto. intros p' Hin'. apply Hps. right. exact Hin'.
+              * simpl in Hin_last. destruct Hin_last as [Heq | Hfalse]; subst.
+              apply orb_false_iff in case1. destruct case1 as [h11 h12].
+              apply orb_false_iff in case2. destruct case2 as [h21 h22].
+              { clear IHps H Hmem. rewrite Ha12 in Hacyc.
+              specialize (Hps (u, a1, l)). pose proof (Hps (or_introl eq_refl)) as Hacyc_head; clear Hps.
+              unfold acyclic_path_2 in *. constructor.
+              rewrite Nat.eqb_neq in h12; auto. constructor.
+              destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
+              rewrite in_app_iff. assert (~ In u [a1]) as hright.
+              { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in h11. congruence. }
+              eapply Classical_Prop.and_not_or; eauto. constructor.
+              destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
+              rewrite in_app_iff. eapply Classical_Prop.and_not_or; eauto. constructor.
+              { intro hn. rewrite <- member_In_equiv in hn. congruence. }
+              { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in Ha12. congruence. }
+              destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
+              case l eqn:hl. simpl. auto. replace ((n :: n0) ++ [a1]) with (n :: (n0 ++ [a1])) by auto.
+              assert (acyclic_path (rev (n :: n0 ++ [a1])) = true) as hrev. replace (rev (n :: n0 ++ [a1])) with
+              (a1 :: rev (n :: n0)); cycle 1. rewrite app_comm_cons. rewrite rev_unit with (l:= n :: n0) (a:=a1). reflexivity.
+              simpl. apply andb_true_iff. replace (rev n0 ++ [n]) with (rev (n :: n0)) by trivial. constructor.
+              - rewrite negb_true_iff.
+              (*helper lemma 1*)
+              assert (Happ : forall xs ys, member a1 (xs ++ ys) = member a1 xs || member a1 ys).
+              { induction xs as [|h t IH]; intros ys; simpl.
+                - reflexivity.
+                - rewrite IH. case (h =? a1). eauto. reflexivity. }
+              (*helper lemma 2*)
+              assert (Hrev : forall xs, member a1 (rev xs) = member a1 xs).
+              { induction xs as [|h t IH]; simpl.
+                - reflexivity.
+                - rewrite Happ, IH. simpl. rewrite Bool.orb_comm. case (h =? a1); eauto. }
+              simpl in h21. apply Bool.orb_false_iff in h21 as [Ha1n Htail]. simpl. rewrite Happ. rewrite Hrev. simpl.
+              rewrite Htail. case (n =? a1) eqn: nh. apply Nat.eqb_eq in nh; subst. apply demorgan in mem3. destruct mem3 as [wrong _]. congruence. auto.
+              - eapply acyclic_path_reverse; eauto.
+              - replace (n :: n0 ++ [a1]) with (rev (rev (n :: n0 ++ [a1]))); cycle 1. apply rev_involutive. eapply acyclic_path_reverse; eauto.
+              }
+              exfalso; auto.
+      }
+      destruct (v =? a2) eqn:case4. apply Nat.eqb_eq in case4; subst.
+      { unfold add_path_no_repeats in Hin. simpl in Hin. assert (a1 <> a2).
+        intro Heq; subst. rewrite Nat.eqb_refl in Hacyc. discriminate Hacyc.
+        rewrite case3 in Hin. rewrite andb_false_r in Hin. rewrite andb_false_l in Hin.
+        destruct (member_path (u, a1, l ++ [a2]) (extend_paths_from_start_by_edge (a1, a2) ps)) eqn:Hmem.
+          - simpl in Hin. destruct Hin as [Heq | Hin]; subst.
+            + eapply Hps with (p' := (u, a2, l)). simpl. left. reflexivity.
+            + apply IHps; simpl; auto. intros p' Hin'. apply Hps. right. exact Hin'.
+          - simpl in Hin. destruct Hin as [Heq | Hin].
+            + inversion Heq; subst; clear H0. eapply Hps with (p' := (u, a2, l)). simpl. left. reflexivity.
+            + apply in_app_or in Hin. destruct Hin as [Hin_tail | Hin_last].
+              * apply IHps; simpl; auto. intros p' Hin'. apply Hps. right. exact Hin'.
+              * simpl in Hin_last. destruct Hin_last as [Heq | Hfalse]; subst.
+              apply orb_false_iff in case1. destruct case1 as [h11 h12].
+              apply orb_false_iff in case2. destruct case2 as [h21 h22].
+              { clear IHps H Hmem. rewrite Nat.eqb_sym in Hacyc. rewrite case3 in Hacyc.
+              specialize (Hps (u, a2, l)). pose proof (Hps (or_introl eq_refl)) as Hacyc_head; clear Hps.
+              unfold acyclic_path_2 in *. constructor.
+              rewrite Nat.eqb_neq in h11; auto. constructor.
+              destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
+              rewrite in_app_iff. assert (~ In u [a2]) as hright.
+              { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in h12. congruence. }
+              eapply Classical_Prop.and_not_or; eauto. constructor.
+              destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
+              rewrite in_app_iff. eapply Classical_Prop.and_not_or; eauto. constructor.
+              { intro hn. rewrite <- member_In_equiv in hn. congruence. }
+              { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in case3. congruence. }
+              destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
+              case l eqn:hl. simpl. auto. replace ((n :: n0) ++ [a2]) with (n :: (n0 ++ [a2])) by auto.
+              assert (acyclic_path (rev (n :: n0 ++ [a2])) = true) as hrev. replace (rev (n :: n0 ++ [a2])) with
+              (a2 :: rev (n :: n0)); cycle 1. rewrite app_comm_cons. rewrite rev_unit with (l:= n :: n0) (a:=a2). reflexivity.
+              simpl. apply andb_true_iff. replace (rev n0 ++ [n]) with (rev (n :: n0)) by trivial. constructor.
+              - rewrite negb_true_iff.
+              (*helper lemma 1*)
+              assert (Happ : forall xs ys, member a2 (xs ++ ys) = member a2 xs || member a2 ys).
+              { induction xs as [|h t IH]; intros ys; simpl.
+                - reflexivity.
+                - rewrite IH. case (h =? a2). eauto. reflexivity. }
+              (*helper lemma 2*)
+              assert (Hrev : forall xs, member a2 (rev xs) = member a2 xs).
+              { induction xs as [|h t IH]; simpl.
+                - reflexivity.
+                - rewrite Happ, IH. simpl. rewrite Bool.orb_comm. case (h =? a2); eauto. }
+              simpl in h22. apply Bool.orb_false_iff in h22 as [Ha1n Htail]. simpl. rewrite Happ. rewrite Hrev. simpl.
+              rewrite Htail. case (n =? a2) eqn: nh. apply Nat.eqb_eq in nh; subst. apply demorgan in mem3. destruct mem3 as [wrong _]. congruence. auto.
+              - eapply acyclic_path_reverse; eauto.
+              - replace (n :: n0 ++ [a2]) with (rev (rev (n :: n0 ++ [a2]))); cycle 1. apply rev_involutive. eapply acyclic_path_reverse; eauto.
+              }
+              exfalso; auto.
+      }
+      { simpl in Hin. case Hin.
+      - intro H. apply Hps. left. exact H.
+      - eapply IHps; eauto. intros p' Hin'. apply Hps. right. exact Hin'.
+      }
+Qed.
 
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
