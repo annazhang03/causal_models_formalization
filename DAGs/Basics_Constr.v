@@ -85,6 +85,23 @@ Definition G_well_formed (G: graph) : bool :=
               && forallb (fun e => count_edge e E =? 1) E
   end.
 
+Fixpoint edges_correspond_to_vertices (V: nodes) (E: edges) : bool :=
+  match E with
+  | [] => true
+  | h :: t => match h with
+              | (u, v) => if (member u V && member v V) then edges_correspond_to_vertices V t else false
+              end
+  end.
+
+Definition each_node_appears_once (Z: nodes): Prop :=
+  forall (u: node), In u Z -> count u Z = 1.
+
+Example test_E_corresponds_to_V : edges_correspond_to_vertices [1; 2; 3] [(1, 2); (3, 1)] = true.
+Proof. reflexivity. Qed.
+
+Example test_E_not_correspond_to_V : edges_correspond_to_vertices [1; 2; 3] [(1, 2); (3, 1); (4, 2)] = false.
+Proof. reflexivity. Qed.
+
 Definition num_nodes (G: graph) : nat :=
   match G with
   | (V, E) => length V

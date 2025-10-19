@@ -1,5 +1,6 @@
 -Q DAGs DAGs
 -Q Utils Utils
+-Q CausalDiagrams CausalDiagrams
 
 Utils/Lists.v
 Utils/List_Basics.v
@@ -14,7 +15,13 @@ DAGs/CycleDetection.v
 DAGs/Descendants.v
 DAGs/Adjacency.v
 DAGs/TopologicalSort.v
-
+CausalDiagrams/Assignments.v
+CausalDiagrams/Helpers.v
+CausalDiagrams/IntermediateNodes.v
+CausalDiagrams/CausalPaths.v
+CausalDiagrams/DSeparation.v
+CausalDiagrams/Interventions.v
+CausalDiagrams/Counterfactuals.v
 
 
 # if want to run CausalModels.v, uncomment the code below:

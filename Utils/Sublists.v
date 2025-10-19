@@ -158,6 +158,45 @@ Proof.
         simpl. rewrite Hsub. rewrite orb_comm. reflexivity. }
 Qed.
 
+Lemma prefix_of_long_list: forall (l1 l2 p: list nat),
+  prefix p (l1 ++ l2) = true
+  -> prefix p l1 = true \/ (exists (p': list nat), prefix p' l2 = true /\ l1 ++ p' = p).
+Proof.
+  intros l1 l2 p H.
+  generalize dependent l1. induction p as [| h t IH].
+  - intros l1 H. left. simpl. reflexivity.
+  - intros l1 H. destruct l1 as [| h1 t1].
+    + right. exists (h :: t). split. apply H. reflexivity.
+    + simpl in H. apply split_and_true in H. destruct H as [H1 H2].
+      specialize IH with (l1 := t1). apply IH in H2. destruct H2 as [H2 | H2].
+      * left. simpl. rewrite H1. rewrite H2. reflexivity.
+      * right. destruct H2 as [p' [H2 H3]]. exists p'. split. apply H2. simpl. rewrite H3. apply eqb_eq in H1. rewrite H1. reflexivity.
+Qed.
+
+Lemma sublist_of_long_list: forall (l1 l2 sl: list nat),
+  sublist sl (l1 ++ l2) = true
+  -> sublist sl l1 = true \/ (exists (sl1 sl2: list nat), sublist sl1 l1 = true /\ sublist sl2 l2 = true /\ sl1 ++ sl2 = sl) \/ sublist sl l2 = true.
+Proof.
+  intros l1 l2 sl H.
+  induction l1 as [| h t IH].
+  - simpl in H. right. right. apply H.
+  - simpl in H. apply split_orb_true in H. destruct H as [H | H].
+    + apply prefix_of_long_list with (l1 := h :: t) in H. destruct H as [H | H].
+      * left. simpl. rewrite H. reflexivity.
+      * destruct H as [p' [H1 H2]]. right. left. exists (h :: t). exists p'. split.
+        -- simpl. rewrite eqb_refl. assert (prefix t (t ++ []) = true). { apply prefix_identity. }
+           rewrite append_identity in H. rewrite H. reflexivity.
+        -- split.
+           ++ apply prefix_implies_sublist. apply H1.
+           ++ apply H2.
+    + apply IH in H. destruct H as [H | [H | H]].
+      * left. simpl. rewrite H. rewrite orb_comm. reflexivity.
+      * destruct H as [sl1 [sl2 H]]. right. left. exists sl1. exists sl2. split.
+        -- simpl. destruct H as [H _]. rewrite H. rewrite orb_comm. reflexivity.
+        -- destruct H as [_ H]. apply H.
+      * right. right. apply H.
+Qed.
+
 
 (* if l2 is a suffix of l3, and the part of l3 preceding l2 is nonempty, then
    len(l2) < len(l3) *)
@@ -518,32 +557,63 @@ Class EqType (X : Type) := {
   eqb_eq' : forall x y, eqb x y = true <-> x = y
 }.
 
-Fixpoint eqblistX {X: Type} `{EqType X} (l1 l2 : list X) : bool
+Fixpoint eqblist_X {X: Type} `{EqType X} (l1 l2 : list X) : bool
   := match l1, l2 with
       | nil, nil => true
       | nil, _ => false
       | _, nil => false
-      | h1 :: t1, h2 :: t2 => if (eqb h1 h2) then eqblistX t1 t2 else false
+      | h1 :: t1, h2 :: t2 => if (eqb h1 h2) then eqblist_X t1 t2 else false
 end.
 
-
-Fixpoint prefixX {X: Type} `{EqType X} (l1 l2: list X): bool :=
+Fixpoint prefix_X {X: Type} `{EqType X} (l1 l2: list X): bool :=
   match l1 with
   | [] => true
   | h1 :: t1 => match l2 with
                 | [] => false
-                | h2 :: t2 => (eqb h1 h2) && prefixX t1 t2
+                | h2 :: t2 => (eqb h1 h2) && prefix_X t1 t2
                 end
   end.
 
-Fixpoint sublistX {X: Type} `{EqType X} (l1 l2: list X) : bool :=
+Fixpoint sublist_X {X: Type} `{EqType X} (l1 l2: list X) : bool :=
   match l2 with
-  | [] => eqblistX l1 []
-  | h1 :: t1 => prefixX l1 l2 || sublistX l1 t1
+  | [] => eqblist_X l1 []
+  | h1 :: t1 => prefix_X l1 l2 || sublist_X l1 t1
   end.
 
+Lemma sublist_X_false {X: Type} `{EqType X}: forall (Ui' Ui'' Ui''' Ua Ub: X),
+  sublist_X [Ui'; Ui''; Ui'''] [Ua; Ub] = false.
+Proof.
+  intros Ui' Ui'' Ui''' Ua Ub.
+  simpl. rewrite andb_assoc. rewrite andb_comm. simpl. rewrite orb_comm. rewrite andb_comm. reflexivity.
+Qed.
+
+Lemma prefix_X_start {X: Type} `{EqType X}: forall (U: X) (L1 L2: list X),
+  prefix_X (L1 ++ [U]) L2 = true
+  -> prefix_X L1 L2 = true.
+Proof.
+  intros U L1 L2 Hpre.
+  generalize dependent L2. induction L1 as [| h1 t1 IH].
+  - intros L2 Hpre. simpl. reflexivity.
+  - intros L2 Hpre. simpl. destruct L2 as [| h2 t2].
+    + simpl in Hpre. discriminate Hpre.
+    + simpl in Hpre. apply split_and_true in Hpre. apply split_and_true. split. apply Hpre.
+      apply IH. apply Hpre.
+Qed.
+
+Lemma sublist_X_start {X: Type} `{EqType X}: forall (U: X) (L1 L2: list X),
+  sublist_X (L1 ++ [U]) L2 = true
+  -> sublist_X L1 L2 = true.
+Proof.
+  intros U L1 L2 Hsub.
+  induction L2 as [| h2 t2 IH].
+  - destruct L1 as [| h1 t1]. discriminate Hsub. discriminate Hsub.
+  - simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hsub | Hsub].
+    + simpl. apply split_orb_true. left. apply prefix_X_start in Hsub. apply Hsub.
+    + simpl. apply split_orb_true. right. apply IH. apply Hsub.
+Qed.
+
 Lemma prefix_member_X {X: Type} `{EqType X}: forall (l1 l2: list X) (x: X),
-  In x l1 /\ prefixX l1 l2 = true -> In x l2.
+  In x l1 /\ prefix_X l1 l2 = true -> In x l2.
 Proof.
   intros l1.
   induction l1 as [| h1 t1 IH].
@@ -557,4 +627,139 @@ Proof.
       * right. apply IH with (l2 := t2). split.
         -- apply Hmem.
         -- apply Hpre.
+Qed.
+
+Fixpoint index_sublist {X : Type} `{EqType X} (l1 l2: list X) : option nat :=
+  match (prefix_X l1 l2) with
+  | true => Some 0
+  | false => match l1 with
+             | [] => Some 0 (* won't reach here, would be prefix *)
+             | h1 :: t1 => match l2 with
+                           | [] => None
+                           | h2 :: t2 => match (index_sublist l1 t2) with
+                                         | Some i => Some (S i)
+                                         | None => None
+                                         end
+                           end
+             end
+  end.
+
+Fixpoint index_sublist_2 {X : Type} `{EqType X} (l1 l2: list X) (i: nat) : bool :=
+  match i with
+  | 0 => prefix_X l1 l2
+  | S i' => match l2 with
+            | [] => false
+            | h2 :: t2 => index_sublist_2 l1 t2 i'
+            end
+  end.
+
+Lemma index_sublist_loosen {X : Type} `{EqType X}: forall (l1 l2: list X) (i: nat),
+  index_sublist l1 l2 = Some i
+  -> index_sublist_2 l1 l2 i = true.
+Proof.
+  intros l1 l2 i Hi.
+  generalize dependent l2. induction i as [| i' IH].
+  - intros l2 Hi. destruct l2 as [| h2 t2]. simpl. simpl in Hi. destruct (prefix_X l1 []) as [|] eqn:Hpre. reflexivity. destruct l1 as [| h1 t1]. discriminate Hpre. discriminate Hi.
+    simpl in Hi. simpl. destruct (prefix_X l1 (h2 :: t2)) as [|] eqn:Hpre. reflexivity. destruct l1 as [| h1 t1]. discriminate Hpre.
+    destruct (index_sublist (h1 :: t1) t2) as [j|]. discriminate Hi. discriminate Hi.
+  - intros l2 Hi. destruct l2 as [| h2 t2].
+    + simpl in Hi. destruct (prefix_X l1 []) as [|] eqn:Hpre. discriminate Hi. destruct l1 as [| h1 t1]. discriminate Hi. discriminate Hi.
+    + simpl. apply IH. simpl in Hi. destruct (prefix_X l1 (h2 :: t2)) as [|] eqn:Hpre. discriminate Hi. destruct l1 as [| h1 t1].
+      discriminate Hi. destruct (index_sublist (h1 :: t1) t2) as [j|]. inversion Hi. reflexivity. discriminate Hi.
+Qed.
+
+Lemma index_sublist_tighten {X : Type} `{EqType X}: forall (l1 l2: list X) (i: nat),
+  index_sublist_2 l1 l2 i = true
+  -> exists (i': nat), index_sublist l1 l2 = Some i'.
+Proof.
+  intros l1 l2 i Hi.
+  generalize dependent l2. induction i as [| i' IH].
+  - intros l2 Hi. destruct l2 as [| h2 t2]. simpl. simpl in Hi. rewrite Hi. exists 0. reflexivity.
+    simpl in Hi. simpl. destruct (prefix_X l1 (h2 :: t2)) as [|] eqn:Hpre. exists 0. reflexivity.
+    discriminate Hi.
+  - intros l2 Hi. destruct l2 as [| h2 t2].
+    + simpl in Hi. discriminate Hi.
+    + simpl in Hi. apply IH in Hi. simpl. destruct (prefix_X l1 (h2 :: t2)) as [|] eqn:Hpre. exists 0. reflexivity.
+      destruct Hi as [j Hj]. exists (S j). rewrite Hj. destruct l1 as [| h1 t1]. discriminate Hpre. reflexivity.
+Qed.
+
+Lemma index_sublist_exists {X : Type} `{EqType X}: forall (l1 l2: list X),
+  sublist_X l1 l2 = true
+  <-> exists (i: nat), index_sublist l1 l2 = Some i.
+Proof.
+  intros l1 l2. split.
+  { intros Hsub.
+    induction l2 as [| h2 t2 IH].
+    - simpl in Hsub. destruct l1 as [| h1 t1]. exists 0. simpl. reflexivity. discriminate Hsub.
+    - simpl in Hsub. destruct (prefix_X l1 (h2 :: t2)) as [|] eqn:Hpre.
+      + exists 0. simpl. rewrite Hpre. reflexivity.
+      + simpl. rewrite Hpre. simpl in Hsub. apply IH in Hsub. destruct Hsub as [i Hi]. exists (S i).
+        rewrite Hi. destruct l1 as [| h1 t1]. simpl in Hpre. discriminate Hpre. reflexivity. }
+  { intros [i Hi].
+    generalize dependent i. induction l2 as [| h2 t2 IH].
+    - intros i Hi. destruct l1 as [| h1 t1]. reflexivity. simpl in Hi. discriminate Hi.
+    - intros i Hi. destruct (prefix_X l1 (h2 :: t2)) as [|] eqn:Hpre.
+      + simpl. rewrite Hpre. reflexivity.
+      + simpl. rewrite Hpre. simpl. simpl in Hi. rewrite Hpre in Hi. destruct l1 as [| hl1 tl1]. discriminate Hpre.
+        destruct (index_sublist (hl1 :: tl1) t2) as [j|].
+        * apply IH with (i := j). reflexivity.
+        * discriminate Hi. }
+Qed.
+
+
+Lemma sublist_with_index_one_less {X : Type} `{EqType X}: forall (L1 L2: list X) (i: nat),
+  index_sublist L1 L2 = Some (S i)
+  -> exists (U: X), index_sublist (U :: L1) L2 = Some i.
+Proof.
+  intros L1 L2 i Hi.
+  generalize dependent L2. induction i as [| i' IH].
+  - intros L2 Hi. destruct L2 as [| h2 t2]. destruct L1 as [| h1 t1]. simpl in Hi. discriminate Hi. simpl in Hi. discriminate Hi.
+    simpl in Hi.
+    destruct (prefix_X L1 (h2 :: t2)) as [|] eqn:Hpre.
+    + discriminate Hi.
+    + destruct L1 as [| h1 t1]. discriminate Hi.
+      destruct (index_sublist (h1 :: t1) t2) as [j|] eqn:Hj.
+      * inversion Hi. exists h2. rewrite H1 in Hj. simpl. rewrite eqb_refl'. simpl. destruct t2 as [| h2' t2']. simpl in Hj. discriminate Hj.
+        simpl in Hj. destruct (eqb h1 h2' && prefix_X t1 t2') as [|] eqn:Hpre'. reflexivity.
+        destruct (index_sublist (h1 :: t1) t2') as [j'|]. discriminate Hj. discriminate Hj.
+      * discriminate Hi.
+  - intros L2 Hi. destruct L2 as [| h2 t2].
+    + destruct L1 as [| h1 t1]. discriminate Hi. discriminate Hi.
+    + destruct L1 as [| h1 t1]. discriminate Hi. simpl in Hi. destruct (eqb h1 h2 && prefix_X t1 t2) as [|] eqn:Hpre.
+      * discriminate Hi.
+      * destruct (index_sublist (h1 :: t1) t2) as [j|] eqn:Hj.
+        -- inversion Hi. rewrite H1 in Hj. pose proof Hj as Hind. apply IH in Hind. destruct Hind as [U HU]. exists U.
+           destruct (prefix_X (U :: h1 :: t1) (h2 :: t2)) as [|] eqn:Hpre'.
+           ++ simpl in Hpre'. destruct t2 as [| h2' t2']. rewrite andb_comm in Hpre'. discriminate Hpre'. simpl in Hj.
+              destruct (eqb h1 h2' && prefix_X t1 t2') as [|] eqn:Hpre''. discriminate Hj. rewrite andb_comm in Hpre'. discriminate Hpre'.
+           ++ simpl. simpl in Hpre'. rewrite Hpre'. rewrite HU. reflexivity.
+        -- discriminate Hi.
+Qed.
+
+Lemma sublist_with_index_one_less_2 {X : Type} `{EqType X}: forall (L1 L2: list X) (i: nat),
+  index_sublist_2 L1 L2 (S i) = true
+  -> exists (U: X), index_sublist_2 (U :: L1) L2 i = true.
+Proof.
+  intros L1 L2 i Hi.
+  generalize dependent L2. induction i as [| i' IH].
+  - intros L2 Hi. destruct L2 as [| h2 t2]. destruct L1 as [| h1 t1]. simpl in Hi. discriminate Hi. simpl in Hi. discriminate Hi.
+    simpl in Hi.
+    exists h2. simpl. rewrite eqb_refl'. simpl. destruct t2 as [| h2' t2']. simpl in Hi. apply Hi. simpl in Hi. apply Hi.
+  - intros L2 Hi. destruct L2 as [| h2 t2].
+    + simpl in Hi. discriminate Hi.
+    + simpl in Hi. apply IH in Hi. destruct Hi as [U Hi]. exists U. simpl. apply Hi.
+Qed.
+
+Lemma index_for_start_of_sublist {X : Type} `{EqType X}: forall (U: X) (L1 L2: list X) (i: nat),
+  index_sublist_2 (L1 ++ [U]) L2 i = true
+  -> index_sublist_2 L1 L2 i = true.
+Proof.
+  intros U L1 L2 i Hi.
+  generalize dependent i. induction L2 as [| h2 t2 IH].
+  - intros i Hi. simpl in Hi. destruct i as [| i'].
+    + simpl. simpl in Hi. apply prefix_X_start in Hi. apply Hi.
+    + discriminate Hi.
+  - intros i Hi. simpl. destruct i as [| i'].
+    + simpl in Hi. apply prefix_X_start in Hi. apply Hi.
+    + simpl in Hi. apply IH. apply Hi.
 Qed.

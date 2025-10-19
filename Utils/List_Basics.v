@@ -41,6 +41,17 @@ Proof.
   - simpl. reflexivity.
 Qed.
 
+Lemma length_0_list_empty: forall X (l: list X),
+  length l = 0 <-> l = [].
+Proof.
+  intros X l. split.
+  { intros H.
+  destruct l as [| h t].
+  - reflexivity.
+  - simpl in H. discriminate H. }
+  { intros H. rewrite H. reflexivity. }
+Qed.
+
 (* return true if v is a member of s *)
 Fixpoint member (v : nat) (s : list nat) : bool
   := match s with
@@ -235,6 +246,31 @@ Proof.
     + simpl. rewrite Hhx. apply IH.
 Qed.
 
+(* if nth_error returns u for two distinct indicees, then u must appear in 
+   l more than once *)
+Lemma nth_error_count: forall (l: list nat) (u: nat) (j k: nat),
+  nth_error l j = Some u /\ nth_error l k = Some u
+  -> j =? k = false
+  -> count u l > 1.
+Proof.
+  intros l u j k [Hj Hk] Hjk.
+  generalize dependent j. generalize dependent k. induction l as [| h t IH].
+  - intros k Hk j Hj Hjk. destruct j as [| j']. simpl in Hj. discriminate Hj. simpl in Hj. discriminate Hj.
+  - intros k Hk j Hj Hjk. destruct j as [| j'].
+    + simpl in Hj. inversion Hj. simpl. rewrite eqb_refl.
+      destruct k as [| k']. rewrite eqb_refl in Hjk. discriminate Hjk.
+      simpl in Hk. apply nth_error_In in Hk. apply member_count_at_least_1 in Hk. lia.
+    + simpl in Hj. destruct k as [| k'].
+      * simpl in Hk. inversion Hk. simpl. rewrite eqb_refl.
+        apply nth_error_In in Hj. apply member_count_at_least_1 in Hj. lia.
+      * simpl in Hk. assert (Hc: count u t > 1).
+        { apply IH with (k := k') (j := j'). easy. easy. destruct (j' =? k') as [|] eqn:F.
+          - apply eqb_eq in F. rewrite F in Hjk. rewrite eqb_refl in Hjk. discriminate Hjk.
+          - reflexivity. }
+        simpl. destruct (h =? u) as [|]. lia. lia.
+Qed.
+
+
 (* return the maximum element of a list of natural numbers *)
 Fixpoint max_list (l: list nat) : nat :=
   match l with
@@ -295,6 +331,19 @@ Fixpoint fsts {X Y: Type} (l: list (X * Y)) : list X :=
 
 Example firsts_test: fsts [(1,2); (2,3); (4,3)] = [1; 2; 4].
 Proof. reflexivity. Qed.
+
+(* return first n elements of l, or None if n > len(l) *)
+Fixpoint first_n {X: Type} (l: list X) (n: nat): option (list X) :=
+  match n with
+  | 0 => Some []
+  | S n' => match l with
+            | [] => None
+            | h :: t => match (first_n t n') with
+                        | Some r => Some (h :: r)
+                        | None => None
+                        end
+            end
+  end.
 
 (* return the index of the first appearance of x in l (zero-indexed),
    or None if x is not a member of l *)
