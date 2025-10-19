@@ -9,7 +9,7 @@ Require Import Coq.Program.Wf.
 
 Import ListNotations.
 
-From CausalModels Require Import DAG_Basics.
+From DAGs Require Import Basics.
 
 
 (* this file defines an adjacency list representation of DAGs and proves its relationship

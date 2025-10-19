@@ -1,5 +1,5 @@
-From CausalModels Require Import DAG_Basics.
-From CausalModels Require Import DAG_CycleDetection.
+From DAGs Require Import Basics.
+From DAGs Require Import CycleDetection.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 From Coq Require Import Arith.EqNat. Import Nat.

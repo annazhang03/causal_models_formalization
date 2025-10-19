@@ -1,4 +1,4 @@
-From CausalModels Require Import DAG_Basics.
+From DAGs Require Import Basics.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 

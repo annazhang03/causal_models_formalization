@@ -1,4 +1,4 @@
--Q CausalModels CausalModels
+-Q DAGs DAGs
 -Q Utils Utils
 
 Utils/Lists.v
@@ -6,14 +6,14 @@ Utils/List_Basics.v
 Utils/Logic.v
 Utils/List_Relations.v
 Utils/Sublists.v
-CausalModels/DAG_Basics_Constr.v
-CausalModels/DAG_Basics_Proofs.v
-CausalModels/DAG_Basics.v
-CausalModels/DAG_PathFinding.v
-CausalModels/DAG_CycleDetection.v
-CausalModels/DAG_Descendants.v
-CausalModels/DAG_Adjacency.v
-CausalModels/DAG_TopologicalSort.v
+DAGs/Basics_Constr.v
+DAGs/Basics_Proofs.v
+DAGs/Basics.v
+DAGs/PathFinding.v
+DAGs/CycleDetection.v
+DAGs/Descendants.v
+DAGs/Adjacency.v
+DAGs/TopologicalSort.v
 
 
 
