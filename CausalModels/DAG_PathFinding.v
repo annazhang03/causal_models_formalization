@@ -525,11 +525,18 @@ Qed.
 
 (*helper 3*)
 Lemma extend_paths_from_start_iter_acyclic:
-  forall (E: edges) (p:path) (l: paths) (k: nat),
+  forall (E: edges) (p:path) (l: paths) (k: nat), no_one_cycles E = true ->
   (forall p', In p' l -> acyclic_path_2 p') ->
   In p (extend_paths_from_start_iter E l k) ->
   acyclic_path_2 p.
-Admitted.
+Proof. intros. revert H1 H0 H. revert l p E. induction k.
+  - unfold extend_paths_from_start_iter. intros. exact (H0 _ H1).
+  - intros. simpl in H1.
+    pose proof (IHk (extend_paths_from_start_by_edges E l) p E H1) as Hpose.
+    apply Hpose; eauto.
+    intros q Hin. pose proof (extend_paths_from_start_by_edges_acyclic E q l) as Hacyc.
+    eapply Hacyc; eauto.
+Qed.
 
 (* determine all paths existing in the graph made up of edges E *)
 Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
