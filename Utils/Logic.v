@@ -193,7 +193,7 @@ Proof.
 Qed.
 
 
-(* properties of forallb *)
+(* properties of forallb, existsb, filter *)
 Theorem forallb_true_iff : forall X test (l : list X),
   forallb test l = true <-> All (fun x => test x = true) l.
 Proof.
@@ -249,6 +249,13 @@ Proof.
       * rewrite <- H1. apply Htesth.
       * apply IHt. apply H1. apply H.
     + simpl in H. discriminate H.
+Qed.
+
+Theorem existsb_false :
+  forall (T: Type) (P: T -> bool) (ls : list T), existsb P ls = false -> (forall x : T, In x ls -> P x = false).
+Proof.
+  intros T P ls H.
+  destruct (demorgan_many_bool_2 T P ls) as [Hf Hb]. apply Hf. apply H.
 Qed.
 
 

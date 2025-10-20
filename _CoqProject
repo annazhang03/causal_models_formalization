@@ -18,7 +18,6 @@ DAGs/Descendants.v
 DAGs/Adjacency.v
 DAGs/TopologicalSort.v
 CausalDiagrams/Assignments.v
-CausalDiagrams/Helpers.v
 CausalDiagrams/IntermediateNodes.v
 CausalDiagrams/CausalPaths.v
 CausalDiagrams/DSeparation.v
@@ -32,10 +31,11 @@ Semantics/OrigA1Nodes.v
 Semantics/OrigA2Nodes.v
 Semantics/OrigA3Nodes.v
 Semantics/OrigA4Nodes.v
+Semantics/OrigA4NodesSeq.v
 Semantics/ColliderDescendants.v
-
-
-# if want to run CausalModels.v, uncomment the code below:
-# -Q . FCM
-# ./Helpers.v
-# ./CausalModels.v
+Semantics/DescendantPathsDisjoint.v
+Semantics/ConditionallyIndependentDef.v
+Semantics/EquateValues.v
+Semantics/ChangeOriginatesFromUnbAnc.v
+Semantics/CondIndDSepEquivalence.v
+Semantics/PrevConditionallyIndependentDef.v

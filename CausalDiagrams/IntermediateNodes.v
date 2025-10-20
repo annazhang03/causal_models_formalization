@@ -1,4 +1,3 @@
-From CausalDiagrams Require Import Helpers.
 From DAGs Require Import Basics.
 From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
@@ -1182,10 +1181,10 @@ Proof.
   ** intros hly1 tly1 Hly1. assert (Hly1': ly1 = rev tly1 ++ [hly1]). { rewrite reverse_list_twice with (l := ly1). unfold node in *. rewrite Hly1. reflexivity. }
      rewrite Hly1' in *. symmetry in Hpdy. apply path_breaks_down_midpoint_vs_endpoint in Hpdy.
      destruct (rev ly2) as [| hly2 tly2] eqn:Hly2.
-     - assert (H: y = dy /\ rev tly1 ++ [hly1] = py). { apply Hpdy. reflexivity. } destruct H as [H1 H2]. rewrite <- H1 in Hdir.
+     - assert (H: y = dy /\ rev tly1 ++ [hly1] = py). { apply Hpdy. apply Hly2. } destruct H as [H1 H2]. rewrite <- H1 in Hdir.
        assert (Hdir': is_directed_path_in_graph (hly1, y, []) G = true). { apply subpath_still_directed with (w := cy) (l1 := rev tly1) (l3 := py). split. apply H2. apply Hdir. }
        simpl in Hdir'. apply split_and_true in Hdir'. apply Hdir'.
-     - assert (H: dy = hly2 /\ py = (rev tly1 ++ [hly1]) ++ [y] ++ rev tly2). { apply Hpdy. reflexivity. }
+     - assert (H: dy = hly2 /\ py = (rev tly1 ++ [hly1]) ++ [y] ++ rev tly2). { apply Hpdy. apply Hly2. }
        destruct H as [H1 H2].
        assert (Hdir': is_directed_path_in_graph (hly1, dy, y :: rev tly2) G = true). { apply subpath_still_directed with (w := cy) (l1 := rev tly1) (l3 := py). split. rewrite <- app_assoc in H2. symmetry. apply H2. apply Hdir. }
        simpl in Hdir'. apply split_and_true in Hdir'. apply Hdir'.
@@ -1236,17 +1235,17 @@ Proof.
   apply colliders_vs_edges_in_path. apply path_breaks_down_midpoint_vs_endpoint in Hl1. apply path_breaks_down_midpoint_vs_endpoint in Hl2.
   assert (Hcy2: l2' = [] -> is_edge (c2, y) G = true).
   { intros Hl20. destruct (rev l2'') as [| hl2' tl2'] eqn:Hl2''.
-    - assert (Hy: y = d2 /\ l2' = l2). { apply Hl2. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd2. rewrite <- Hy2 in Hd2. rewrite Hl20 in Hd2.
+    - assert (Hy: y = d2 /\ l2' = l2). { apply Hl2. apply Hl2''. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd2. rewrite <- Hy2 in Hd2. rewrite Hl20 in Hd2.
       simpl in Hd2. apply split_and_true in Hd2. apply Hd2.
-    - assert (Hy: d2 = hl2' /\ l2 = l2' ++ [y] ++ rev tl2'). { apply Hl2. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite Hy1 in Hd2. rewrite Hy2 in Hd2. rewrite Hl20 in Hd2.
+    - assert (Hy: d2 = hl2' /\ l2 = l2' ++ [y] ++ rev tl2'). { apply Hl2. apply Hl2''. } destruct Hy as [Hy1 Hy2]. rewrite Hy1 in Hd2. rewrite Hy2 in Hd2. rewrite Hl20 in Hd2.
       simpl in Hd2. apply split_and_true in Hd2. apply Hd2. }
 
   assert (Hcy2': forall (hl2: node) (tl2: nodes), l2' = rev tl2 ++ [hl2] -> is_edge (hl2, y) G = true).
   { intros hl2 tl2 Hl20. destruct (rev l2'') as [| hl2' tl2'] eqn:Hl2''.
-    - assert (Hy: y = d2 /\ l2' = l2). { apply Hl2. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd2. rewrite <- Hy2 in Hd2. rewrite Hl20 in Hd2.
+    - assert (Hy: y = d2 /\ l2' = l2). { apply Hl2. apply Hl2''. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd2. rewrite <- Hy2 in Hd2. rewrite Hl20 in Hd2.
       assert (Hd': is_directed_path_in_graph (hl2, y, []) G = true). { apply subpath_still_directed with (w := c2) (l1 := rev tl2) (l3 := rev tl2 ++ [hl2]). split. rewrite append_identity. reflexivity. apply Hd2. }
       simpl in Hd'. apply split_and_true in Hd'. apply Hd'.
-    - assert (Hy: d2 = hl2' /\ l2 = l2' ++ [y] ++ rev tl2'). { apply Hl2. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite Hy2 in Hd2. rewrite Hl20 in Hd2.
+    - assert (Hy: d2 = hl2' /\ l2 = l2' ++ [y] ++ rev tl2'). { apply Hl2. apply Hl2''. } destruct Hy as [Hy1 Hy2]. rewrite Hy2 in Hd2. rewrite Hl20 in Hd2.
       assert (Hd': is_directed_path_in_graph (hl2, d2, y :: rev tl2') G = true). { apply subpath_still_directed with (w := c2) (l1 := rev tl2) (l3 := rev tl2 ++ [hl2] ++ [y] ++ rev tl2'). split. reflexivity. rewrite app_assoc. apply Hd2. }
       simpl in Hd'. apply split_and_true in Hd'. apply Hd'. }
 
@@ -1254,9 +1253,9 @@ Proof.
   - exists c1. assert (Hl10: l1' = []). { rewrite reverse_list_twice with (l := l1'). unfold node in *. rewrite Hl1'. reflexivity. }
     assert (Hcy1: is_edge (c1, y) G = true).
     { destruct (rev l1'') as [| hl1' tl1'] eqn:Hl1''.
-      - assert (Hy: y = d1 /\ l1' = l1). { apply Hl1. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd1. rewrite <- Hy2 in Hd1. rewrite Hl10 in Hd1.
+      - assert (Hy: y = d1 /\ l1' = l1). { apply Hl1. apply Hl1''. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd1. rewrite <- Hy2 in Hd1. rewrite Hl10 in Hd1.
         simpl in Hd1. apply split_and_true in Hd1. apply Hd1.
-      - assert (Hy: d1 = hl1' /\ l1 = l1' ++ [y] ++ rev tl1'). { apply Hl1. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite Hy1 in Hd1. rewrite Hy2 in Hd1. rewrite Hl10 in Hd1.
+      - assert (Hy: d1 = hl1' /\ l1 = l1' ++ [y] ++ rev tl1'). { apply Hl1. apply Hl1''. } destruct Hy as [Hy1 Hy2]. rewrite Hy1 in Hd1. rewrite Hy2 in Hd1. rewrite Hl10 in Hd1.
         simpl in Hd1. apply split_and_true in Hd1. apply Hd1. } rewrite Hl10 in *.
 
     destruct (rev l2') as [| hl2 tl2] eqn:Hl2'.
@@ -1271,10 +1270,10 @@ Proof.
     assert (Hl10: l1' = rev tl1 ++ [hl1]). { rewrite reverse_list_twice with (l := l1'). unfold node in *. rewrite Hl1'. simpl. reflexivity. }
     assert (Hcy1: is_edge (hl1, y) G = true).
     { destruct (rev l1'') as [| hl1' tl1'] eqn:Hl1''.
-      - assert (Hy: y = d1 /\ l1' = l1). { apply Hl1. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd1. rewrite <- Hy2 in Hd1. rewrite Hl10 in Hd1.
+      - assert (Hy: y = d1 /\ l1' = l1). { apply Hl1. apply Hl1''. } destruct Hy as [Hy1 Hy2]. rewrite <- Hy1 in Hd1. rewrite <- Hy2 in Hd1. rewrite Hl10 in Hd1.
         assert (Hd': is_directed_path_in_graph (hl1, y, []) G = true). { apply subpath_still_directed with (w := c1) (l1 := rev tl1) (l3 := rev tl1 ++ [hl1]). split. rewrite append_identity. reflexivity. apply Hd1. }
         simpl in Hd'. apply split_and_true in Hd'. apply Hd'.
-      - assert (Hy: d1 = hl1' /\ l1 = l1' ++ [y] ++ rev tl1'). { apply Hl1. reflexivity. } destruct Hy as [Hy1 Hy2]. rewrite Hy2 in Hd1. rewrite Hl10 in Hd1.
+      - assert (Hy: d1 = hl1' /\ l1 = l1' ++ [y] ++ rev tl1'). { apply Hl1. apply Hl1''. } destruct Hy as [Hy1 Hy2]. rewrite Hy2 in Hd1. rewrite Hl10 in Hd1.
         assert (Hd': is_directed_path_in_graph (hl1, d1, y :: rev tl1') G = true). { apply subpath_still_directed with (w := c1) (l1 := rev tl1) (l3 := rev tl1 ++ [hl1] ++ [y] ++ rev tl1'). split. reflexivity. rewrite app_assoc. apply Hd1. }
         simpl in Hd'. apply split_and_true in Hd'. apply Hd'. }
     rewrite Hl10 in *.

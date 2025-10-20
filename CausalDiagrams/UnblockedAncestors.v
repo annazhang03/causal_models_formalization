@@ -1,4 +1,3 @@
-From CausalDiagrams Require Import Helpers.
 From CausalDiagrams Require Import IntermediateNodes.
 From CausalDiagrams Require Import DSeparation.
 From DAGs Require Import Basics.
@@ -105,9 +104,9 @@ Proof.
       exists (rev l1). rewrite <- and_assoc. split.
       * apply directed_paths_to_end_correct in Hp. apply path_breaks_down_midpoint_vs_endpoint in Hal.
         destruct (rev l2) as [| hl2 tl2] eqn:Hl2.
-        -- destruct Hal as [Hal _]. assert (Hal': a = u /\ l1 = rev l). { apply Hal. reflexivity. }
+        -- destruct Hal as [Hal _]. assert (Hal': a = u /\ l1 = rev l). { apply Hal. apply Hl2. }
            destruct Hal' as [Ha' Hl1]. rewrite Ha'. rewrite Hl1. rewrite <- reverse_list_twice. split. apply Hp. apply Hp.
-        -- destruct Hal as [_ Hal]. specialize Hal with (hl2 := hl2) (tl2 := tl2). assert (Hal': u = hl2 /\ rev l = l1 ++ [a] ++ rev tl2). { apply Hal. reflexivity. }
+        -- destruct Hal as [_ Hal]. specialize Hal with (hl2 := hl2) (tl2 := tl2). assert (Hal': u = hl2 /\ rev l = l1 ++ [a] ++ rev tl2). { apply Hal. apply Hl2. }
            destruct Hal' as [Hu Hl]. split.
            { apply subpath_still_directed with (w := u) (l1 := tl2) (l3 := l). split.
              rewrite reverse_list_twice with (l := l). unfold nodes in *. unfold node in *. rewrite Hl. rewrite reverse_list_append. simpl.

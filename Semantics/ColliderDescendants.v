@@ -466,24 +466,3 @@ Proof.
            apply Hy'. right. rewrite Hlhv. rewrite <- app_assoc. apply membership_append_r. apply Hy.
         -- intros c' d' p'. intros Hc'. apply H. split. apply Hc'. apply collider_descendants_preserved_for_subpath with (D' := Dx) (col := (find_colliders_in_path (x, v, l2) G)). apply HDx. apply Hc'.
 Qed.
-
-Theorem exists_d_connected_path_with_collider_descendants_disjoint: forall (G: graph) (Z l: nodes) (u v: node),
-  G_well_formed G = true /\ contains_cycle G = false
-  -> acyclic_path_2 (u, v, l)
-  -> d_connected_2 (u, v, l) G Z
-  -> is_path_in_graph (u, v, l) G = true
-  -> exists (l': nodes),
-     acyclic_path_2 (u, v, l') /\ d_connected_2 (u, v, l') G Z /\ is_path_in_graph (u, v, l') G = true
-     /\
-     (forall (w: node), (node_in_path w (u, v, l') = true /\ node_in_path w (u, v, l) = false) \/
-                        (exists (b: bool), path_out_of_node w (u, v, l) G = Some b /\ path_out_of_node w (u, v, l') G = Some (negb b))
-      -> ((exists (du: node) (pu: nodes), is_directed_path_in_graph (w, du, pu) G = true /\ In du Z /\ ~In w Z)
-          \/ path_out_of_node w (u, v, l') G <> Some true /\ In w Z)
-           (* if path changed direction into u, then it's due to a descendant path *)
-         /\ (path_out_of_node w (u, v, l') G = Some true -> ~(In w Z)))
-     /\
-     exists (D: assignments (nodes * node)), descendant_paths_disjoint D u v l' G Z.
-Proof.
-(* TODO fill in (L7352-10544 *)
-Admitted.
-

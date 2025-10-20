@@ -200,6 +200,12 @@ Proof.
     + apply IH with (L := h1 :: h2 :: t2). apply Heq. simpl in HL. apply HL.
 Qed.
 
+Definition sequence_of_ancestors_change_for_Z {X: Type} `{EqType X} (Ua Ub: assignments X) (L: list (assignments X))
+                                   (G: graph) (Z: nodes) (AZ: assignments X) (u v: node) (l: nodes): Prop :=
+  assignments_change_only_for_subset Ua Ub (intersect (u :: l ++ [v]) (find_unblocked_ancestors G u Z))
+  /\ assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
+  /\ forall (U: assignments X), In U (Ua :: Ub :: L) -> is_assignment_for U (nodes_in_graph G) = true.
+
 
 Definition conditionally_independent'' (X: Type) `{EqType X} (G: graph) (u v: node) (Z: nodes): Prop :=
   forall (AZ: assignments X), is_exact_assignment_for AZ Z /\ each_node_assigned_once AZ

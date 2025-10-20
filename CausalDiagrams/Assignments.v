@@ -14,6 +14,66 @@ From Utils Require Import EqType.
 Definition assignment (X : Type) : Type := node * X.
 Definition assignments (X : Type) : Type := list (assignment X).
 
+Fixpoint eqb_asmt {X: Type} `{EqType X} (l1 l2: assignments X): bool :=
+  match l1 with
+  | [] => match l2 with
+          | [] => true
+          | h :: t => false
+          end
+  | h1 :: t1 => match l2 with
+                | [] => false
+                | h2 :: t2 => (fst h1 =? fst h2) && eqb (snd h1) (snd h2) && eqb_asmt t1 t2
+                end
+  end.
+
+Lemma eqb_asmt_refl {X: Type} `{EqType X}: forall (l: assignments X),
+  eqb_asmt l l = true.
+Proof.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl. rewrite eqb_refl. simpl. rewrite eqb_refl'. simpl. apply IH.
+Qed.
+
+Lemma eqb_asmt_eq {X: Type} `{EqType X}: forall (U1 U2: assignments X),
+  eqb_asmt U1 U2 = true
+  <-> U1 = U2.
+Proof.
+  intros U1 U2. split.
+  { intros Heq.
+    generalize dependent U2. induction U1 as [| h t IH].
+    - intros U2 Heq. destruct U2 as [| h2 t2]. reflexivity. simpl in Heq. discriminate Heq.
+    - intros U2 Heq. destruct U2 as [| h2 t2]. simpl in Heq. discriminate Heq.
+      simpl in Heq. apply split_and_true in Heq. destruct Heq as [Hh Heq].
+      assert (Hhh2: h = h2). { destruct h as [x1 y1]. destruct h2 as [x2 y2]. simpl in Hh. apply split_and_true in Hh. destruct Hh as [Hx Hy].
+        apply eqb_eq' in Hy. rewrite Hy. apply eqb_eq in Hx. rewrite Hx. reflexivity. }
+      rewrite Hhh2. f_equal. apply IH. apply Heq. }
+  { intros Heq.
+    generalize dependent U2. induction U1 as [| h t IH].
+    - intros U2 Heq. rewrite <- Heq. simpl. reflexivity.
+    - intros U2 Heq. destruct U2 as [| h2 t2]. simpl in Heq. discriminate Heq.
+      inversion Heq. apply eqb_asmt_refl. }
+Qed.
+
+Lemma eqb_asmt_sym {X: Type} `{EqType X}: forall (U1 U2: assignments X),
+  eqb_asmt U1 U2 = eqb_asmt U2 U1.
+Proof.
+  intros U1 U2.
+  generalize dependent U2. induction U1 as [| h t IH].
+  - intros U2. destruct U2 as [| h2 t2]. reflexivity. simpl. reflexivity.
+  - intros U2. destruct U2 as [| h2 t2]. reflexivity. simpl.
+    rewrite eqb_sym. rewrite eqb_sym'. rewrite IH. reflexivity.
+Qed.
+
+Instance EqType_asmt {X : Type} `{EqType X} : EqType (assignments X) := {
+  eqb := eqb_asmt;
+  eqb_refl' := eqb_asmt_refl;
+  eqb_sym' := eqb_asmt_sym;
+  eqb_eq' := eqb_asmt_eq
+}.
+
+
+
+
 Fixpoint is_assigned {X: Type} (A: assignments X) (u: node) : bool :=
   match A with
   | [] => false
