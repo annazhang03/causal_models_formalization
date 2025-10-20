@@ -1,12 +1,41 @@
--Q CausalModels FCM
-CausalModels/Helpers.v
-CausalModels/DAG_Basics_Constr.v
-CausalModels/DAG_Basics_Proofs.v
-CausalModels/DAG_Basics.v
-CausalModels/DAG_PathFinding.v
-CausalModels/DAG_CycleDetection.v
+-Q DAGs DAGs
+-Q Utils Utils
+-Q CausalDiagrams CausalDiagrams
+-Q Semantics Semantics
 
-# if want to run CausalModels.v, uncomment the code below:
-# -Q . FCM
-# ./Helpers.v
-# ./CausalModels.v
+Utils/EqType.v
+Utils/Lists.v
+Utils/List_Basics.v
+Utils/Logic.v
+Utils/List_Relations.v
+Utils/Sublists.v
+DAGs/Basics_Constr.v
+DAGs/Basics_Proofs.v
+DAGs/Basics.v
+DAGs/PathFinding.v
+DAGs/CycleDetection.v
+DAGs/Descendants.v
+DAGs/Adjacency.v
+DAGs/TopologicalSort.v
+CausalDiagrams/Assignments.v
+CausalDiagrams/IntermediateNodes.v
+CausalDiagrams/CausalPaths.v
+CausalDiagrams/DSeparation.v
+CausalDiagrams/UnblockedAncestors.v
+CausalDiagrams/Interventions.v
+CausalDiagrams/Counterfactuals.v
+Semantics/FunctionRepresentation.v
+Semantics/FindValue.v
+Semantics/NodeCategorization.v
+Semantics/OrigA1Nodes.v
+Semantics/OrigA2Nodes.v
+Semantics/OrigA3Nodes.v
+Semantics/OrigA4Nodes.v
+Semantics/OrigA4NodesSeq.v
+Semantics/ColliderDescendants.v
+Semantics/DescendantPathsDisjoint.v
+Semantics/ConditionallyIndependentDef.v
+Semantics/EquateValues.v
+Semantics/ChangeOriginatesFromUnbAnc.v
+Semantics/CondIndDSepEquivalence.v
+Semantics/PrevConditionallyIndependentDef.v

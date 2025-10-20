@@ -1,15 +1,17 @@
-(** DAG_CycleDetection.v *)
-
-From FCM Require Import DAG_Basics.
-From FCM Require Import DAG_PathFinding.
-From FCM Require Import Helpers.
+From DAGs Require Import Basics.
+From DAGs Require Import PathFinding.
+From Utils Require Import Lists.
+From Utils Require Import Logic.
 
 From Coq Require Import Classical.
 Import ListNotations.
 
-(* dfs for cycle detection in directed graph G *)
+(* this file provides functions and correctness theorems for cycle detection
+   within a directed graph by performing DFS in a manner similar to in DAG_PathFinding *)
 
-(* return list of directed 1-paths (each edge becomes one 1-path) *)
+
+(* return list of directed 1-paths from a list of edges
+   e.g. each edge (a,b) becomes 1-path a->b, or (a, b, []) *)
 Fixpoint directed_edges_as_paths (E: edges) : paths :=
   match E with
   | [] => []
@@ -20,18 +22,22 @@ Fixpoint directed_edges_as_paths (E: edges) : paths :=
 
 Compute directed_edges_as_paths [(1, 2); (4, 3); (3, 2); (3, 4)].
 
-(* return (bool, paths) representing whether a cycle was encountered, and the extended (acyclic) list of paths if not *)
+
+(* return a tuple (bool, paths). the first element represents whether a cycle was encountered.
+   if false, then the second element contains the extended (acyclic) list of paths after attempting
+   to extend paths in l by e *)
 Fixpoint dfs_extend_by_edge (e : edge) (l: paths) : bool * paths :=
   match l with
-  | [] => (false, l)
+  | [] => (false, l) (* no cycle and nothing more to extend *)
   | h :: t => match h, e with
                 | (u1, v1, l1), (u2, v2) =>
-                      if (u2 =? v2) then (true, []) (* self loop *)
-                      else if ((u2 =? v1) && (u1 =? v2)) then (true, []) (* cycle! *)
-                      else if ((u2 =? v1) && (member v2 l1)) then (true, []) (* cycle inside path *)
-                      else if (u2 =? v1) then let res := dfs_extend_by_edge e t in
+                      if (u2 =? v2) then (true, []) (* self loop: the edge (u2, u2) exists *)
+                      else if ((u2 =? v1) && (u1 =? v2)) then (true, []) (* cycle! u1 --l1--> v1=u2 -> v2=u1 *)
+                      else if ((u2 =? v1) && (member v2 l1)) then (true, [])
+                           (* cycle inside path: u1 --l1--> v1=u2 -> v2, which already appeared in l1 *)
+                      else if (u2 =? v1) then let res := dfs_extend_by_edge e t in (* can extend h by e *)
                                               (fst res, h :: (add_path_no_repeats (u1, v2, l1 ++ [v1]) (snd res)))
-                      else let res := dfs_extend_by_edge e t in
+                      else let res := dfs_extend_by_edge e t in (* cannot extend h by e *)
                            (fst res, h :: (snd res))
                end
 end.
@@ -93,6 +99,8 @@ Proof. reflexivity. Qed.
 Example but_not_when_only_one_added: contains_cycle (V_cf, E_cf ++ [(6, 1)]) = false.
 Proof. reflexivity. Qed.
 
+
+(* correctness proof for contains_cycle function and the contrapositive *)
 Theorem contains_cycle_true_correct : forall G: graph,
   (exists p: path, is_directed_path_in_graph p G = true /\ ~(acyclic_path_2 p))
   <-> contains_cycle G = true.
@@ -113,48 +121,9 @@ Proof.
     apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc.
 Qed.
 
-Lemma remove_node_preserves_directed_path: forall (G: graph) (p: path) (u: node),
-  is_directed_path_in_graph p (remove_node_from_graph G u) = true
-  -> is_directed_path_in_graph p G = true.
-Proof.
-  intros G p u H.
-  destruct p as [[s e] l]. generalize dependent s. induction l as [| h t IH].
-  - intros s H. simpl in H. simpl. destruct G as [V E]. simpl in H. simpl.
-    assert (member s V = true).
-    { destruct (member s (remove_node u V)) as [|] eqn:Hmem.
-      - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-      - discriminate H. }
-    rewrite H0.
-    assert (member e V = true).
-    { destruct (member e (remove_node u V)) as [|] eqn:Hmem.
-      - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-      - rewrite <- andb_assoc in H. rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-    rewrite H1. simpl.
-    assert (member_edge (s, e) E = true).
-    { destruct (member_edge (s, e) (remove_associated_edges u E)) as [|] eqn:Hmem.
-      - apply member_edge_In_equiv in Hmem. apply filter_true in Hmem. apply member_edge_In_equiv. apply Hmem.
-      - rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-    rewrite H2. reflexivity.
-  - intros s H. simpl. apply split_and_true. split.
-    + destruct G as [V E]. simpl in H. simpl.
-      assert (member s V = true).
-      { destruct (member s (remove_node u V)) as [|] eqn:Hmem.
-        - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-        - discriminate H. }
-      rewrite H0.
-      assert (member h V = true).
-      { destruct (member h (remove_node u V)) as [|] eqn:Hmem.
-        - apply member_In_equiv in Hmem. unfold remove_node in Hmem. apply filter_true in Hmem. apply member_In_equiv. apply Hmem.
-        - rewrite <- andb_assoc in H. rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-      rewrite H1. simpl.
-      assert (member_edge (s, h) E = true).
-      { destruct (member_edge (s, h) (remove_associated_edges u E)) as [|] eqn:Hmem.
-        - apply member_edge_In_equiv in Hmem. apply filter_true in Hmem. apply member_edge_In_equiv. apply Hmem.
-        - rewrite <- andb_assoc in H. rewrite andb_comm in H. discriminate H. }
-      rewrite H2. reflexivity.
-    + apply IH. simpl in H. apply split_and_true in H. apply H.
-Qed.
 
+
+(* simple properties of acyclic graphs *)
 Lemma remove_node_preserves_acyclic: forall (G: graph) (u: node),
   contains_cycle G = false -> contains_cycle (remove_node_from_graph G u) = false.
 Proof.
@@ -166,7 +135,6 @@ Proof.
     + apply remove_node_preserves_directed_path with (u := u). apply Hp.
   - reflexivity.
 Qed.
-
 
 Lemma acyclic_no_self_loop: forall (G: graph) (u: node),
   contains_cycle G = false -> is_edge (u, u) G = false.
