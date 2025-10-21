@@ -1,6 +1,6 @@
 From Semantics Require Import FunctionRepresentation.
 From Semantics Require Import FindValue.
-From Semantics Require Import ConditionallyIndependentDef.
+From Semantics Require Import SemanticSeparationDef.
 From CausalDiagrams Require Import CausalPaths.
 From CausalDiagrams Require Import IntermediateNodes.
 From CausalDiagrams Require Import Assignments.
@@ -270,7 +270,7 @@ Qed.
 Lemma sequence_of_ancestors_assignment {X: Type} `{EqType X}: forall (Ua Ub: assignments X) (L: list (assignments X)) (Z S: nodes) (AZ: assignments X) (G: graph),
   is_assignment_for Ua (nodes_in_graph G) = true
   -> assignments_change_only_for_subset Ua Ub S
-  -> assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
+  -> assignments_change_only_for_Z_anc_seq (Ua :: Ub :: L) Z AZ G
   -> forall (U: assignments X), In U (Ua :: Ub :: L) -> is_assignment_for U (nodes_in_graph G) = true.
 Proof.
   intros Ua Ub L Z S AZ G HUa HUab Hseq. intros U HU.
@@ -303,7 +303,7 @@ Lemma nodefun_value_only_affected_by_unblocked_ancestors_seq {X: Type} `{EqType 
   -> node_in_graph v G = true
   -> unobs_conditions_on_Z G g Ua AZ Z /\ unobs_conditions_on_Z G g Ub' AZ Z
   -> assignments_change_only_for_subset Ua Ub (find_unblocked_ancestors G u Z)
-  -> assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
+  -> assignments_change_only_for_Z_anc_seq (Ua :: Ub :: L) Z AZ G
   -> exists (a: node), In a (find_unblocked_ancestors G v Z)
       /\ (In a (find_unblocked_ancestors G u Z) \/
          exists (z: node),
@@ -351,7 +351,7 @@ Proof.
                     /\ overlap (find_unblocked_ancestors G z Z) (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub) = true
                     /\ is_assigned AZ z = true).
         { apply ancestor_in_Z_corresponds_to_conditioned_node_rev.
-          destruct (member a (find_unblocked_ancestors_in_Z'' G Z AZ
+          destruct (member a (find_unblocked_ancestors_in_Z G Z AZ
                         (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub))) as [|] eqn:HmemZ.
           + apply member_In_equiv in HmemZ. apply HmemZ.
           + assert (F: get_assigned_value Ub a = get_assigned_value U1 a).
@@ -392,7 +392,7 @@ Proof.
                       /\ overlap (find_unblocked_ancestors G z Z) (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub) = true
                       /\ is_assigned AZ z = true).
            { apply ancestor_in_Z_corresponds_to_conditioned_node_rev.
-             destruct (member a (find_unblocked_ancestors_in_Z'' G Z AZ
+             destruct (member a (find_unblocked_ancestors_in_Z G Z AZ
                            (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub))) as [|] eqn:HmemZ.
              + apply member_In_equiv in HmemZ. apply HmemZ.
              + assert (F: get_assigned_value Ub a = get_assigned_value U1 a).
@@ -438,7 +438,7 @@ Qed.
 Lemma path_between_two_conditioned_nodes {X: Type} `{EqType X}: forall (G: graph) (z: node) (Z: nodes) (Ua Ub Ui Ui' Ui'' AZ: assignments X) (L: list (assignments X)),
   G_well_formed G = true /\ contains_cycle G = false
   -> is_assigned AZ z = true
-  -> assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
+  -> assignments_change_only_for_Z_anc_seq (Ua :: Ub :: L) Z AZ G
   -> sublist_X [Ui; Ui'; Ui''] (Ua :: Ub :: L) = true
   -> In z (find_unblocked_ancestors_in_Z_contributors G Z AZ (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ui' Ui''))
   -> exists (z' a: node),
@@ -460,7 +460,7 @@ Proof.
                   /\ overlap (find_unblocked_ancestors G z' Z) (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub) = true
                   /\ is_assigned AZ z' = true).
       { apply ancestor_in_Z_corresponds_to_conditioned_node_rev.
-        destruct (member a (find_unblocked_ancestors_in_Z'' G Z AZ
+        destruct (member a (find_unblocked_ancestors_in_Z G Z AZ
                      (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub))) as [|] eqn:HmemZ.
         + apply member_In_equiv in HmemZ. apply HmemZ.
         + assert (F: get_assigned_value Ub a = get_assigned_value U1 a).

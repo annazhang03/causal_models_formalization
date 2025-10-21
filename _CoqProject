@@ -34,8 +34,8 @@ Semantics/OrigA4Nodes.v
 Semantics/OrigA4NodesSeq.v
 Semantics/ColliderDescendants.v
 Semantics/DescendantPathsDisjoint.v
-Semantics/ConditionallyIndependentDef.v
+Semantics/SemanticSeparationDef.v
 Semantics/EquateValues.v
 Semantics/ChangeOriginatesFromUnbAnc.v
-Semantics/CondIndDSepEquivalence.v
+Semantics/SemanticAndDSeparationEquiv.v
 Semantics/PrevConditionallyIndependentDef.v

@@ -2,7 +2,7 @@ From Semantics Require Import FunctionRepresentation.
 From Semantics Require Import FindValue.
 From Semantics Require Import NodeCategorization.
 From Semantics Require Import ColliderDescendants.
-From Semantics Require Import ConditionallyIndependentDef.
+From Semantics Require Import SemanticSeparationDef.
 From CausalDiagrams Require Import Assignments.
 From CausalDiagrams Require Import DSeparation.
 From CausalDiagrams Require Import UnblockedAncestors.

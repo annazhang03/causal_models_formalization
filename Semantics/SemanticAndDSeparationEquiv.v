@@ -3,7 +3,7 @@ From Semantics Require Import FindValue.
 From Semantics Require Import NodeCategorization.
 From Semantics Require Import ColliderDescendants.
 From Semantics Require Import DescendantPathsDisjoint.
-From Semantics Require Import ConditionallyIndependentDef.
+From Semantics Require Import SemanticSeparationDef.
 From Semantics Require Import EquateValues.
 From Semantics Require Import ChangeOriginatesFromUnbAnc.
 From CausalDiagrams Require Import Assignments.
@@ -27,14 +27,14 @@ From Utils Require Import EqType.
 
 
 (* show that using the g from generic_graph_and_type_properties_hold to equate values along the path, the
-   conditionally_independent proposition cannot hold *)
-Lemma path_d_connected_then_not_independent {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path),
+   semantically_separated proposition cannot hold *)
+Lemma path_d_connected_then_not_semantically_separated {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path),
   generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G) ->
   forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
-  -> d_connected_2 p G Z -> ~(conditionally_independent'' X G u v Z).
+  -> d_connected_2 p G Z -> ~(semantically_separated X G u v Z).
 Proof.
   intros G u v p [HG Hp]. intros Z [HZ [HZnode [HuZ HvZ]]] Hconn.
-  intros H_cond_ind. unfold conditionally_independent'' in H_cond_ind.
+  intros H_cond_ind. unfold semantically_separated in H_cond_ind.
   pose proof HG as Hxy. unfold generic_graph_and_type_properties_hold in Hxy. destruct Hxy as [Hxy _]. destruct Hxy as [x [y Hxy]].
   apply paths_start_to_end_correct in Hp.
 
@@ -158,13 +158,13 @@ Proof.
 Qed.
 
 
-Theorem conditional_independence_d_separation_backward {X : Type} `{EqType X}: forall (G: graph) (u v: node),
+Theorem path_d_separated_then_semantically_separated {X : Type} `{EqType X}: forall (G: graph) (u v: node),
   u <> v /\ generic_graph_and_type_properties_hold X G /\ node_in_graph v G = true
   -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
-  -> d_separated_bool u v G Z = true -> conditionally_independent'' X G u v Z.
+  -> d_separated_bool u v G Z = true -> semantically_separated X G u v Z.
 Proof.
   intros G u' v'. intros [Huveq [HG Hnodev]] Z HZ.
-  intros Hdsep. unfold conditionally_independent''.
+  intros Hdsep. unfold semantically_separated.
 
   assert (Hdconn1: forall (anc u: node) (l: nodes), is_directed_path_in_graph (anc, u, l) G = true /\
           (forall w : node, w = anc \/ In w l -> ~ In w Z) -> acyclic_path_2 (anc, u, l) -> d_connected_2 (anc, u, l) G Z).
@@ -916,18 +916,18 @@ Proof.
     + split. apply Hp. apply Hp.
 Qed.
 
-Theorem conditional_independence_d_separation {X : Type} `{EqType X}: forall (G: graph) (u v: node),
+Theorem semantic_and_d_separation_equivalent {X : Type} `{EqType X}: forall (G: graph) (u v: node),
   u <> v /\ generic_graph_and_type_properties_hold X G /\ node_in_graph v G = true
   -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
-  -> conditionally_independent'' X G u v Z <-> d_separated_bool u v G Z = true.
+  -> semantically_separated X G u v Z <-> d_separated_bool u v G Z = true.
 Proof.
   intros G u' v'. intros [Huveq [HG Hnodev]] Z HZ. split.
   { intros Hcond. remember u' as u. remember v' as v. (* show that if NOT d-separated, then there is a contradiction. *)
     destruct (d_separated_bool u v G Z) as [|] eqn:Hsep.
     - reflexivity.
     - apply d_separated_vs_connected in Hsep. destruct Hsep as [l Hp].
-      assert (contra: ~(conditionally_independent'' X G u v Z)).
-      { apply path_d_connected_then_not_independent with (p := (u, v, l)).
+      assert (contra: ~(semantically_separated X G u v Z)).
+      { apply path_d_connected_then_not_semantically_separated with (p := (u, v, l)).
         - split. apply HG.
           apply paths_start_to_end_correct. split.
           + apply Hp.
@@ -937,5 +937,5 @@ Proof.
         - apply HZ.
         - apply Hp. }
       exfalso. apply contra. apply Hcond. }
-  { intros Hsep. apply conditional_independence_d_separation_backward. easy. easy. easy. }
+  { intros Hsep. apply path_d_separated_then_semantically_separated. easy. easy. easy. }
 Qed.

@@ -1,5 +1,5 @@
 From Semantics Require Import OrigA4Nodes.
-From Semantics Require Import ConditionallyIndependentDef.
+From Semantics Require Import SemanticSeparationDef.
 From CausalDiagrams Require Import CausalPaths.
 From CausalDiagrams Require Import IntermediateNodes.
 From CausalDiagrams Require Import Assignments.
@@ -144,7 +144,7 @@ Lemma assignments_change_A4 {X: Type} `{EqType X}: forall (U Ux AZ: assignments 
   -> (forall (w: node), In w (get_A4_binded_nodes_in_g_path G p) -> (exists (r: X), get_assigned_value U w = Some r /\ eqb r x = false))
   -> get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G p) U x = Ux :: LUx
   -> is_assignment_for U (nodes_in_graph G) = true
-  -> assignments_change_only_for_Z_anc_seq' (U :: Ux :: LUx) Z AZ G.
+  -> assignments_change_only_for_Z_anc_seq (U :: Ux :: LUx) Z AZ G.
 Proof.
   intros U Ux AZ Z G LUx x p. intros HG1 HG2 HZ Hp Hcyc Hconn HAZ HUx HA HU.
 
