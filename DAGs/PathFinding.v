@@ -339,7 +339,41 @@ Qed.
 Lemma extend_paths_from_start_by_edge_start :
   forall e u ps, (forall p, In p ps -> path_start p = u) ->
   forall p, In p (extend_paths_from_start_by_edge e ps) -> path_start p = u.
-Proof. Admitted.
+Proof. intros [u2 v2] u ps Hstarts p. revert p; induction ps as [|h t IH]; simpl; intros p Hin; [contradiction|].
+  destruct h as [[u1 v1] l1]. assert (forall p : path, In p t -> path_start p = u).
+  { intros p0 h0. apply Hstarts. simpl. right. auto. } specialize (IH H); clear H.
+  assert (Hh : path_start (u1, v1, l1) = u) by (apply Hstarts; left; reflexivity); subst.
+
+  destruct ((u1 =? u2) || (u1 =? v2)) eqn:case1; simpl in Hin.
+    { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto. - apply IH. auto. }
+
+  destruct (member u2 l1 || member v2 l1) eqn:case2; simpl in Hin.
+    { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto. - apply IH. auto. }
+
+  destruct (v1 =? u2) eqn:case3; simpl in Hin.
+   { apply Nat.eqb_eq in case3; subst. unfold add_path_no_repeats in Hin; simpl in Hin.
+    destruct ((u1 =? u1) && (u2 =? v2) && eqblist l1 (l1 ++ [u2])).
+      { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto. - apply IH. auto. }
+    destruct (member_path (u1, v2, l1 ++ [u2]) (extend_paths_from_start_by_edge (u2, v2) t)) eqn:Hmem.
+      { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto. - apply IH. auto. }
+      { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto.
+        - apply in_app_or in Hin. destruct Hin as [Hin|Hin].
+          + apply IH. auto.
+          + simpl in Hin. destruct Hin as [Heq | []]. rewrite <- Heq. auto. } }
+
+  destruct (v1 =? v2) eqn:case4; simpl in Hin.
+   { apply Nat.eqb_eq in case4; subst. unfold add_path_no_repeats in Hin; simpl in Hin.
+    destruct ((u1 =? u1) && (v2 =? u2) && eqblist l1 (l1 ++ [v2])).
+      { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto. - apply IH. auto. }
+    destruct (member_path (u1, u2, l1 ++ [v2]) (extend_paths_from_start_by_edge (u2, v2) t)) eqn:Hmem.
+      { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto. - apply IH. auto. }
+      { destruct Hin as [Hin|Hin]. - rewrite <- Hin. auto.
+        - apply in_app_or in Hin. destruct Hin as [Hin|Hin].
+          + apply IH. auto.
+          + simpl in Hin. destruct Hin as [Heq | []]. rewrite <- Heq. auto. } }
+
+  destruct Hin as [Hin|Hin]. - rewrite <- Hin; auto. - apply IH; auto.
+Qed.
 
 (* given several edges, attempt to extend the paths of l with each given edge in the manner
    described above in extend_paths_from_start_by_edge *)
@@ -516,8 +550,9 @@ Qed.
 Lemma extend_paths_from_start_by_edges_start :
   forall u ps E, (forall p, In p ps -> path_start p = u) ->
   forall p, In p (extend_paths_from_start_by_edges E ps) -> path_start p = u.
-Proof.
-Admitted.
+Proof. intros u ps E. revert ps. induction E; simpl in *; eauto. intros. apply IHE with (ps:=(extend_paths_from_start_by_edge a ps)); eauto.
+  apply extend_paths_from_start_by_edge_start. exact H.
+Qed.
 
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
@@ -571,8 +606,9 @@ Qed.
 Lemma extend_paths_from_start_iter_start :
   forall u ps E n, (forall p, In p ps -> path_start p = u) ->
   forall p, In p (extend_paths_from_start_iter E ps n) -> path_start p = u.
-Proof.
-Admitted.
+Proof. intros u ps E n. revert u ps E. induction n; simpl in *; eauto. intros.
+  eapply IHn with (ps:= (extend_paths_from_start_by_edges E ps)); eauto. apply extend_paths_from_start_by_edges_start. auto.
+Qed.
 
 (* find all acyclic undirected paths in G that start from s *)
 Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
