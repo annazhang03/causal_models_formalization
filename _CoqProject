@@ -27,11 +27,11 @@ CausalDiagrams/Counterfactuals.v
 Semantics/FunctionRepresentation.v
 Semantics/FindValue.v
 Semantics/NodeCategorization.v
-Semantics/OrigA1Nodes.v
-Semantics/OrigA2Nodes.v
-Semantics/OrigA3Nodes.v
-Semantics/OrigA4Nodes.v
-Semantics/OrigA4NodesSeq.v
+Semantics/S1_Sources.v
+Semantics/S1_SourcesSeq.v
+Semantics/S2_Transmitters.v
+Semantics/S3_Colliders.v
+Semantics/S4_Descendants.v
 Semantics/ColliderDescendants.v
 Semantics/DescendantPathsDisjoint.v
 Semantics/SemanticSeparationDef.v

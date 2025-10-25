@@ -48,7 +48,7 @@ Proof.
   2: { apply HG. } 2: { apply Hp. } 2: { apply Hp. }
   clear Hdisj. destruct HD as [l Huvl]. pose proof Huvl as HD. destruct HD as [_ [_ [_ [_ HD]]]]. destruct HD as [D HD].
 
-  pose proof path_d_connected_then_can_equate_values'' as Heq'. specialize Heq' with (G := G) (u := u) (v := v) (p := (u, v, l)) (Z := Z) (D := D).
+  pose proof path_d_connected_then_can_equate_values as Heq'. specialize Heq' with (G := G) (u := u) (v := v) (p := (u, v, l)) (Z := Z) (D := D).
 
   assert (Heq: generic_graph_and_type_properties_hold X G /\ In (u, v, l) (find_all_paths_from_start_to_end u v G)).
   { split. apply HG. apply paths_start_to_end_correct. split. apply Huvl. split. apply path_start_end_refl. apply Huvl. }
@@ -67,23 +67,23 @@ Proof.
   (* Heq: there is some sequence that changes the value of f(v) to x *)
 
   remember ([]) as empty. rewrite Heqempty in *.
-  remember (get_constant_nodefun_assignments empty) as A5. (* unused, could be empty *)
-  remember (get_assignment_for (get_A4_binded_nodes_in_g_path G (u, v, l)) x) as A4. (* value doesn't matter *)
+  remember (get_constant_nodefun_assignments empty) as A6. (* unused, could be empty *)
+  remember (get_assignment_for (get_sources_in_g_path G (u, v, l)) x) as A4. (* value doesn't matter *)
   remember (f_constant X x) as default.
 
-  assert (HA4: is_exact_assignment_for A4 (get_A4_binded_nodes_in_g_path G (u, v, l))). { rewrite HeqA4. apply nodes_map_to_exact_assignment. }
+  assert (HA4: is_exact_assignment_for A4 (get_sources_in_g_path G (u, v, l))). { rewrite HeqA4. apply nodes_map_to_exact_assignment. }
 
-  apply Heq with (A5 := A5) (default := default) (x := x) in HA4. clear Heq.
+  apply Heq with (A6 := A6) (default := default) (x := x) in HA4. clear Heq.
   destruct HA4 as [U [x' [HU [Hcond [Hx [Hx' HA4]]]]]].
 
-  remember (g_path'' X A1 A2 A3 A4 AZ A5 default) as g.
+  remember (g_path X A1 A2 A3 A4 AZ A6 default) as g.
 
-  remember ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), x) :: U) as Ux.
-  remember (tl (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U x)) as LUx.
-  assert (HUseq: assignments_equiv Ux ((hd 0 (get_A4_binded_nodes_in_g_path G (u, v, l)), x) :: U) /\
+  remember ((hd 0 (get_sources_in_g_path G (u, v, l)), x) :: U) as Ux.
+  remember (tl (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U x)) as LUx.
+  assert (HUseq: assignments_equiv Ux ((hd 0 (get_sources_in_g_path G (u, v, l)), x) :: U) /\
       list_assignments_equiv LUx
         (tl
-           (get_assignment_sequence_from_A4 (get_A4_binded_nodes_in_g_path G (u, v, l)) U
+           (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U
               x))).
   { split. rewrite HeqUx. unfold assignments_equiv. reflexivity.
     rewrite HeqLUx. apply list_assignments_equiv_identity. }
