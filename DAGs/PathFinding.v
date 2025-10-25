@@ -233,6 +233,21 @@ Proof. intros u [[u' v] l] E Hloop Hin. induction E.
           - apply IHE; assumption. }
 Qed.
 
+(* helper 1.1 for paths_start_to_end_correct*)
+Lemma edges_as_paths_from_start_start :
+  forall u E p, In p (edges_as_paths_from_start u E) ->
+    path_start p = u.
+Proof.
+  intros u E; induction E as [|[a b] E IHE]; simpl; intros p Hin; try tauto.
+  destruct (u =? a) eqn:Ha; simpl in Hin.
+  - apply Nat.eqb_eq in Ha; subst.
+    destruct Hin as [Hin|Hin]; [subst; reflexivity| now eauto].
+  - destruct (u =? b) eqn:Hb; simpl in Hin.
+    + apply Nat.eqb_eq in Hb; subst.
+      destruct Hin as [Hin|Hin]; [subst; reflexivity| now eauto].
+    + now eauto.
+Qed.
+
 (* given an edge e and a list of paths l, grow each path in l by e if any of the nodes of e match
    the endpoint (not the start point) of the path in l.
    example: if the path 1->2 were in l, and e = (3, 2), then we would append 1->2->3 to l
@@ -319,6 +334,12 @@ Proof. intros G e ps Hwf He Hps. revert e He.
     {inversion Hps as [| ? ? Hhd Htl]; subst. constructor. exact Hhd.
     unfold PathsValid in IH. pose proof (IH Htl (u2,v2) He) as IH. exact IH. }
 Qed.
+
+(* helper 1.2 for paths_start_to_end_correct*)
+Lemma extend_paths_from_start_by_edge_start :
+  forall e u ps, (forall p, In p ps -> path_start p = u) ->
+  forall p, In p (extend_paths_from_start_by_edge e ps) -> path_start p = u.
+Proof. Admitted.
 
 (* given several edges, attempt to extend the paths of l with each given edge in the manner
    described above in extend_paths_from_start_by_edge *)
@@ -491,6 +512,13 @@ Proof. induction E. (* the following proof can potentially be reduced by half wi
       }
 Qed.
 
+(* helper 1.3 for paths_start_to_end_correct*)
+Lemma extend_paths_from_start_by_edges_start :
+  forall u ps E, (forall p, In p ps -> path_start p = u) ->
+  forall p, In p (extend_paths_from_start_by_edges E ps) -> path_start p = u.
+Proof.
+Admitted.
+
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
   match k with
@@ -539,6 +567,12 @@ Proof. intros. revert H1 H0 H. revert l p E. induction k.
     eapply Hacyc; eauto.
 Qed.
 
+(* helper 1.4 for paths_start_to_end_correct*)
+Lemma extend_paths_from_start_iter_start :
+  forall u ps E n, (forall p, In p ps -> path_start p = u) ->
+  forall p, In p (extend_paths_from_start_iter E ps n) -> path_start p = u.
+Proof.
+Admitted.
 
 (* find all acyclic undirected paths in G that start from s *)
 Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
@@ -626,13 +660,45 @@ Proof. intros u v l G Hloop Hin. unfold find_all_paths_from_start_to_end in Hin.
     intro p2. eapply edges_as_paths_from_start_acyclic; eauto.
 Qed.
 
-(* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
-Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G: graph,
-      (is_path_in_graph p G = true) /\ (path_start_and_end p u v = true) /\ acyclic_path_2 p
-  <-> In p (find_all_paths_from_start_to_end u v G).
-Proof.
+(*helper 2 for paths_start_to_end_correct*)
+Lemma paths_start_to_end_endpoints :
+  forall u v l G,
+    In (u, v, l) (find_all_paths_from_start_to_end u v G) ->
+    path_start_and_end (u, v, l) u v = true.
 Admitted.
 
+(*helper 3 for paths_start_to_end_correct*)
+Lemma find_all_paths_complete :
+  forall G u v p,
+    G_well_formed G = true ->
+    no_one_cycles (snd G) = true ->
+    is_path_in_graph p G = true ->
+    path_start_and_end p u v = true ->
+    acyclic_path_2 p ->
+    In p (find_all_paths_from_start_to_end u v G).
+Admitted.
+
+(* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
+Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G: graph,
+  G_well_formed G = true -> no_one_cycles (snd G) = true -> (
+      (is_path_in_graph p G = true) /\ (path_start_and_end p u v = true) /\ acyclic_path_2 p
+  <-> In p (find_all_paths_from_start_to_end u v G) ).
+Proof. intros [[u' v'] l] u v [V E] Hwf Hno. split.
+  - (* -> completeness *)
+    intros (Hpath & Hend & Hacyc).
+    eapply find_all_paths_complete; eauto.
+  - (* <- soundness *)
+    intro Hin. assert (u = u' /\ v = v').
+    { unfold find_all_paths_from_start_to_end in Hin. apply filter_In in Hin. simpl in Hin. destruct Hin as [Hin Hend].
+    constructor; cycle 1. rewrite Nat.eqb_eq in Hend. auto. clear Hend.
+    eapply extend_paths_from_start_iter_start in Hin; eauto. eapply edges_as_paths_from_start_start; eauto.
+    } destruct H as [h1 h2]; subst.
+    split.
+    + eapply paths_start_to_end_valid; eauto.
+    + split.
+      * eapply paths_start_to_end_endpoints; eauto.
+      * eapply paths_start_to_end_acyclic; eauto.
+Qed.
 
 
 
