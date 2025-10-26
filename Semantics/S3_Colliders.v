@@ -12,6 +12,12 @@ From Coq Require Import Lia.
 Import ListNotations.
 
 
+(* This file provides the framework for colliders, which along with sources and
+   transmitters (S1_Sources.v and S2_transmitters.v) partition the nodes along a path.
+   They are important in the context of descendant maps, described in ColliderDescendants.v
+   and DescendantPathsDisjoint.v *)
+
+
 Definition get_colliders_in_g_path (G: graph) (p: path): nodes :=
   find_colliders_in_path p G.
 

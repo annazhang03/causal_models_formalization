@@ -11,6 +11,14 @@ From Coq Require Import Lia.
 
 Import ListNotations.
 
+
+(* This file provides the framework for the group of nodes we call "transmitters".
+   Transmitters are the nodes along a path with exactly one neighboring parent on
+   the path.
+   Example: a -> b <- c <- d -> e. c and e are transmitters, since one of their
+     neighboring nodes on the path is a parent *)
+
+
 (* mediators, u if u is a child, and v if v is a child *)
 Definition get_transmitters_in_g_path (G: graph) (p: path): nodes :=
   match p with

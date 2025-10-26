@@ -12,7 +12,20 @@ From Coq Require Import Lia.
 
 Import ListNotations.
 
-(* does not include the collider *)
+(* In this file, we explore the descendants of colliders along a path. In d-connectedness, the concept of
+   these descendants is very important because every collider along a path must have some descendant (possibly
+   the collider itself)
+   in the conditioning set. Thus, collider descendants are also very important in our semantics for
+   understanding when two nodes are independent of each other. *)
+
+
+(* This function is used in the context of d-connected paths, where each collider has at least one path
+   of descendants, ending at a descendant that is conditioned on.
+   Assume D is of the form {col1: ([d1, d2, ..., d_l], d_l), col2: ...}, mapping collider to one of these descendant paths,
+   where d_l is the descendant in the conditioning set.
+   The descendant path [d1, d2, ...] does not include the collider itself; it is the nodes along the path in
+   the order they appear. If the collider itself is conditioned on, then D maps {col1: ([], col1)}
+   This function returns all descendants of all colliders in one flattened list *)
 Fixpoint get_collider_descendants_from_assignments (D: assignments (nodes * node)) (col: nodes): option nodes :=
   match col with
   | [] => Some []
@@ -106,18 +119,6 @@ Proof.
       exists (pa ++ d :: L). reflexivity.
 Qed.
 
-Fixpoint get_collider_descendants_for_subpath (D: assignments (nodes * node)) (col: nodes): option (assignments (nodes * node)) :=
-  match col with
-  | [] => Some []
-  | h :: t => match (get_assigned_value D h) with
-              | Some x => match (get_collider_descendants_for_subpath D t) with
-                          | Some r => Some ((h, x) :: r)
-                          | None => None
-                          end
-              | None => None
-              end
-  end.
-
 Lemma collider_descendants_is_assignment_for: forall (D: assignments (nodes * node)) (col L: nodes),
   get_collider_descendants_from_assignments D col = Some L
   -> is_assignment_for D col = true.
@@ -135,6 +136,102 @@ Proof.
         -- discriminate H.
     + discriminate H.
 Qed.
+
+Lemma collider_descendants_from_assignments_mem: forall (D: assignments (nodes * node)) (G: graph) (p': path) (L p: nodes) (c d: node),
+  In c (find_colliders_in_path p' G)
+  -> get_assigned_value D c = Some (p, d) /\ d =? c = false
+  -> get_collider_descendants_from_assignments D (find_colliders_in_path p' G) = Some L
+  -> forall (u: node), In u (p ++ [d]) -> In u L.
+Proof.
+  intros D G p' L p c d. intros Hc [Hpd Hdc] HL. intros u Hu.
+  generalize dependent L. induction (find_colliders_in_path p' G) as [| h t IH].
+  - intros L HL. exfalso. apply Hc.
+  - intros L HL. destruct Hc as [Hc | Hc].
+    + simpl in HL. rewrite <- Hc in *. rewrite Hpd in HL. simpl in HL. rewrite Hdc in HL.
+      destruct (get_collider_descendants_from_assignments D t) as [r|].
+      * inversion HL. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]]. apply membership_append. apply Hu.
+        apply membership_append_r. left. apply Hu. exfalso. apply Hu.
+      * discriminate HL.
+    + simpl in HL. destruct (get_assigned_value D h) as [x|].
+      * destruct (get_collider_descendants_from_assignments D t) as [r|] eqn:Hr.
+        -- specialize IH with (L := r). apply IH in Hc. destruct (snd x =? h) as [|].
+           ++ inversion HL. rewrite <- H0. apply Hc.
+           ++ inversion HL. apply membership_append_r. right. apply Hc.
+           ++ reflexivity.
+        -- discriminate HL.
+      * discriminate HL.
+Qed.
+
+Lemma collider_descendants_from_assignments_belong_to_collider: forall (D: assignments (nodes * node)) (G: graph) (p': path) (L: nodes) (u: node),
+  get_collider_descendants_from_assignments D (find_colliders_in_path p' G) = Some L
+  -> In u L
+  -> exists (c d: node) (p: nodes), In c (find_colliders_in_path p' G)
+      /\ get_assigned_value D c = Some (p, d) /\ d =? c = false
+      /\ In u (p ++ [d]).
+Proof.
+  intros D G p' L u. intros HL Hu.
+  generalize dependent L. induction (find_colliders_in_path p' G) as [| h t IH].
+  - intros L HL Hu. exfalso. simpl in HL. inversion HL. rewrite <- H0 in Hu. apply Hu.
+  - intros L HL Hu. simpl in HL. destruct (get_assigned_value D h) as [x|] eqn:Hx.
+    + destruct (get_collider_descendants_from_assignments D t) as [r|] eqn:Hr.
+      * destruct (snd x =? h) as [|] eqn:Hhx.
+        -- inversion HL. apply IH in Hu.
+           ++ destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
+           ++ f_equal. apply H0.
+        -- inversion HL. rewrite <- H0 in Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
+              split. apply Hhx. apply membership_append. apply Hu.
+           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
+              split. apply Hhx. apply membership_append_r. left. apply Hu.
+           ++ apply IH in Hu. destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
+              reflexivity.
+      * discriminate HL.
+    + discriminate HL.
+Qed.
+
+Lemma collider_descendants_from_assignments_belong_to_collider_gen: forall (D: assignments (nodes * node)) (col: nodes) (L: nodes) (u: node),
+  get_collider_descendants_from_assignments D col = Some L
+  -> In u L
+  -> exists (c d: node) (p: nodes), In c col
+      /\ get_assigned_value D c = Some (p, d) /\ d =? c = false
+      /\ In u (p ++ [d]).
+Proof.
+  intros D col L u. intros HL Hu.
+  generalize dependent L. induction col as [| h t IH].
+  - intros L HL Hu. exfalso. simpl in HL. inversion HL. rewrite <- H0 in Hu. apply Hu.
+  - intros L HL Hu. simpl in HL. destruct (get_assigned_value D h) as [x|] eqn:Hx.
+    + destruct (get_collider_descendants_from_assignments D t) as [r|] eqn:Hr.
+      * destruct (snd x =? h) as [|] eqn:Hhx.
+        -- inversion HL. apply IH in Hu.
+           ++ destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
+           ++ f_equal. apply H0.
+        -- inversion HL. rewrite <- H0 in Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
+           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
+              split. apply Hhx. apply membership_append. apply Hu.
+           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
+              split. apply Hhx. apply membership_append_r. left. apply Hu.
+           ++ apply IH in Hu. destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
+              reflexivity.
+      * discriminate HL.
+    + discriminate HL.
+Qed.
+
+
+
+(* returns the descendant map D but with keys only being the nodes in col (remove all other key-value pairs)
+   Will be crucial when working with subpaths and needing to relate the descendant maps of a subpath with the
+   whole path *)
+Fixpoint get_collider_descendants_for_subpath (D: assignments (nodes * node)) (col: nodes): option (assignments (nodes * node)) :=
+  match col with
+  | [] => Some []
+  | h :: t => match (get_assigned_value D h) with
+              | Some x => match (get_collider_descendants_for_subpath D t) with
+                          | Some r => Some ((h, x) :: r)
+                          | None => None
+                          end
+              | None => None
+              end
+  end.
 
 Lemma collider_subpath_is_exact_assignment: forall (D D': assignments (nodes * node)) (col: nodes),
   get_collider_descendants_for_subpath D col = Some D'
@@ -255,85 +352,10 @@ Proof.
 Qed.
 
 
-Lemma collider_descendants_from_assignments_mem: forall (D: assignments (nodes * node)) (G: graph) (p': path) (L p: nodes) (c d: node),
-  In c (find_colliders_in_path p' G)
-  -> get_assigned_value D c = Some (p, d) /\ d =? c = false
-  -> get_collider_descendants_from_assignments D (find_colliders_in_path p' G) = Some L
-  -> forall (u: node), In u (p ++ [d]) -> In u L.
-Proof.
-  intros D G p' L p c d. intros Hc [Hpd Hdc] HL. intros u Hu.
-  generalize dependent L. induction (find_colliders_in_path p' G) as [| h t IH].
-  - intros L HL. exfalso. apply Hc.
-  - intros L HL. destruct Hc as [Hc | Hc].
-    + simpl in HL. rewrite <- Hc in *. rewrite Hpd in HL. simpl in HL. rewrite Hdc in HL.
-      destruct (get_collider_descendants_from_assignments D t) as [r|].
-      * inversion HL. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]]. apply membership_append. apply Hu.
-        apply membership_append_r. left. apply Hu. exfalso. apply Hu.
-      * discriminate HL.
-    + simpl in HL. destruct (get_assigned_value D h) as [x|].
-      * destruct (get_collider_descendants_from_assignments D t) as [r|] eqn:Hr.
-        -- specialize IH with (L := r). apply IH in Hc. destruct (snd x =? h) as [|].
-           ++ inversion HL. rewrite <- H0. apply Hc.
-           ++ inversion HL. apply membership_append_r. right. apply Hc.
-           ++ reflexivity.
-        -- discriminate HL.
-      * discriminate HL.
-Qed.
 
-Lemma collider_descendants_from_assignments_belong_to_collider: forall (D: assignments (nodes * node)) (G: graph) (p': path) (L: nodes) (u: node),
-  get_collider_descendants_from_assignments D (find_colliders_in_path p' G) = Some L
-  -> In u L
-  -> exists (c d: node) (p: nodes), In c (find_colliders_in_path p' G)
-      /\ get_assigned_value D c = Some (p, d) /\ d =? c = false
-      /\ In u (p ++ [d]).
-Proof.
-  intros D G p' L u. intros HL Hu.
-  generalize dependent L. induction (find_colliders_in_path p' G) as [| h t IH].
-  - intros L HL Hu. exfalso. simpl in HL. inversion HL. rewrite <- H0 in Hu. apply Hu.
-  - intros L HL Hu. simpl in HL. destruct (get_assigned_value D h) as [x|] eqn:Hx.
-    + destruct (get_collider_descendants_from_assignments D t) as [r|] eqn:Hr.
-      * destruct (snd x =? h) as [|] eqn:Hhx.
-        -- inversion HL. apply IH in Hu.
-           ++ destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
-           ++ f_equal. apply H0.
-        -- inversion HL. rewrite <- H0 in Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
-           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
-              split. apply Hhx. apply membership_append. apply Hu.
-           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
-              split. apply Hhx. apply membership_append_r. left. apply Hu.
-           ++ apply IH in Hu. destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
-              reflexivity.
-      * discriminate HL.
-    + discriminate HL.
-Qed.
-
-Lemma collider_descendants_from_assignments_belong_to_collider_gen: forall (D: assignments (nodes * node)) (col: nodes) (L: nodes) (u: node),
-  get_collider_descendants_from_assignments D col = Some L
-  -> In u L
-  -> exists (c d: node) (p: nodes), In c col
-      /\ get_assigned_value D c = Some (p, d) /\ d =? c = false
-      /\ In u (p ++ [d]).
-Proof.
-  intros D col L u. intros HL Hu.
-  generalize dependent L. induction col as [| h t IH].
-  - intros L HL Hu. exfalso. simpl in HL. inversion HL. rewrite <- H0 in Hu. apply Hu.
-  - intros L HL Hu. simpl in HL. destruct (get_assigned_value D h) as [x|] eqn:Hx.
-    + destruct (get_collider_descendants_from_assignments D t) as [r|] eqn:Hr.
-      * destruct (snd x =? h) as [|] eqn:Hhx.
-        -- inversion HL. apply IH in Hu.
-           ++ destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
-           ++ f_equal. apply H0.
-        -- inversion HL. rewrite <- H0 in Hu. apply membership_append_or in Hu. destruct Hu as [Hu | [Hu | Hu]].
-           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
-              split. apply Hhx. apply membership_append. apply Hu.
-           ++ exists h. exists (snd x). exists (fst x). split. left. reflexivity. split. destruct x as [x1 x2]. simpl. apply Hx.
-              split. apply Hhx. apply membership_append_r. left. apply Hu.
-           ++ apply IH in Hu. destruct Hu as [c [d [p Hu]]]. exists c. exists d. exists p. split. right. apply Hu. apply Hu.
-              reflexivity.
-      * discriminate HL.
-    + discriminate HL.
-Qed.
-
+(* In later proofs, it will be important to guarantee that the descendant paths specified by D do not overlap
+   either the d-connected path that they belong to, or each other. We define the following to provide this
+   guarantee *)
 Definition descendant_paths_disjoint_col (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes): Prop :=
   forall (c: node), In c (find_colliders_in_path (u, v, l') G)
       -> get_assigned_value D c = Some ([], c) /\ In c Z (* c is conditioned on, don't need path *)
@@ -364,6 +386,7 @@ Proof.
     + apply Hc.
 Qed.
 
+
 Definition descendant_paths_disjoint (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes): Prop :=
   is_exact_assignment_for D (find_colliders_in_path (u, v, l') G) /\
   descendant_paths_disjoint_col D u v l' G Z.
@@ -386,6 +409,8 @@ Proof.
   split. rewrite <- H. apply Hdesc. destruct Hdesc as [_ Hdesc]. apply descendant_paths_disjoint_col_cat in Hdesc.
   apply Hdesc.
 Qed.
+
+
 
 Lemma get_collider_descendants_from_assignments_preserves_count: forall (D: assignments (nodes * node)) (u v: node) (l': nodes) (G: graph) (Z: nodes) (L: nodes),
   descendant_paths_disjoint D u v l' G Z

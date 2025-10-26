@@ -13,6 +13,15 @@ Import ListNotations.
 
 From Utils Require Import EqType.
 
+(* In this file, we define the notion of semantic separation: a characterization of d-separation that
+   specifies how values propagate through a graph, rather than focusing on purely syntactic criteria.
+   Using the function-based formal semantics defined in FunctionRepresentation.v, and the evaluation
+   procedure for node values provided in FindValue.v, we work up to the definition which enables us to
+   define an analogue of conditional independence in a way that aligns with intuition: informally,
+   two nodes should be considered independent if changing the value of one has no effect on the value
+   of the other. *)
+
+
 
 (* AZ is the assignments for nodes in Z.
    Returns the set of all unblocked ancestors of nodes in Z that have an unblocked ancestor that is also in S.

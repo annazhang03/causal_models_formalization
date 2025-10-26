@@ -13,6 +13,13 @@ From Coq Require Import Lia.
 Import ListNotations.
 
 
+(* This file expands upon the concepts in ColliderDescendants.v, specifically providing
+   a mapping of descendant d to index i, where pa(d)[i] is the previous node in the descendant
+   path which d is a part of. *)
+
+
+(* c -> ...p... -> d is the descendant path. Return assignments of nodes to index i
+   as described above *)
 Fixpoint get_descendants_for_path' (c d: node) (p: nodes) (G: graph): option (assignments nat) :=
   match p with
    | [] => match (index (find_parents d G) c) with
@@ -67,6 +74,10 @@ Proof.
       * discriminate HA.
 Qed.
 
+
+(* Using the descendant paths in D,
+   return the mappings from get_descendants_for_path for each collider, flattened into
+   one set of assignments *)
 Fixpoint get_A4_assignments_for_desc_paths (D: assignments (nodes * node)) (G: graph) (col: nodes): option (assignments nat) :=
   match col with
   | [] => Some []

@@ -16,57 +16,20 @@ From Coq Require Import Lia.
 Import ListNotations.
 From Utils Require Import EqType.
 
+
+(* This file expands upon the framework provided in S1_Sources.v. It provides a
+   _sequence_ of unobserved-terms assignments, which changes the unobserved values
+   of the sources along a path, one-by-one, as the sequence progresses. *)
+
+
+(* Given a list of sources S1, a value x, and the base assignments U, return a sequence
+   (as a list) of assignments such that assignment i is the same as assignment i-1, but
+   with the i-th source modified to take on value x *)
 Fixpoint get_assignment_sequence_from_sources {X: Type} `{EqType X} (S1: nodes) (U: assignments X) (x: X): list (assignments X) :=
   match S1 with
   | [] => []
   | h :: t => ((h, x) :: U) :: (get_assignment_sequence_from_sources t ((h, x) :: U) x)
   end.
-
-Fixpoint get_assignment_sequence_from_sources' {X: Type} `{EqType X} (S1: nodes) (U: assignments X) (x: X): option (list (assignments X)) :=
-  match S1 with
-  | [] => Some []
-  | h :: t => match (get_assigned_value U h) with
-              | Some hu => if (eqb hu x) then get_assignment_sequence_from_sources' t ((h, x) :: U) x
-                           else match (get_assignment_sequence_from_sources' t ((h, x) :: U) x) with
-                                | Some r => Some (((h, x) :: U) :: r)
-                                | None => None
-                                end
-              | None => None
-              end
-  end.
-
-Lemma assignment_sequence_from_sources_existence_gen {X: Type} `{EqType X}: forall (S1: nodes) (U: assignments X) (x: X),
-  is_assignment_for U S1 = true
-  -> exists (seq: list (assignments X)), get_assignment_sequence_from_sources' S1 U x = Some seq.
-Proof.
-  intros S1 U x HU.
-  generalize dependent U. induction S1 as [| h t IH].
-  - simpl. exists []. reflexivity.
-  - intros U HU. simpl.
-    assert (Hh: exists (hu: X), get_assigned_value U h = Some hu).
-    { apply assigned_has_value with (L := h :: t). split. left. reflexivity. apply HU. }
-    destruct Hh as [hu Hh]. rewrite Hh. destruct (eqb hu x) as [|] eqn:Hhu.
-    + apply IH. apply is_assignment_for_cat. simpl in HU. apply split_and_true in HU. apply HU.
-    + assert (Hind: exists (seq: list (assignments X)), get_assignment_sequence_from_sources' t ((h, x) :: U) x = Some seq).
-      { apply IH. apply is_assignment_for_cat. simpl in HU. apply split_and_true in HU. apply HU. }
-      destruct Hind as [seq Hind]. exists (((h, x) :: U) :: seq). rewrite Hind. reflexivity.
-Qed.
-
-Lemma assignment_sequence_from_sources_existence {X: Type} `{EqType X}: forall (G: graph) (S1: nodes) (p: path) (U: assignments X) (x: X),
-  is_assignment_for U (nodes_in_graph G) = true
-  -> G_well_formed G = true
-  -> is_path_in_graph p G = true
-  -> get_sources_in_g_path G p = S1
-  -> exists (seq: list (assignments X)), get_assignment_sequence_from_sources' S1 U x = Some seq.
-Proof.
-  intros G S1 p U x HU HG Hp HS1.
-  apply assignment_sequence_from_sources_existence_gen. apply forallb_true_iff_mem. intros w Hw.
-  apply forallb_true_iff_mem with (x := w) in HU. apply HU.
-  rewrite <- HS1 in Hw. destruct p as [[u v] l]. apply sources_in_graph in Hw.
-  - destruct G as [V E]. apply member_In_equiv. apply Hw.
-  - apply HG.
-  - apply Hp.
-Qed.
 
 Lemma assignment_sequence_len_shorter_than_S1 {X: Type} `{EqType X}: forall (A: nodes) (U: assignments X) (L: list (assignments X)) (x: X),
   get_assignment_sequence_from_sources A U x = L

@@ -26,57 +26,69 @@ Import ListNotations.
 From Utils Require Import EqType.
 
 
-(* show that using the g from generic_graph_and_type_properties_hold to equate values along the path, the
-   semantically_separated proposition cannot hold *)
+(* In this file, we prove the central result that the notions of semantic separation and d-separation coincide exactly.
+   We split the proof into its two logical directions, primarily relying on lemmas in EquateValues.v for the forward direction
+   and ChangeOriginatesFromUnbAnc.v for the backward direction *)
+
+
+(* Forward direction: we show the contrapositive, i.e. that if there is a d-connected path p conditioned on Z between u and v,
+   then u and v are not semantically separated. We do so using the `path_d_connected_then_can_equate_values` lemma in EquateValues.v,
+   which helps us construct a sequence of unobserved-terms assignments and a specific graphfun given a d-connected path that requires
+   all non-collider nodes along the path to evaluate to the same thing. This will force f(u)=f(v), so u and v cannot be
+   semantically separated. *)
 Lemma path_d_connected_then_not_semantically_separated {X : Type} `{EqType X}: forall (G: graph) (u v: node) (p: path),
-  generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G) ->
-  forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
+  generic_graph_and_type_properties_hold X G /\ In p (find_all_paths_from_start_to_end u v G)
+  -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
   -> d_connected_2 p G Z -> ~(semantically_separated X G u v Z).
 Proof.
   intros G u v p [HG Hp]. intros Z [HZ [HZnode [HuZ HvZ]]] Hconn.
-  intros H_cond_ind. unfold semantically_separated in H_cond_ind.
+  intros H_sem_sep. unfold semantically_separated in H_sem_sep.
   pose proof HG as Hxy. unfold generic_graph_and_type_properties_hold in Hxy. destruct Hxy as [Hxy _]. destruct Hxy as [x [y Hxy]].
   apply paths_start_to_end_correct in Hp.
-
   assert (Hpath: exists (l: nodes), p = (u, v, l)).
   { destruct p as [[u' v'] l]. destruct Hp as [_ [Hp _]].
     apply path_start_end_equal in Hp. destruct Hp as [Huu' Hvv']. exists l. rewrite Huu'. rewrite Hvv'. reflexivity. }
   destruct Hpath as [l' Hpath].
 
+  (* using the below lemma from DescendantPathsDisjoint.v, we use the given d-connected path (u,v,l') to get a clean d-connected path
+     (u,v,l) and the corresponding descendant map, which ensures that descendant paths from colliders on (u,v,l) do not intersect the
+     path or each other. For more information see ColliderDescendants.v and DescendantPathsDisjoint.v *)
   pose proof exists_d_connected_path_with_collider_descendants_disjoint as Hdisj. specialize Hdisj with (G := G) (Z := Z) (l := l') (u := u) (v := v).
   rewrite Hpath in *. pose proof Hconn as HD. apply Hdisj in HD.
   2: { apply HG. } 2: { apply Hp. } 2: { apply Hp. }
   clear Hdisj. destruct HD as [l Huvl]. pose proof Huvl as HD. destruct HD as [_ [_ [_ [_ HD]]]]. destruct HD as [D HD].
 
+  (* with our clean d-connected path and desceendant map, we can bring in our primary lemma: *)
   pose proof path_d_connected_then_can_equate_values as Heq'. specialize Heq' with (G := G) (u := u) (v := v) (p := (u, v, l)) (Z := Z) (D := D).
 
   assert (Heq: generic_graph_and_type_properties_hold X G /\ In (u, v, l) (find_all_paths_from_start_to_end u v G)).
   { split. apply HG. apply paths_start_to_end_correct. split. apply Huvl. split. apply path_start_end_refl. apply Huvl. }
 
-  remember (get_assignment_for Z x) as AZ.
-
+  (* we can use any arbitrary assignment of nodes in Z; we choose to condition them all to equal y *)
+  remember (get_assignment_for Z y) as AZ.
   apply Heq' with (AZ := AZ) in Heq. clear Heq'.
   2: { split. apply member_In_equiv_F. apply HuZ. apply member_In_equiv_F. apply HvZ. }
   2: { rewrite HeqAZ. apply nodes_map_to_exact_assignment. }
   2: { simpl. apply HD. }
   2: { apply Huvl. }
 
-  destruct Heq as [A1 [A2 [A3 Heq]]].
-  rewrite <- and_assoc in Heq. rewrite <- and_assoc in Heq. destruct Heq as [HA1 Heq]. rewrite <- and_assoc in Heq. rewrite <- and_assoc in Heq. destruct Heq as [HA2 Heq]. destruct Heq as [HA3 Heq].
-  (* Hcond: for all AZ, changing f(u) from a to b via valid sequence does NOT change the value of f(v) *)
-  (* Heq: there is some sequence that changes the value of f(v) to x *)
+  destruct Heq as [A2 [A3 [A4 Heq]]]. (* A2, A3, and A4 are assignments for nodes in S2, S3, S4. We can use them with g_path to construct our graphfun *)
+  rewrite <- and_assoc in Heq. rewrite <- and_assoc in Heq. destruct Heq as [HA2 Heq]. rewrite <- and_assoc in Heq. rewrite <- and_assoc in Heq.
+  destruct Heq as [HA3 Heq]. destruct Heq as [HA4 Heq].
 
   remember ([]) as empty. rewrite Heqempty in *.
   remember (get_constant_nodefun_assignments empty) as A6. (* unused, could be empty *)
-  remember (get_assignment_for (get_sources_in_g_path G (u, v, l)) x) as A4. (* value doesn't matter *)
-  remember (f_constant X x) as default.
+  (* the actual values that the S1 nodes are assigned to don't matter in g_path, since they are always assigned nodefun f_unobs *)
+  remember (get_assignment_for (get_sources_in_g_path G (u, v, l)) y) as A1.
+  remember (f_constant X y) as default.
 
-  assert (HA4: is_exact_assignment_for A4 (get_sources_in_g_path G (u, v, l))). { rewrite HeqA4. apply nodes_map_to_exact_assignment. }
+  assert (HA1: is_exact_assignment_for A1 (get_sources_in_g_path G (u, v, l))). { rewrite HeqA1. apply nodes_map_to_exact_assignment. }
+  (* We choose (arbitrarily) x to be the ending value of all non-collider nodes after the changes propagate from the sequence *)
+  apply Heq with (A6 := A6) (default := default) (x := x) in HA1. clear Heq.
+  destruct HA1 as [U [x' [HU [Hcond [H_non_collider [Hx' HA1]]]]]].
+  (* x' is the value that the non-collider nodes evaluate to under unobserved-terms assignments U *)
 
-  apply Heq with (A6 := A6) (default := default) (x := x) in HA4. clear Heq.
-  destruct HA4 as [U [x' [HU [Hcond [Hx [Hx' HA4]]]]]].
-
-  remember (g_path X A1 A2 A3 A4 AZ A6 default) as g.
+  remember (g_path X A2 A3 A4 A1 AZ A6 default) as g. (* g is our graphfun that will equate the values of u and v *)
 
   remember ((hd 0 (get_sources_in_g_path G (u, v, l)), x) :: U) as Ux.
   remember (tl (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U x)) as LUx.
@@ -87,8 +99,11 @@ Proof.
               x))).
   { split. rewrite HeqUx. unfold assignments_equiv. reflexivity.
     rewrite HeqLUx. apply list_assignments_equiv_identity. }
-  rewrite HeqUx in HA4. rewrite HeqLUx in HA4.
-  apply HA4 in HUseq. clear HA4.
+  rewrite HeqUx in HA1. rewrite HeqLUx in HA1.
+  apply HA1 in HUseq. clear HA1.
+  (* U, Ux, ...LUx... form our sequence of unobserved-terms assignments, where U assigned unobserved value x to all nodes,
+     Ux changes the unobserved value for the first source to x' \neq x, and the elements of LUx change the remaining sources
+     one-by-one. *)
 
   assert (HA: exists (A: assignments X), get_values G g U [] = Some A). { apply get_values_existence. apply HG. apply HU. }
   destruct HA as [A HA].
@@ -105,8 +120,10 @@ Proof.
 
   assert (HAb': exists (Ab': assignments X), get_values G g Ub' [] = Some Ab'). { apply get_values_existence. apply HG. apply HUb'. }
   destruct HAb' as [Ab' HAb'].
+  (* The last unobserved-terms assignments, Ub', will end up with a different value for f(v) than under U *)
 
-  specialize H_cond_ind with (AZ := AZ) (g := g) (a := x') (Ua := U) (Aa := A) (b := x) (Ub := Ux) (Ab := Ax) (L := LUx)
+  (* we now specialize the semantically separated hypothesis with this sequence of unobserved-terms assignments *)
+  specialize H_sem_sep with (AZ := AZ) (g := g) (a := x') (Ua := U) (Aa := A) (b := x) (Ub := Ux) (Ab := Ax) (L := LUx)
         (Ub' := Ub') (Ab' := Ab').
 
   assert (Hv: node_in_path v (u, v, l) = true /\ ~ In v (find_colliders_in_path (u, v, l) G)).
@@ -114,8 +131,10 @@ Proof.
     intros Hv. destruct Huvl as [Hcyc [_ [HpG _]]]. apply intermediate_node_in_path with (x := v) in HpG. destruct Hcyc as [_ [_ [Hcyc _]]]. apply Hcyc.
     apply HpG. right. right. apply Hv. }
 
+
+  (* v is not a collider, so we know its value changes from x' to x *)
   assert (Hva': get_assigned_value A v = Some x').
-  { assert (Hf: find_value G g v U [] = Some x'). { apply Hx. apply Hv. }
+  { assert (Hf: find_value G g v U [] = Some x'). { apply H_non_collider. apply Hv. }
     unfold find_value in Hf. rewrite HA in Hf. apply Hf. }
 
   assert (Hvb': get_assigned_value Ab' v = Some x).
@@ -123,17 +142,19 @@ Proof.
     { rewrite HeqUb'. destruct HUseq as [_ [_ [_ [_ HUseq]]]]. apply HUseq. apply Hv. }
     unfold find_value in Hf. rewrite HAb' in Hf. apply Hf. }
 
+  (* by assumption, x \neq x' (Hx'), but due to the hypothesis that u and v are semantically separated (H_sem_sep),
+     we must have that A(v) = Ab'(v), i.e. f(v) doesn't change. This derives a contradiction *)
   assert (H_contra: get_assigned_value A v = get_assigned_value Ab' v).
   { assert (Hu: node_in_path u (u, v, l) = true /\ ~ In u (find_colliders_in_path (u, v, l) G)).
     { split. unfold node_in_path. simpl. rewrite eqb_refl. reflexivity.
       intros Hu. destruct Huvl as [Hcyc [_ [HpG _]]]. apply intermediate_node_in_path with (x := u) in HpG. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc.
       apply HpG. right. right. apply Hu. }
 
-    apply H_cond_ind.
+    apply H_sem_sep.
     - rewrite HeqAZ. split. apply nodes_map_to_exact_assignment. apply exact_assignment_assigns_once. apply HZnode.
     - split. apply HA. repeat split.
       + apply HU.
-      + assert (Hf: find_value G g u U [] = Some x'). { apply Hx. apply Hu. }
+      + assert (Hf: find_value G g u U [] = Some x'). { apply H_non_collider. apply Hu. }
         unfold find_value in Hf. rewrite HA in Hf. apply Hf.
       + apply Hcond.
     - split.
@@ -916,6 +937,8 @@ Proof.
     + split. apply Hp. apply Hp.
 Qed.
 
+
+(* Using the above two directions, we prove the equivalence theorem between semantic separation and d-separation *)
 Theorem semantic_and_d_separation_equivalent {X : Type} `{EqType X}: forall (G: graph) (u v: node),
   u <> v /\ generic_graph_and_type_properties_hold X G /\ node_in_graph v G = true
   -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false

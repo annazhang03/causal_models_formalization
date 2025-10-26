@@ -13,6 +13,13 @@ From Coq Require Import Lia.
 
 Import ListNotations.
 
+
+(* This file provides the framework for the group of nodes we call "sources". Sources
+   are the nodes along a path whose neighbors on the path are not parents.
+   Example: a -> b <- c <- d -> e. a and d are sources, since their neighboring nodes
+     on the path are not their parents *)
+
+
 (* confounders, u if u is a parent, and v if v is a parent *)
 Definition get_sources_in_g_path (G: graph) (p: path): nodes :=
   match p with
@@ -871,7 +878,6 @@ Lemma conditioned_node_between_sources: forall (x y: node) (l4: nodes) (p: path)
   -> get_sources_in_g_path G p = x :: y :: l4
   -> d_connected_2 p G Z
   -> exists (z: node), In z Z /\ In x (find_unblocked_ancestors G z Z) /\ In y (find_unblocked_ancestors G z Z).
-(* TODO if z in Z, then z still in unblocked_ancestors(z)? *)
 Proof.
   intros x y l4 p G Z HG HZ HpG Hcyc HA1 Hp.
   destruct p as [[u v] l]. simpl in HZ.
