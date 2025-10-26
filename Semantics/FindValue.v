@@ -1,12 +1,9 @@
 From Semantics Require Import FunctionRepresentation.
 From CausalDiagrams Require Import Assignments.
-(* From CausalDiagrams Require Import IntermediateNodes.
-From CausalDiagrams Require Import DSeparation. *)
 From DAGs Require Import Basics.
 From DAGs Require Import TopologicalSort.
 From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
-(* From DAGs Require Import PathFinding. *)
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 From Coq Require Import Arith.EqNat. Import Nat.
@@ -15,7 +12,20 @@ From Coq Require Import Lia.
 Import ListNotations.
 From Utils Require Import EqType.
 
-(* returns None if some parent hasn't been assigned a value, else returns list of assignments *)
+(* This file provides the framework to find the value of a node in a causal model, which depends on
+   its unobserved value and the values of its parents. Actually determining the values of a node's
+   parents is not straightforward -- it relies on a topological sort and several helper functions,
+   proceeding in stages which can be found below.
+
+   An important theorem is `find_value_evaluates_to_g`, which proves the
+   expected relationship between the `find_value` function and the more useful `get_value_of_node`
+   function. *)
+
+
+
+(* Returns the list of the assignments of nodes in P given by A, in the same order as the nodes
+   in P. If some node in P hasn't been assigned a value, then return None
+   In practice used for retrieving assignments of parents P from the set of all assignments A *)
 Fixpoint get_parent_assignments {X: Type} (A: assignments X) (P: nodes) : option (list X) :=
   match P with
   | [] => Some []
@@ -27,6 +37,7 @@ Fixpoint get_parent_assignments {X: Type} (A: assignments X) (P: nodes) : option
               | None => None
               end
   end.
+
 
 Lemma parent_assignments_exist: forall X (A: assignments X) (P: nodes),
   is_assignment_for A P = true -> exists L: list X, Some L = get_parent_assignments A P.
@@ -44,6 +55,7 @@ Proof.
     apply IH in Hind. destruct Hind as [L Hind].
     exists (x :: L). rewrite <- Hind. reflexivity.
 Qed.
+
 
 Lemma parent_assignments_preserves_index: forall X (P: assignments X) (V: nodes) (p: list X) 
                                               (i: nat) (x: X) (m: node),
@@ -68,17 +80,21 @@ Proof.
       * discriminate Hi.
 Qed.
 
-(* A = assigned assignments, A_eval = evaluated assignments *)
+
+
+(* !! the input `A` is deprecated, should always be [] !
+   Return the value of node u in causal model G with graphfun g and unobserved-terms assignments U.
+   A_eval is the assignments of the nodes appearing before u in topological order. *)
 Definition get_value_of_node {X: Type} (u: node) (G: graph) (g: graphfun) (U A A_eval: assignments X) : option X :=
   match (get_assigned_value A u) with
-  | Some x => (* value already assigned *) Some x
-  | None => (* find value of parents and use node function *)
+  | Some x => (* will never reach here, A = [] *) Some x
+  | None => (* find values of parents and use node function *)
             match (get_assigned_value U u) with
             | Some unobs => match (get_parent_assignments A_eval (find_parents u G)) with
                             | Some p => Some ((g u) (unobs, p))
                             | None => None (* won't reach this, contradicts topo correctness *)
                             end
-            | None => None (* error, U needs to have unobserved value of all nodes *)
+            | None => None (* error, U should have unobserved values for all nodes *)
             end
   end.
 
@@ -144,16 +160,22 @@ Proof.
     rewrite <- HP. rewrite HP2. reflexivity.
 Qed.
 
+
+
+(* Assume ts is the nodes of G in topological order. Return the assignments of nodes in G to their
+   values in topological order, computed by repeatedly calling get_value_of_node with a growing A_eval *)
 Fixpoint get_values_from_topo_sort {X: Type} (ts: nodes) (G: graph) (g: graphfun) (U: assignments X)
                                    (A: assignments X) (A_eval: assignments X) : option (assignments X) :=
   match ts with
-  | [] => Some A_eval
+  | [] => Some A_eval (* return the accumulated list of assignments *)
   | u :: ts' => match (get_value_of_node u G g U A A_eval) with
                 | Some x => get_values_from_topo_sort ts' G g U A (add_assignment A_eval u x)
                 | None => None
                 end
   end.
 
+(* Instead of returning A_eval, accumulate a list of assignments in parallel and return that.
+   Should produce the same output as get_values_from_topo_sort, but easier to use in proofs *)
 Fixpoint get_values_from_topo_sort_2 {X: Type} (ts: nodes) (G: graph) (g: graphfun) (U: assignments X)
                                      (A_eval: assignments X) : option (assignments X) :=
   match ts with
@@ -307,9 +329,12 @@ Proof.
 Qed.
 
 
+
+(* !! the input `A` is deprecated, should always be [] !!
+   Returns all the values of the nodes in G in topological order, or None if G is cyclic *)
 Definition get_values {X: Type} (G: graph) (g: graphfun) (U A: assignments X) : option (assignments X) :=
   match (topological_sort G) with
-  | Some ts => get_values_from_topo_sort ts G g U A []
+  | Some ts => get_values_from_topo_sort ts G g U A [] (* A_eval is empty, will accumulate values *)
   | None => None (* graph is cyclic *)
   end.
 
@@ -619,6 +644,10 @@ Proof.
     - unfold get_values in HV. rewrite Hts in HV. apply HV. }
   destruct Hlem as [V2 [HV2 HV']]. rewrite HV. simpl in HV'. rewrite HV2. f_equal. apply HV'.
 Qed.
+
+
+
+
 
 Definition find_value {X: Type} (G: graph) (g: graphfun) (u: node) (U A: assignments X): option X :=
   match (get_values G g U A) with

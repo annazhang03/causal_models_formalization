@@ -14,6 +14,15 @@ From Coq Require Import Lia.
 
 Import ListNotations.
 
+
+(* In this file, we expand on the foundation provided in ColliderDescendants.v regarding disjoint
+   descendant paths. We show that whenever a d-connected path exists, we can construct a "clean"
+   d-connected path: one that has a descendant map satisfying the descendant_paths_disjoint proposition.
+   In other words, all descendant paths are disjoint from the d-connected path and from each other. *)
+
+(* The idea behind the following theorem is to handle casework on every possible overlap that could occur
+   and for each case, construct an alternate d-connected path that avoids this overlap. The proof uses induction
+   and thus considers the _first_ overlap. *)
 Theorem exists_d_connected_path_with_collider_descendants_disjoint: forall (G: graph) (Z l: nodes) (u v: node),
   G_well_formed G = true /\ contains_cycle G = false
   -> acyclic_path_2 (u, v, l)
@@ -22,12 +31,14 @@ Theorem exists_d_connected_path_with_collider_descendants_disjoint: forall (G: g
   -> exists (l': nodes),
      acyclic_path_2 (u, v, l') /\ d_connected_2 (u, v, l') G Z /\ is_path_in_graph (u, v, l') G = true
      /\
-     (forall (w: node), (node_in_path w (u, v, l') = true /\ node_in_path w (u, v, l) = false) \/
+        (* the below forall clause is required for induction; it is ignored when applying this result.
+           It provides a guarantee that any change in an induction path was due to an overlap
+           from a descendant path *)
+        (forall (w: node), (node_in_path w (u, v, l') = true /\ node_in_path w (u, v, l) = false) \/
                         (exists (b: bool), path_out_of_node w (u, v, l) G = Some b /\ path_out_of_node w (u, v, l') G = Some (negb b))
-      -> ((exists (du: node) (pu: nodes), is_directed_path_in_graph (w, du, pu) G = true /\ In du Z /\ ~In w Z)
-          \/ path_out_of_node w (u, v, l') G <> Some true /\ In w Z)
-           (* if path changed direction into u, then it's due to a descendant path *)
-         /\ (path_out_of_node w (u, v, l') G = Some true -> ~(In w Z)))
+        -> ((exists (du: node) (pu: nodes), is_directed_path_in_graph (w, du, pu) G = true /\ In du Z /\ ~In w Z)
+              \/ path_out_of_node w (u, v, l') G <> Some true /\ In w Z)
+           /\ (path_out_of_node w (u, v, l') G = Some true -> ~(In w Z)))
      /\
      exists (D: assignments (nodes * node)), descendant_paths_disjoint D u v l' G Z.
 Proof.

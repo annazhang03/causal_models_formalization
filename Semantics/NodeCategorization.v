@@ -1,1 +1,2 @@
-From Semantics Require Export OrigA1Nodes OrigA2Nodes OrigA3Nodes OrigA4Nodes OrigA4NodesSeq.
+(* The classification of nodes along a path into S1, S2, S3, and S4 is crucial for the proofs in EquateValues.v *)
+From Semantics Require Export S1_Sources S1_SourcesSeq S2_Transmitters S3_Colliders S4_Descendants.
