@@ -179,6 +179,14 @@ Proof.
 Qed.
 
 
+
+
+
+(* Backward direction: we again show the contrapositive, i.e. that if u and v are not semantically separated given Z,
+   so there exists some graph function and sequence of unobserved-terms assignments satisfying the requirements
+   semantic separation, such that f(v) changes between the first and last elements of the sequence, then we can
+   use the sequence to show the existence of a d-connected path given Z from u to v, thus showing that the two nodes
+   are not d-separated. *)
 Theorem path_d_separated_then_semantically_separated {X : Type} `{EqType X}: forall (G: graph) (u v: node),
   u <> v /\ generic_graph_and_type_properties_hold X G /\ node_in_graph v G = true
   -> forall (Z: nodes), subset Z (nodes_in_graph G) = true /\ each_node_appears_once Z /\ member u Z = false /\ member v Z = false
@@ -187,7 +195,9 @@ Proof.
   intros G u' v'. intros [Huveq [HG Hnodev]] Z HZ.
   intros Hdsep. unfold semantically_separated.
 
-  assert (Hdconn1: forall (anc u: node) (l: nodes), is_directed_path_in_graph (anc, u, l) G = true /\
+  (* if anc is an unblocked ancestor of u (but not u itself, since there is an acyclic directed path anc->>u),
+     then the unblocked directed path anc -> ...l... -> u is d-connected *)
+  assert (H_conn_unb_anc: forall (anc u: node) (l: nodes), is_directed_path_in_graph (anc, u, l) G = true /\
           (forall w : node, w = anc \/ In w l -> ~ In w Z) -> acyclic_path_2 (anc, u, l) -> d_connected_2 (anc, u, l) G Z).
   { intros anc u l [Hdir HlZ]. intros Hcyc. apply directed_path_is_path in Hdir as Hpath.
     unfold d_connected_2. repeat split.
@@ -218,12 +228,16 @@ Proof.
         ** apply Hcol.
         ** apply Hcol'. }
 
-  assert (Hdconn2: forall (anc u v: node) (lu lv: nodes), is_directed_path_in_graph (anc, u, lu) G = true /\ (forall w : node, w = anc \/ In w lu -> ~ In w Z)
+  (* if anc is a shared unblocked ancestor of u and v (but not equal to either u or v), and the concatenation of the
+     reverse of the unblocked directed path from anc to u and the unblocked directed path from anc to v is acyclic, then
+     that path is d-connected
+     u <- ...lu... <- anc -> ...lv... -> v *)
+  assert (H_conn_unb_anc_uv: forall (anc u v: node) (lu lv: nodes), is_directed_path_in_graph (anc, u, lu) G = true /\ (forall w : node, w = anc \/ In w lu -> ~ In w Z)
                                                        /\ is_directed_path_in_graph (anc, v, lv) G = true /\ (forall w : node, w = anc \/ In w lv -> ~ In w Z)
                    -> is_path_in_graph (u, v, (rev lu) ++ (anc :: lv)) G = true /\ acyclic_path_2 (u, v, (rev lu) ++ (anc :: lv)) -> d_connected_2 (u, v, (rev lu) ++ anc :: lv) G Z).
   { intros anc u v lu lv [Hdiru [HluZ [Hdirv HlvZ]]] [Hpath Hcyc].
-    assert (Hconnu: d_connected_2 (anc, u, lu) G Z). { apply Hdconn1. split. apply Hdiru. apply HluZ. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := v) (l2 := lv) (l3 := rev lu ++ anc :: lv). split. reflexivity. apply Hcyc. }
-    assert (Hconnv: d_connected_2 (anc, v, lv) G Z). { apply Hdconn1. split. apply Hdirv. apply HlvZ. apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ anc :: lv). split. reflexivity. apply Hcyc. }
+    assert (Hconnu: d_connected_2 (anc, u, lu) G Z). { apply H_conn_unb_anc. split. apply Hdiru. apply HluZ. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := v) (l2 := lv) (l3 := rev lu ++ anc :: lv). split. reflexivity. apply Hcyc. }
+    assert (Hconnv: d_connected_2 (anc, v, lv) G Z). { apply H_conn_unb_anc. split. apply Hdirv. apply HlvZ. apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ anc :: lv). split. reflexivity. apply Hcyc. }
     apply concat_d_connected_paths.
     - destruct HG as [_ [_ HG]]. apply HG.
     - apply Hpath.
@@ -250,7 +264,11 @@ Proof.
                 simpl in Hdirv. apply split_and_true in Hdirv. destruct Hdirv as [Hdirv _]. apply Hdirv.
       + specialize HluZ with (w := anc). apply HluZ. left. reflexivity. }
 
-  assert (Hdconn_con: forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
+  (* if anc is a shared unblocked ancestor of u and v, then either
+     1. v -> ...l... -> u is directed, acyclic, d-connected
+     2. u -> ...l... -> v is directed, acyclic, d-connected
+     3. u <- ...lu... <- anc -> ...lv... -> v is acyclic and d-connected *)
+  assert (H_conn_shared_unb_anc: forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
                   -> (exists (l: nodes), d_connected_2 (v, u, l) G Z /\ is_directed_path_in_graph (v, u, l) G = true /\ acyclic_path_2 (v, u, l) /\ (forall w : node, w = v \/ In w l -> ~ In w Z))
                      \/ (exists (l: nodes), d_connected_2 (u, v, l) G Z /\ is_directed_path_in_graph (u, v, l) G = true /\ acyclic_path_2 (u, v, l) /\ (forall w : node, w = u \/ In w l -> ~ In w Z))
                      \/ (exists (lu lv: nodes) (anc: node), d_connected_2 (u, v, (rev lu) ++ anc :: lv) G Z /\ is_path_in_graph (u, v, (rev lu) ++ anc :: lv) G = true
@@ -272,7 +290,7 @@ Proof.
       + (* v -> ...l... -> u is d-connected path *) left. clear Hancu. clear Hancv.
         apply unblocked_ancestors_have_unblocked_directed_path in Heqancv. destruct Heqancv as [Hancu | Hancu]. exfalso. apply Huv. rewrite Hancu. reflexivity.
         destruct Hancu as [l [Hdir [Hcycu HlZ]]]. exists l.
-        assert (Hconn: d_connected_2 (v, u, l) G Z). { apply Hdconn1. split. apply Hdir. apply HlZ. apply Hcycu. }
+        assert (Hconn: d_connected_2 (v, u, l) G Z). { apply H_conn_unb_anc. split. apply Hdir. apply HlZ. apply Hcycu. }
         split. apply Hconn. split. apply Hdir. split. apply Hcycu. apply HlZ.
     - pose proof Hancv as Hancv'. apply unblocked_ancestors_have_unblocked_directed_path in Hancv. destruct Hancv as [Hancv | Hancv].
       (* v is not an unblocked ancestor of u *) rewrite Hancv in Hancu. apply member_In_equiv in Hancu. rewrite Hancu in Heqancv. discriminate Heqancv.
@@ -280,7 +298,7 @@ Proof.
       + (* u -> ...lv... -> v is a d-connected path *) right. left. clear Hancu. clear Hancv. apply member_In_equiv in Heqancu.
         apply unblocked_ancestors_have_unblocked_directed_path in Heqancu. destruct Heqancu as [Hancv | Hancv]. exfalso. apply Huv. apply Hancv.
         destruct Hancv as [l [Hdir [Hcycv HlZ]]]. exists l.
-        assert (Hconn: d_connected_2 (u, v, l) G Z). { apply Hdconn1. split. apply Hdir. apply HlZ. apply Hcycv. }
+        assert (Hconn: d_connected_2 (u, v, l) G Z). { apply H_conn_unb_anc. split. apply Hdir. apply HlZ. apply Hcycv. }
         split. apply Hconn. split. apply Hdir. split. apply Hcycv. apply HlZ.
       + (* u <- ...lu... <- anc -> ...lv... -> v  is a d-connected path *) right. right.
         apply unblocked_ancestors_have_unblocked_directed_path in Hancu. destruct Hancu as [Hancu | Hancu]. rewrite Hancu in Hancv'. apply member_In_equiv in Hancv'. rewrite Hancv' in Heqancu. discriminate Heqancu.
@@ -297,7 +315,7 @@ Proof.
         { apply concat_paths_still_a_path. split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdiru.
           apply directed_path_is_path. apply Hdirv. }
         assert (Hconn: d_connected_2 (u, v, (rev lu) ++ anc' :: lv) G Z).
-        { apply Hdconn2. repeat split.
+        { apply H_conn_unb_anc_uv. repeat split.
           - apply Hdiru.
           - intros w Hw. apply HlulvZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. left. apply Hw.
           - apply Hdirv.
@@ -305,10 +323,10 @@ Proof.
           - split. apply Hpath. apply Hcycuv. }
         split. apply Hconn. split. apply Hpath. split. apply Hdiru. split. apply Hdirv. split. apply Hcycuv. apply HlulvZ. }
 
-  assert (Hdconn_con': forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
+  assert (H_sep_shared_unb_anc: forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
                   -> d_separated_bool u v G Z = true -> False).
   { intros anc u v Huv [Hancv Hancu] Hsep.
-    specialize Hdconn_con with (anc := anc) (u := u) (v := v). apply Hdconn_con in Huv.
+    specialize H_conn_shared_unb_anc with (anc := anc) (u := u) (v := v). apply H_conn_shared_unb_anc in Huv.
     destruct Huv as [Hvlu | [Hulv | Hcon]].
     - destruct Hvlu as [l [Hconn [Hdir [Hcyc HlZ]]]].
       apply d_connected_path_not_d_separated with (l := rev l) in Hsep.
@@ -352,6 +370,7 @@ Proof.
   assert (Hfvavb': find_value G g v' Ua [] <> find_value G g v' Ub' []).
   { rewrite HvUa. rewrite HvUb'. intros F. inversion F. rewrite H1 in Hvavb'. rewrite eqb_refl' in Hvavb'. discriminate Hvavb'. }
 
+  (* apply our primary lemma to attribute the change in v' to some conditioned node z *)
   assert (Hancv: exists (a: node), In a (find_unblocked_ancestors G v' Z)
       /\ (In a (find_unblocked_ancestors G u' Z) \/
          exists (z: node),
@@ -361,7 +380,8 @@ Proof.
     split. apply HUa. apply HuUb'. apply Hnodev. split. apply HZUa. apply HZUb'. apply HUab. apply Hseq. }
 
   destruct Hancv as [ancv [Hancv Hancv']]. destruct Hancv' as [Hancv' | Hancv'].
-  - specialize Hdconn_con' with (anc := ancv) (u := u') (v := v'). exfalso. apply Hdconn_con'. repeat split.
+  - (* u and v share a common ancestor *)
+    specialize H_sep_shared_unb_anc with (anc := ancv) (u := u') (v := v'). exfalso. apply H_sep_shared_unb_anc. repeat split.
     + apply Huveq.
     + split. apply Hancv. apply Hancv'.
     + apply Hdsep.
@@ -379,7 +399,7 @@ Proof.
 
     assert (Hzv: z <> v').
     { intros Hzv. rewrite Hzv in HzZ. destruct HZ as [_ [_ [_ Hzv']]]. apply member_In_equiv_F in Hzv'. apply Hzv'. apply HzZ. }
-    apply Hdconn_con with (anc := ancv) in Hzv. 2: { split. apply Hancv. apply Hancvz. }
+    apply H_conn_shared_unb_anc with (anc := ancv) in Hzv. 2: { split. apply Hancv. apply Hancvz. }
 
     assert (Hzv': (exists l : nodes,
          d_connected_2 (v', z, l) G Z /\
@@ -398,14 +418,20 @@ Proof.
       left. apply Hzv. right. apply Hzv. }
     clear Hzv. pose proof Hzv' as Hzv. clear Hzv'.
 
+    (* we have the three cases for d-connected paths between z and v', as given by Hzv *)
+
     destruct L as [| U1 L'].
     { rewrite sublist_X_false in HsubU. discriminate HsubU. }
 
+
+    (* show the existence of a d-connected path from u' to z, going _into_ z at the end, e.g. u' <-> ... -> z *)
     assert (Hp: exists (luz: nodes), is_path_in_graph (u', z, luz) G = true /\ d_connected_2 (u', z, luz) G Z /\ acyclic_path_2 (u', z, luz) /\ path_out_of_end (u', z, luz) G = Some false).
-    { assert (Hi: exists (i: nat), index_sublist [Ui'; Ui''; Ui'''] (Ua :: Ub :: U1 :: L') = Some i). { apply index_sublist_exists. apply HsubU. }
+    { (* perform induction on the index of the sublist of unobserved-terms assignments associated with z *)
+      assert (Hi: exists (i: nat), index_sublist [Ui'; Ui''; Ui'''] (Ua :: Ub :: U1 :: L') = Some i). { apply index_sublist_exists. apply HsubU. }
       destruct Hi as [i Hi]. apply index_sublist_loosen in Hi. clear Hzv. clear Hancvz. generalize dependent Ui'''. generalize dependent Ui''. generalize dependent Ui'. generalize dependent z.
       induction i as [| i' IH].
-      - intros z Hzseq HzZ HzAZ Ui' Ui'' Hz Ui''' Hsub Hi.
+      - (* z changes in [Ua, Ub, U1], so u' and z must share a common unblocked ancestor *)
+        intros z Hzseq HzZ HzAZ Ui' Ui'' Hz Ui''' Hsub Hi.
         assert (HUieq: eqb_asmt Ui' Ua && eqb_asmt Ui'' Ub && eqb_asmt Ui''' U1 = true).
         { simpl in Hi. rewrite andb_assoc in Hi. rewrite andb_assoc in Hi. rewrite andb_comm in Hi. simpl in Hi. apply Hi. }
         assert (HUi': Ui' = Ua). { apply split_and_true in HUieq. destruct HUieq as [HUieq _]. apply split_and_true in HUieq. destruct HUieq as [HUieq _]. apply eqb_asmt_eq. apply HUieq. } rewrite HUi' in *. clear HUi'.
@@ -416,7 +442,7 @@ Proof.
 
         assert (Huz: u' <> z).
         { intros Huz. rewrite <- Huz in HzZ. destruct HZ as [_ [_ [Huz' _]]]. apply member_In_equiv_F in Huz'. apply Huz'. apply HzZ. }
-        apply Hdconn_con with (anc := ancu) in Huz.
+        apply H_conn_shared_unb_anc with (anc := ancu) in Huz.
         2: { split. apply Hancuz. destruct (member ancu (find_unblocked_ancestors G u' Z)) as [|] eqn:HmemZ.
              + apply member_In_equiv in HmemZ. apply HmemZ.
              + apply in_unblocked_that_changed in Hancu. assert (F: get_assigned_value Ua ancu = get_assigned_value Ub ancu).
@@ -430,7 +456,9 @@ Proof.
           rewrite subpath_preserves_path_out_of_end with (w := ancu') (l1 := rev lu) (l2 := lz). 2: { reflexivity. }
           apply directed_path_into_end. apply HG. apply Hlulz.
 
-      - intros z Hzseq HzZ HzAZ Ui' Ui'' Hz Ui''' Hsub Hi.
+      - (* z changes later in the sequence. Apply the induction hypothesis on an earlier z', then concatenate
+           paths from u' to z', then from z' to z *)
+        intros z Hzseq HzZ HzAZ Ui' Ui'' Hz Ui''' Hsub Hi.
 
         assert (Hi': exists (Ui: assignments X), index_sublist_2 [Ui; Ui'; Ui''; Ui'''] (Ua :: Ub :: U1 :: L') i' = true). { apply sublist_with_index_one_less_2. apply Hi. }
         destruct Hi' as [Ui Hi'].
@@ -473,12 +501,14 @@ Proof.
         (* create path from z' <- ... az ... -> z, then concatenate *)
         destruct (z' =? z) as [|] eqn:Hzz'.
         + apply eqb_eq in Hzz'. rewrite Hzz' in *. exists luz'. apply Hluz'.
-        + apply eqb_neq in Hzz'. apply Hdconn_con with (anc := az) in Hzz'. 2: { split. apply Haz. apply Haz. }
+        + apply eqb_neq in Hzz'. apply H_conn_shared_unb_anc with (anc := az) in Hzz'. 2: { split. apply Haz. apply Haz. }
+          (* only the third case makes sense, since z and z' are both conditioned nodes *)
           destruct Hzz' as [Hzz' | [Hzz' | Hzz']].
           * exfalso. destruct Hzz' as [lz Hlz]. apply Hlz with (w := z). left. reflexivity. apply HzZ.
           * exfalso. destruct Hzz' as [lz Hlz]. apply Hlz with (w := z'). left. reflexivity. apply HzZ'.
           * destruct Hzz' as [lz' [lz [az' Hlzlz']]].
             (* u ...luz'... -> z' <- ... rev lz' ... <- az' -> ... lz ... -> z *)
+            (* the resulting path must be acyclic, so we now resolve any possible overlaps *)
             destruct (overlap (u' :: luz') (z :: rev lz ++ [az'] ++ lz')) as [|] eqn:Hover.
             { apply lists_have_first_elt_in_common in Hover. destruct Hover as [luz1 [luz2 [lz1 [lz2 [x [Hx [Hx' Hover]]]]]]].
               destruct luz1 as [| hluz1 tluz1].
@@ -658,6 +688,7 @@ Proof.
               split. apply Hcyc.
               rewrite subpath_preserves_path_out_of_end with (w := az') (l1 := luz' ++ [z'] ++ rev lz') (l2 := lz).
               apply directed_path_into_end. apply HG. apply Hlzlz'. rewrite <- app_assoc. rewrite <- app_assoc. reflexivity. } }
+
 
     (* using p, concat with Hzv path and get d-connected path from u' to v', contradicting Hsep. *)
     destruct Hp as [lu Hlu].
@@ -936,6 +967,7 @@ Proof.
     + apply Hp.
     + split. apply Hp. apply Hp.
 Qed.
+
 
 
 (* Using the above two directions, we prove the equivalence theorem between semantic separation and d-separation *)

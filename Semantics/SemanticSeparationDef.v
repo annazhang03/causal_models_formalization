@@ -201,6 +201,34 @@ Fixpoint assignments_change_only_for_Z_anc_seq {X: Type} `{EqType X} (L: list (a
                       end
   end.
 
+Lemma sequence_of_ancestors_assignment {X: Type} `{EqType X}: forall (Ua Ub: assignments X) (L: list (assignments X)) (Z S: nodes) (AZ: assignments X) (G: graph),
+  is_assignment_for Ua (nodes_in_graph G) = true
+  -> assignments_change_only_for_subset Ua Ub S
+  -> assignments_change_only_for_Z_anc_seq (Ua :: Ub :: L) Z AZ G
+  -> forall (U: assignments X), In U (Ua :: Ub :: L) -> is_assignment_for U (nodes_in_graph G) = true.
+Proof.
+  intros Ua Ub L Z S AZ G HUa HUab Hseq. intros U HU.
+  assert (HUb: is_assignment_for Ub (nodes_in_graph G) = true).
+  { unfold assignments_change_only_for_subset in HUab. apply forallb_true_iff_mem. intros x Hx.
+    apply HUab. apply forallb_true_iff_mem with (x := x) in HUa. apply HUa. apply Hx. }
+  destruct HU as [HU | [HU | HU]].
+  - rewrite <- HU. apply HUa.
+  - rewrite <- HU. apply HUb.
+  - clear HUab. generalize dependent Ub. generalize dependent Ua. induction L as [| U1 L' IH].
+    + exfalso. apply HU.
+    + intros Ua HUa Ub Hseq HUb.
+      assert (HU1: is_assignment_for U1 (nodes_in_graph G) = true).
+      { simpl in Hseq. destruct Hseq as [Hseq _]. apply forallb_true_iff_mem. intros x Hx. apply Hseq.
+        apply forallb_true_iff_mem with (x := x) in HUb. apply HUb. apply Hx. }
+      destruct HU as [HU | HU].
+      * rewrite <- HU. apply HU1.
+      * apply IH with (Ua := Ub) (Ub := U1).
+        -- apply HU.
+        -- apply HUb.
+        -- simpl in Hseq. apply Hseq.
+        -- apply HU1.
+Qed.
+
 Lemma equiv_assignments_preserve_anc {X: Type} `{EqType X}: forall (L L': list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph),
   list_assignments_equiv L L'
   -> assignments_change_only_for_Z_anc_seq L Z AZ G
