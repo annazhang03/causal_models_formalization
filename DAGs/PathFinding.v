@@ -1,6 +1,7 @@
 From DAGs Require Import Basics.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
+Import Lia.
 
 Import ListNotations.
 
@@ -701,17 +702,22 @@ Lemma paths_start_to_end_endpoints :
   forall u v l G,
     In (u, v, l) (find_all_paths_from_start_to_end u v G) ->
     path_start_and_end (u, v, l) u v = true.
-Admitted.
+Proof. intros. destruct G as [V E]. unfold find_all_paths_from_start_to_end in H. apply filter_In in H.
+  destruct H as [h1 h2]. unfold path_start_and_end. simpl. rewrite !Nat.eqb_refl. simpl. reflexivity.
+Qed.
 
 (*helper 3 for paths_start_to_end_correct*)
-Lemma find_all_paths_complete :
-  forall G u v p,
-    G_well_formed G = true ->
-    no_one_cycles (snd G) = true ->
-    is_path_in_graph p G = true ->
-    path_start_and_end p u v = true ->
-    acyclic_path_2 p ->
+Lemma find_all_paths_complete : forall G u v p,
+    G_well_formed G = true -> no_one_cycles (snd G) = true ->
+    is_path_in_graph p G = true -> path_start_and_end p u v = true -> acyclic_path_2 p ->
     In p (find_all_paths_from_start_to_end u v G).
+Proof.
+  intros. destruct G as [V E]. unfold find_all_paths_from_start_to_end. apply filter_In. split.
+  destruct p as [[u0 v0] l]. unfold path_start_and_end in H2. unfold path_start in H2. unfold path_end in H2.
+  apply Bool.andb_true_iff in H2. destruct H2 as [h1 h2]. apply Nat.eqb_eq in h1. apply Nat.eqb_eq in h2. subst.
+
+  (* revert H3 H1 H0. revert u v l. induction l as [|h t IH].
+  - intros. unfold is_path_in_graph in H1. simpl in H1. apply andb_true_iff in H1 as [H1 _]. simpl. *)
 Admitted.
 
 (* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
@@ -748,7 +754,7 @@ Qed.
 Fixpoint edges_as_paths (E: edges) : paths :=
   match E with
   | [] => []
-  | h :: t => match h with 
+  | h :: t => match h with
               | (u, v) => (u, v, []) :: ((v, u, []) :: edges_as_paths t)
               end
   end.
@@ -760,10 +766,10 @@ Proof.
   - intros H. induction E as [| h t IH].
     + reflexivity.
     + simpl in H. destruct h as [u v]. discriminate.
-  - intros H. rewrite H. simpl. reflexivity. 
+  - intros H. rewrite H. simpl. reflexivity.
 Qed.
 
-Example test_edges_as_paths: edges_as_paths E = 
+Example test_edges_as_paths: edges_as_paths E =
     (* this only works for exact order paths are added *)
     [(1, 2, []); (2, 1, []); (3, 2, []); (2, 3, []); (3, 1, []); (1, 3, []); (4, 1, []); (1, 4, [])].
 Proof. reflexivity. Qed.
@@ -778,7 +784,7 @@ Fixpoint extend_all_paths_one (p : path) (l: paths) : paths :=
                       let t1 := add_path_no_repeats h (extend_all_paths_one p t) in
                       if ((v1 =? u2) && (u1 =? v2)) then t1 (* cycle, don't add *)
                       else if (overlap (l1 ++ [u1;v1]) l2 || overlap l1 (l2 ++ [u2;v2])) then t1 (* contains cycle, don't add *)
-                      else if (v1 =? u2) then (* p' concat h is a path from u1 to v2 *) 
+                      else if (v1 =? u2) then (* p' concat h is a path from u1 to v2 *)
                         add_path_no_repeats (u1, v2, (l1 ++ v1 :: l2)) t1
                       else if (u1 =? v2) then (* h concat p' is a path from u2 to v1 *)
                         add_path_no_repeats (u2, v1, (l2 ++ v2 :: l1)) t1
@@ -805,7 +811,7 @@ Fixpoint extend_graph_paths_iter (l: paths) (k: nat) : paths :=
 (* determine all paths existing in the graph made up of edges E *)
 Definition find_all_paths (G: graph) : paths :=
   match G with
-  | (V, E) => let edge_paths := edges_as_paths E in 
+  | (V, E) => let edge_paths := edges_as_paths E in
              extend_graph_paths_iter edge_paths (length V)  (* each path can have at most |V| vertices *)
   end.
 
