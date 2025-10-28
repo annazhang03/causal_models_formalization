@@ -36,6 +36,5 @@ Semantics/ColliderDescendants.v
 Semantics/DescendantPathsDisjoint.v
 Semantics/SemanticSeparationDef.v
 Semantics/EquateValues.v
-Semantics/ChangeOriginatesFromUnbAnc.v
-Semantics/SemanticAndDSeparationEquiv.v
-Semantics/PrevConditionallyIndependentDef.v
+Semantics/ChangeOrigUnbAnc.v
+Semantics/SemanticDSepEquiv.v

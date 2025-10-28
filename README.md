@@ -71,5 +71,5 @@ Here we provide a concise guide to the most novel/important concepts and show wh
 - Semantic separation is formally defined in `Semantics/SemanticSeparationDef.v`
 
 ### Theorems
-- The equivalence theorem between semantic separation and _d_-separation is mechanized in `Semantics/SemanticAndDSeparationEquiv.v`
+- The equivalence theorem between semantic separation and _d_-separation is mechanized in `Semantics/SemanticDSepEquiv.v`
 

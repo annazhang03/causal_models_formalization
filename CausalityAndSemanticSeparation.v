@@ -10,6 +10,6 @@
   *
   * The main result is an equivalence proof between d-separation and the novel semantic separation,
   * The definition of semantic separation is in Semantics/SemanticSeparationDef.v.
-  * The equivalence proof is completed in Semantics/SemanticAndDSeparationEquiv.v.
+  * The equivalence proof is completed in Semantics/SemanticDSepEquiv.v.
   *
   *)
