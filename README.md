@@ -53,7 +53,7 @@ rather than the formal statements or proofs built on top of them.
 
 Work is ongoing to fully mechanize these correctness proofs.
 
-There are a small number of other admitted theorems in `CausalDiagrams/Interventions.v` and in the `Archive/` directory; these are purely auxiliary and not referenced in the semantic development.
+There are a small number of other admitted theorems in `CausalDiagrams/Interventions.v` and in the `Spirtes/` directory; these are purely auxiliary and not referenced in the semantic development.
 
 
 ## Key Content
