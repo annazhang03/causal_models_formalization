@@ -5,7 +5,7 @@ From Semantics Require Import ColliderDescendants.
 From Semantics Require Import DescendantPathsDisjoint.
 From Semantics Require Import SemanticSeparationDef.
 From Semantics Require Import EquateValues.
-From Semantics Require Import ChangeOriginatesFromUnbAnc.
+From Semantics Require Import ChangeOrigUnbAnc.
 From CausalDiagrams Require Import Assignments.
 From CausalDiagrams Require Import DSeparation.
 From CausalDiagrams Require Import UnblockedAncestors.
@@ -28,7 +28,7 @@ From Utils Require Import EqType.
 
 (* In this file, we prove the central result that the notions of semantic separation and d-separation coincide exactly.
    We split the proof into its two logical directions, primarily relying on lemmas in EquateValues.v for the forward direction
-   and ChangeOriginatesFromUnbAnc.v for the backward direction *)
+   and ChangeOrigUnbAnc.v for the backward direction *)
 
 
 (* Forward direction: we show the contrapositive, i.e. that if there is a d-connected path p conditioned on Z between u and v,
@@ -425,7 +425,7 @@ Proof.
 
 
     (* show the existence of a d-connected path from u' to z, going _into_ z at the end, e.g. u' <-> ... -> z *)
-    assert (Hp: exists (luz: nodes), is_path_in_graph (u', z, luz) G = true /\ d_connected_2 (u', z, luz) G Z /\ acyclic_path_2 (u', z, luz) /\ path_out_of_end (u', z, luz) G = Some false).
+    assert (H_path_u_to_z: exists (luz: nodes), is_path_in_graph (u', z, luz) G = true /\ d_connected_2 (u', z, luz) G Z /\ acyclic_path_2 (u', z, luz) /\ path_out_of_end (u', z, luz) G = Some false).
     { (* perform induction on the index of the sublist of unobserved-terms assignments associated with z *)
       assert (Hi: exists (i: nat), index_sublist [Ui'; Ui''; Ui'''] (Ua :: Ub :: U1 :: L') = Some i). { apply index_sublist_exists. apply HsubU. }
       destruct Hi as [i Hi]. apply index_sublist_loosen in Hi. clear Hzv. clear Hancvz. generalize dependent Ui'''. generalize dependent Ui''. generalize dependent Ui'. generalize dependent z.
@@ -691,7 +691,7 @@ Proof.
 
 
     (* using p, concat with Hzv path and get d-connected path from u' to v', contradicting Hsep. *)
-    destruct Hp as [lu Hlu].
+    destruct H_path_u_to_z as [lu Hlu].
     assert (Hp: exists (l: nodes), is_path_in_graph (u', v', l) G = true /\ d_connected_2 (u', v', l) G Z /\ acyclic_path_2 (u', v', l)).
     { destruct Hzv as [Hzv | Hzv].
       - destruct Hzv as [lv Hlv]. (* z <- ...lv... <- v *)

@@ -31,6 +31,9 @@ Definition get_sources_in_g_path (G: graph) (p: path): nodes :=
     end
   end.
 
+Definition source_fixed {X: Type} (U: assignments X) (A1: assignments X) (x: X): Prop :=
+  forall (u1: node), is_assigned A1 u1 = true -> get_assigned_value U u1 = Some x.
+
 Lemma sources_nonempty: forall (G: graph) (u v: node) (l: nodes),
   is_path_in_graph (u, v, l) G = true
   -> get_sources_in_g_path G (u, v, l) = [] -> False.

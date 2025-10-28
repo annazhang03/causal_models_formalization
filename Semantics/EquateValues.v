@@ -987,7 +987,7 @@ Proof.
      evaluate to x *)
   assert (H_non_collider: (forall (w : node) (U: assignments X) (x: X),
                             is_assignment_for U (nodes_in_graph G) = true
-                            -> (forall (u1: node), is_assigned A1 u1 = true -> get_assigned_value U u1 = Some x)
+                            -> source_fixed U A1 x
                             -> node_in_path w (u, v, l) = true /\ ~ In w (find_colliders_in_path (u, v, l) G)
                             -> find_value G g w U [] = Some x)).
   { intros w' U x HU Hu1.
@@ -1248,7 +1248,7 @@ Proof.
      indeed evaluates to xw, the third element of A3(w). *)
   assert (HA3_equate: forall (U: assignments X) (w: node) (Px: assignments X) (pax: list X) (unobsx: X) (iw jw: nat) (xw yw: X) (x: X),
                           is_assignment_for U (nodes_in_graph G) = true
-                          -> (forall u1 : node, is_assigned A1 u1 = true -> get_assigned_value U u1 = Some x)
+                          -> source_fixed U A1 x
                           -> find_values G g (find_parents w G) U [] = Some Px
                           -> Some pax = get_parent_assignments Px (find_parents w G)
                           -> get_assigned_value U w = Some unobsx
@@ -1322,7 +1322,7 @@ Proof.
      that all sources have unobserved term x. We show that any U satisfying that assumption properly conditions on Z *)
   assert (H_condition_U: forall (U: assignments X) (x: X),
                           is_assignment_for U (nodes_in_graph G) = true
-                          -> (forall (u1: node), is_assigned A1 u1 = true -> get_assigned_value U u1 = Some x)
+                          -> source_fixed U A1 x
                           -> unobs_conditions_on_Z G g U AZ Z).
   { destruct Hexist as [HA2 [HA2' [HA2'' [HA3 [HA3' [HA3D HA4]]]]]].
     intros U x HU Hu1. unfold unobs_conditions_on_Z. intros w [HwZ HwG].
@@ -1536,8 +1536,8 @@ Proof.
   split. apply HUA.
 
   (* by construction, U satisfies our frequent assumption thus far that U(u1)=xX for all u1 in S1 *)
-  assert (HUA2': forall u1 : node, is_assigned A1 u1 = true -> get_assigned_value U u1 = Some xX).
-  { intros u1 Hu1. rewrite HeqU. apply node_maps_to_assigned_value.
+  assert (HUA2': source_fixed U A1 xX).
+  { intros u1 Hu1. unfold source_fixed. rewrite HeqU. apply node_maps_to_assigned_value.
     assert (HA1w': In u1 (get_sources_in_g_path G (u, v, l))).
     { destruct (member u1 (get_sources_in_g_path G (u, v, l))) as [|] eqn:Hmem.
       - apply member_In_equiv. apply Hmem.
@@ -1898,7 +1898,7 @@ Proof.
           apply HA1bind. apply HUA. right. apply HUt.
         - rewrite HeqU_last. apply last_mem. }
 
-      assert (HUA1: forall u1 : node, is_assigned A1 u1 = true -> get_assigned_value U_last u1 = Some x).
+      assert (HUA1: source_fixed U_last A1 x).
       { intros a Ha. rewrite HeqU_last. apply assignments_seq_nodes_map_to_x with (U := U) (A := get_sources_in_g_path G (u, v, l)).
         + destruct (get_sources_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4.
           ** apply sources_nonempty in H4. exfalso. apply H4. apply Hp.
