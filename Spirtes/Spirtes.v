@@ -21,6 +21,10 @@ Require Import Coq.Arith.PeanoNat.
 Require Import Classical.
 
 
+
+(* this file is a w.i.p. to prove theorems regarding inducing paths, originally
+   proved in text by Peter Spirtes *)
+
 (* all nodes in the given list of colliders, cols, are ancestors of either u or v *)
 Definition all_given_nodes_are_ancestors (cols: nodes) (u v: node) (G: graph) : Prop :=
   forall (c: node), In c cols -> In u (find_descendants c G) \/ In v (find_descendants c G).
