@@ -1,6 +1,6 @@
 From Semantics Require Import FunctionRepresentation.
 From Semantics Require Import FindValue.
-From Semantics Require Import ChangeOriginatesFromUnbAnc.
+From Semantics Require Import ChangeOrigUnbAnc.
 From CausalDiagrams Require Import Assignments.
 From CausalDiagrams Require Import UnblockedAncestors.
 From CausalDiagrams Require Import IntermediateNodes.

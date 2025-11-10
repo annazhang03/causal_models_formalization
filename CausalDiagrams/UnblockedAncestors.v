@@ -11,7 +11,15 @@ From Coq Require Import Lia.
 
 Import ListNotations.
 
-(* p represents a path backwards. return nodes in path before any node in Z is reached *)
+
+(* This file introduces the concept of unblocked ancestors.
+
+   Given a node u and a conditioning set Z, a node w is an unblocked ancestor of u if
+   either w = u, or there exists a directed path from w to u such that no internal
+   nodes on the path (including w) are in Z *)
+
+
+(* p represents a path backwards. Return nodes in path before any node in Z is reached *)
 Fixpoint find_unblocked_members_of_nodes (p: nodes) (Z: nodes): nodes :=
   match p with
   | [] => []
@@ -56,7 +64,9 @@ Proof.
         * right. rewrite H1. apply IH with (l1 := tl1). apply H1. intros x Hxmem. apply Hx. right. apply Hxmem. }
 Qed.
 
-(* does NOT include the end node (the node that all other nodes are ancestors of) *)
+
+
+(* does NOT include the end node of any path *)
 Fixpoint find_unblocked_ancestors_given_paths (P: paths) (Z: nodes): nodes :=
   match P with
   | [] => []
@@ -66,7 +76,8 @@ Fixpoint find_unblocked_ancestors_given_paths (P: paths) (Z: nodes): nodes :=
   end.
 
 Lemma in_unblocked_ancestors_of_some_path: forall (P: paths) (Z: nodes) (a: node),
-  In a (find_unblocked_ancestors_given_paths P Z) <-> exists (p: path), In p P /\ In a (find_unblocked_members_of_nodes ((rev (path_int p)) ++ [path_start p]) Z).
+  In a (find_unblocked_ancestors_given_paths P Z)
+  <-> exists (p: path), In p P /\ In a (find_unblocked_members_of_nodes ((rev (path_int p)) ++ [path_start p]) Z).
 Proof.
   intros P Z a. split.
   { intros Ha.
@@ -83,6 +94,7 @@ Proof.
       + apply IH in Hp. simpl. destruct hp as [[uh vh] lh]. apply membership_append_r. apply Hp. }
 Qed.
 
+
 (* return all ancestors of u with an unblocked directed path to u *)
 Definition find_unblocked_ancestors (G: graph) (v: node) (Z: nodes): nodes :=
   v :: (find_unblocked_ancestors_given_paths (find_directed_paths_to_end v G) Z).
@@ -90,7 +102,10 @@ Definition find_unblocked_ancestors (G: graph) (v: node) (Z: nodes): nodes :=
 
 Theorem unblocked_ancestors_have_unblocked_directed_path: forall (G: graph) (v a: node) (Z: nodes),
   In a (find_unblocked_ancestors G v Z)
-  <-> (a = v) \/ (exists (l: nodes), is_directed_path_in_graph (a, v, l) G = true /\ acyclic_path_2 (a, v, l) /\ forall (w: node), (w = a \/ In w l) -> ~(In w Z)).
+  <-> (a = v)
+      \/ (exists (l: nodes), is_directed_path_in_graph (a, v, l) G = true
+         /\ acyclic_path_2 (a, v, l)
+         /\ forall (w: node), (w = a \/ In w l) -> ~(In w Z)).
 Proof.
   (* path can be acyclic because if there is a directed path, can remove cycle *)
   intros G v a Z. split.
@@ -128,7 +143,10 @@ Qed.
 Lemma colliders_have_unblocked_path_to_descendant: forall (G: graph) (Z: nodes) (c: node) (p: path),
   In c (find_colliders_in_path p G)
   -> d_connected_2 p G Z
-  -> In c Z \/ (~In c Z /\ exists (z: node) (dp: nodes), is_directed_path_in_graph (c, z, dp) G = true /\ acyclic_path_2 (c, z, dp) /\ overlap dp Z = false /\ In z Z).
+  -> In c Z \/
+     (~ In c Z
+       /\ exists (z: node) (dp: nodes), is_directed_path_in_graph (c, z, dp) G = true /\ acyclic_path_2 (c, z, dp)
+                                        /\ overlap dp Z = false /\ In z Z).
 Proof.
   intros G Z c p Hc Hp.
   unfold d_connected_2 in Hp. destruct Hp as [_ [_ Hp]]. unfold all_colliders_have_descendant_conditioned_on in Hp.
@@ -173,6 +191,7 @@ Proof.
               ** intros Hcd. apply member_In_equiv_F in HcZ. apply HcZ. rewrite Hcd. apply HdZ.
   - apply Hc.
 Qed.
+
 
 Theorem acyclic_path_if_common_ancestor: forall (u v anc: node) (lv lu: nodes) (Z: nodes) (G: graph) (len: nat),
   u <> v /\ ~(In u (find_unblocked_ancestors G v Z)) /\ ~(In v (find_unblocked_ancestors G u Z))
@@ -247,6 +266,7 @@ Proof.
           -- reflexivity. }
 Qed.
 
+
 Theorem acyclic_paths_intersect_if_common_endpoint: forall (anc1 anc2 z: node) (l1 l2: nodes) (Z: nodes) (G: graph),
   contains_cycle G = false
   -> is_directed_path_in_graph (anc1, z, l1) G = true /\ acyclic_path_2 (anc1, z, l1) /\ (forall w : node, w = anc1 \/ In w l1 -> ~ In w Z)
@@ -311,6 +331,7 @@ Proof.
              --- apply Hover'.
   - left. reflexivity.
 Qed.
+
 
 Lemma unblocked_ancestor_if_in_unblocked_directed_path: forall (anc u v: node) (l Z: nodes) (G: graph),
   is_directed_path_in_graph (anc, v, l) G = true /\ acyclic_path_2 (anc, v, l) /\ (forall w : node, w = anc \/ In w l -> ~ In w Z)

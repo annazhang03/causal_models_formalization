@@ -1,6 +1,6 @@
 From Semantics Require Import FunctionRepresentation.
 From Semantics Require Import FindValue.
-From Semantics Require Import ConditionallyIndependentDef.
+From Semantics Require Import SemanticSeparationDef.
 From CausalDiagrams Require Import CausalPaths.
 From CausalDiagrams Require Import IntermediateNodes.
 From CausalDiagrams Require Import Assignments.
@@ -18,6 +18,26 @@ From Coq Require Import Lia.
 Import ListNotations.
 From Utils Require Import EqType.
 
+
+
+(*
+   This file contains the primary lemmas of the backward direction of the equivalence proof:
+   that d-separation implies semantic separation. We prove the contrapositive: that if u and v
+   are not semantically separated, then there must exist a d-connected path between them.
+
+   In particular, if u and v are not semantically separated, then there exists some graph function
+   and sequence of unobserved-terms assignments satisfying the definition of semantically_separated
+   (SemanticSeparationDef.v), such that f(v) changes between the first and last elements of the
+   sequence. In this file, we attribute that change in a node's value to a specific unblocked
+   ancestor, which allows us to construct a d-connected path by concatenating several smaller
+   paths created from unblocked ancestors.
+*)
+
+
+(* For any node u such that f(u) changes under U1 vs U2, and U1 and U2 both properly condition
+   on Z, there must exist an unblocked ancestor of u, `a` (possibly u itself) such that
+   U1(a) \neq U2(a) and f(a) changes under U1 vs U2. We can thus "attribute" the change in
+   u to a. *)
 Lemma nodefun_value_only_affected_by_unblocked_ancestors {X: Type} `{EqType X}: forall (G: graph) (u: node) (Z: nodes) (U1 U2 AZ: assignments X) (g: graphfun),
   G_well_formed G = true /\ contains_cycle G = false
   -> find_value G g u U1 [] <> find_value G g u U2 []
@@ -59,9 +79,13 @@ Proof.
     { exists i. split. apply Hi. easy. }
     clear Hi.
 
+    (* Perform induction on the index of u in the topological sort of the graph, with
+       the hypothesis that the statement holds for any node with index less than i *)
     generalize dependent pa2. generalize dependent P2. generalize dependent pa1. generalize dependent P1.
     generalize dependent unobs2. generalize dependent unobs1. generalize dependent u. induction i as [| i' IH].
     + intros u Hg HuG Hj unobs1 Hunobs1 unobs2 Hunobs2 Hunobs P1 HP1 pa1 Hpa1 Hg1 P2 HP2 pa2 Hpa2 Hg2.
+      (* j = 0, so u is the first node, i.e. has no parents. Then, f(u) cannot change
+         if U1(u) = U2(u), since no arguments change to the nodefun *)
       destruct Hj as [j [Hi Hj0]].
       destruct j as [| j'].
       * assert (Hpar: find_parents u G = []).
@@ -84,6 +108,8 @@ Proof.
       assert (Hp: exists (p: node), In p (find_parents u G) /\ find_value G g p U1 [] <> find_value G g p U2 []).
       { apply find_values_unequal with (P1 := P1) (P2 := P2). easy. easy. intros F. apply HP. rewrite F. reflexivity. }
       destruct Hp as [p [Hmemp Hp]].
+      (* f(p) changes between U1 and U2, so we can apply the induction hypothesis to p,
+         since p is a parent of u and thus precedes u in the topological sort *)
 
       assert (HpG: node_in_graph p G = true /\ node_in_graph u G = true).
       { apply edge_corresponds_to_nodes_in_well_formed. split. easy. apply edge_from_parent_to_child. apply Hmemp. }
@@ -153,13 +179,15 @@ Proof.
         -- intros F. rewrite Hunobs1p in F. rewrite Hunobs2p in F. inversion F. rewrite H1 in Hunobsp. rewrite eqb_refl' in Hunobsp. discriminate Hunobsp.
         -- apply Hp.
 
-  - exists u. repeat split.
+  - (* u itself satisfies the criteria! *) exists u. repeat split.
     + unfold find_unblocked_ancestors. left. reflexivity.
     + intros F. rewrite Hunobs1 in F. rewrite Hunobs2 in F. inversion F. rewrite H1 in Hunobs. rewrite eqb_refl' in Hunobs. discriminate Hunobs.
     + apply Hg.
 Qed.
 
-(* TODO CANNOT include z in find_unblocked_ancestors G z Z if z in Z. Otherwise, u <- ... <- (z) <- ... <- v is d-connected! *)
+
+(* Return conditioned nodes (nodes in Z) that have an unblocked ancestor in S
+   Assumes AZ is set of assignments for Z *)
 Fixpoint find_unblocked_ancestors_in_Z_contributors {X: Type} `{EqType X} (G: graph) (Z: nodes) (AZ: assignments X) (S: nodes): nodes :=
   match AZ with
   | [] => []
@@ -181,7 +209,6 @@ Proof.
       apply IH. apply Hz.
     + simpl. apply IH. simpl in Hz. simpl in Hz1. rewrite Hz1 in Hz. apply Hz.
 Qed.
-
 
 Lemma ancestors_overlap_with_seq_then_contributor {X: Type} `{EqType X}: forall (G: graph) (Z: nodes) (AZ: assignments X) (S: nodes) (z: node),
   is_assigned AZ z = true
@@ -209,6 +236,10 @@ Proof.
         * simpl in Hover. rewrite Hover in Hz. apply IH. apply HAZ. apply Hz. }
 Qed.
 
+
+
+(* Return conditioned nodes that were disturbed by the sequence of unobserved-terms assignments, as described in the
+   definition of semantic separation *)
 Fixpoint get_conditioned_nodes_that_change_in_seq_simpler {X: Type} `{EqType X} (L: list (assignments X)) (Z: nodes) (AZ: assignments X) (G: graph): nodes :=
   match L with
   | U1 :: L' => match L' with
@@ -267,34 +298,14 @@ Proof.
     + apply IH. apply Hz.
 Qed.
 
-Lemma sequence_of_ancestors_assignment {X: Type} `{EqType X}: forall (Ua Ub: assignments X) (L: list (assignments X)) (Z S: nodes) (AZ: assignments X) (G: graph),
-  is_assignment_for Ua (nodes_in_graph G) = true
-  -> assignments_change_only_for_subset Ua Ub S
-  -> assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
-  -> forall (U: assignments X), In U (Ua :: Ub :: L) -> is_assignment_for U (nodes_in_graph G) = true.
-Proof.
-  intros Ua Ub L Z S AZ G HUa HUab Hseq. intros U HU.
-  assert (HUb: is_assignment_for Ub (nodes_in_graph G) = true).
-  { unfold assignments_change_only_for_subset in HUab. apply forallb_true_iff_mem. intros x Hx.
-    apply HUab. apply forallb_true_iff_mem with (x := x) in HUa. apply HUa. apply Hx. }
-  destruct HU as [HU | [HU | HU]].
-  - rewrite <- HU. apply HUa.
-  - rewrite <- HU. apply HUb.
-  - clear HUab. generalize dependent Ub. generalize dependent Ua. induction L as [| U1 L' IH].
-    + exfalso. apply HU.
-    + intros Ua HUa Ub Hseq HUb.
-      assert (HU1: is_assignment_for U1 (nodes_in_graph G) = true).
-      { simpl in Hseq. destruct Hseq as [Hseq _]. apply forallb_true_iff_mem. intros x Hx. apply Hseq.
-        apply forallb_true_iff_mem with (x := x) in HUb. apply HUb. apply Hx. }
-      destruct HU as [HU | HU].
-      * rewrite <- HU. apply HU1.
-      * apply IH with (Ua := Ub) (Ub := U1).
-        -- apply HU.
-        -- apply HUb.
-        -- simpl in Hseq. apply Hseq.
-        -- apply HU1.
-Qed.
 
+
+(* the generalization of `nodefun_value_only_affected_by_unblocked_ancestors` to sequences of unobserved-terms assignments:
+   if f(v) changes from Ua to Ub' over some sequence, then either
+   1. u and v share an unblocked ancestor, or
+   2. there is some
+      unblocked ancestor of v, `a`, such that a is also an unblocked ancestor of a conditioned node that was disturbed at some
+      point during the sequence propagation *)
 Lemma nodefun_value_only_affected_by_unblocked_ancestors_seq {X: Type} `{EqType X}: forall (G: graph) (u v: node) (Z: nodes) (Ua Ub Ub' AZ: assignments X) (L: list (assignments X)) (g: graphfun),
   G_well_formed G = true /\ contains_cycle G = false
   -> Ub' = last (Ub :: L) Ub
@@ -303,7 +314,7 @@ Lemma nodefun_value_only_affected_by_unblocked_ancestors_seq {X: Type} `{EqType 
   -> node_in_graph v G = true
   -> unobs_conditions_on_Z G g Ua AZ Z /\ unobs_conditions_on_Z G g Ub' AZ Z
   -> assignments_change_only_for_subset Ua Ub (find_unblocked_ancestors G u Z)
-  -> assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
+  -> assignments_change_only_for_Z_anc_seq (Ua :: Ub :: L) Z AZ G
   -> exists (a: node), In a (find_unblocked_ancestors G v Z)
       /\ (In a (find_unblocked_ancestors G u Z) \/
          exists (z: node),
@@ -338,29 +349,36 @@ Proof.
       { apply assigned_has_value with (L := nodes_in_graph G). split. apply Hnodea. apply HUb. }
       destruct Huaa' as [ub Hub].
       destruct (eqb ua ub) as [|] eqn:Huab.
-      2: { left. unfold assignments_change_only_for_subset in HUab.
+      2: { (* if Ua(a) \neq Ub(a), then a is an unblocked ancestor of u, since only unb(u) are allowed to change
+              between Ua and Ub *)
+           left. unfold assignments_change_only_for_subset in HUab.
            apply member_In_equiv_F in Hmem. apply HUab in Hmem. rewrite Hua' in Hmem. rewrite Hub in Hmem. inversion Hmem. rewrite H1 in Huab.
            rewrite eqb_refl' in Huab. discriminate Huab. }
-      assert (Hubb': get_assigned_value Ub a <> get_assigned_value Ub' a). { intros F. rewrite Hub in F. apply eqb_eq' in Huab. rewrite <- Huab in F.
-        rewrite <- Hua' in F. apply Hua. apply F. } right.
+      (* Ua(a) = Ub(a)*)
+      assert (Hubb': get_assigned_value Ub a <> get_assigned_value Ub' a).
+      { intros F. rewrite Hub in F. apply eqb_eq' in Huab. rewrite <- Huab in F.
+        rewrite <- Hua' in F. apply Hua. apply F. }
+      right.
       clear HUab. clear HcondUa. clear Hfa. clear Hfv. clear Hua'. generalize dependent ub. generalize dependent Ua. generalize dependent Ub. generalize dependent U1.
       induction L' as [| U2 L' IH].
-      * intros U1 Ub HeqUb' HUb Hubb' Ua HUa Hseq Hua ub Hub Huab. simpl in HeqUb'. rewrite HeqUb' in *. simpl in Hseq.
-
+      * (* the sequence is only Ua, Ub, U1. Thus, a changed value from Ub to U1, so a must be an unblocked ancestor of some z \in Z
+           whose value changed from Ua to Ub and was repaired with U1 *)
+        intros U1 Ub HeqUb' HUb Hubb' Ua HUa Hseq Hua ub Hub Huab. simpl in HeqUb'. rewrite HeqUb' in *. simpl in Hseq.
         assert (Hz: exists (z: node), In a (find_unblocked_ancestors G z Z)
                     /\ overlap (find_unblocked_ancestors G z Z) (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub) = true
                     /\ is_assigned AZ z = true).
         { apply ancestor_in_Z_corresponds_to_conditioned_node_rev.
-          destruct (member a (find_unblocked_ancestors_in_Z'' G Z AZ
+          destruct (member a (find_unblocked_ancestors_in_Z G Z AZ
                         (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub))) as [|] eqn:HmemZ.
           + apply member_In_equiv in HmemZ. apply HmemZ.
           + assert (F: get_assigned_value Ub a = get_assigned_value U1 a).
             { destruct Hseq as [Hseq _]. unfold assignments_change_only_for_subset in Hseq. apply Hseq. intros F. apply member_In_equiv_F in HmemZ. apply HmemZ. apply F. }
             exfalso. apply Hubb'. apply F. }
         destruct Hz as [z [Haz [Hoverz HAZz]]]. exists z. split. apply Haz. simpl. rewrite append_identity.
-
         apply ancestors_overlap_with_seq_then_contributor. apply HAZz. apply Hoverz.
-      * intros U1 Ub HeqUb' HUb Hubb' Ua HUa Hseq Hua ub Hub Huab.
+      * (* the sequence has an additional U2, we apply the induction hypothesis, since the unobserved value of a does not
+           change from Ua to Ub *)
+        intros U1 Ub HeqUb' HUb Hubb' Ua HUa Hseq Hua ub Hub Huab.
 
         assert (HU1: is_assignment_for U1 (nodes_in_graph G) = true).
         { destruct Hseq as [Hseq1 Hseq2].
@@ -388,23 +406,28 @@ Proof.
             destruct Hind as [z Hz]. exists z. split. apply Hz. simpl. apply membership_append_r. destruct Hz as [_ Hz].
             simpl in Hz. apply Hz.
 
-        -- assert (Hz: exists (z: node), In a (find_unblocked_ancestors G z Z)
+        -- (* the unobserved value of a changes from Ub to U1, so find conditioned node z whose value was disturbed
+              by Ub and repaired by U1 *)
+              assert (Hz: exists (z: node), In a (find_unblocked_ancestors G z Z)
                       /\ overlap (find_unblocked_ancestors G z Z) (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub) = true
                       /\ is_assigned AZ z = true).
            { apply ancestor_in_Z_corresponds_to_conditioned_node_rev.
-             destruct (member a (find_unblocked_ancestors_in_Z'' G Z AZ
+             destruct (member a (find_unblocked_ancestors_in_Z G Z AZ
                            (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub))) as [|] eqn:HmemZ.
              + apply member_In_equiv in HmemZ. apply HmemZ.
              + assert (F: get_assigned_value Ub a = get_assigned_value U1 a).
                { destruct Hseq as [Hseq _]. unfold assignments_change_only_for_subset in Hseq. apply Hseq. intros F. apply member_In_equiv_F in HmemZ. apply HmemZ. apply F. }
                exfalso. rewrite Hub in F. rewrite Hu1 in F. inversion F. rewrite H1 in Hub1. rewrite eqb_refl' in Hub1. discriminate Hub1. }
 
-               destruct Hz as [z [Haz [Hoverz HAZz]]]. exists z. split. apply Haz. simpl. apply membership_append.
-               apply ancestors_overlap_with_seq_then_contributor. apply HAZz. apply Hoverz.
+           destruct Hz as [z [Haz [Hoverz HAZz]]]. exists z. split. apply Haz. simpl. apply membership_append.
+           apply ancestors_overlap_with_seq_then_contributor. apply HAZz. apply Hoverz.
 Qed.
 
 
 
+(* If z is repaired at some point during the reparation steps of the semantic separation definition, then
+   we can pinpoint the change in z to a subsequence of three unobserved-terms assignments [U1, U2, U3] such that
+   the value of z was disturbed by changes from U1 to U2 (and repaired by U3) *)
 Lemma conditioned_nodes_that_change_in_seq_attached_to_U_sublist {X: Type} `{EqType X}: forall (G: graph) (z: node) (Z: nodes) (Ua Ub AZ: assignments X) (L: list (assignments X)),
   In z (get_conditioned_nodes_that_change_in_seq (Ua :: Ub :: L) Z AZ G)
   <-> exists (U1 U2 U3: assignments X), sublist_X [U1; U2; U3] (Ua :: Ub :: L) = true
@@ -434,11 +457,13 @@ Qed.
 
 
 
-
+(* This lemma allows us to relate two consecutive conditioned nodes. If z is disturbed from Ui' to Ui'', and Ui' is not
+   the first element of the sequence ([Ui, Ui', Ui''] is a sublist), then there exists another conditioned node, z',
+   such that z and z' share an unblocked ancestor a, and z' was disturbed from Ui to Ui' *)
 Lemma path_between_two_conditioned_nodes {X: Type} `{EqType X}: forall (G: graph) (z: node) (Z: nodes) (Ua Ub Ui Ui' Ui'' AZ: assignments X) (L: list (assignments X)),
   G_well_formed G = true /\ contains_cycle G = false
   -> is_assigned AZ z = true
-  -> assignments_change_only_for_Z_anc_seq' (Ua :: Ub :: L) Z AZ G
+  -> assignments_change_only_for_Z_anc_seq (Ua :: Ub :: L) Z AZ G
   -> sublist_X [Ui; Ui'; Ui''] (Ua :: Ub :: L) = true
   -> In z (find_unblocked_ancestors_in_Z_contributors G Z AZ (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ui' Ui''))
   -> exists (z' a: node),
@@ -460,7 +485,7 @@ Proof.
                   /\ overlap (find_unblocked_ancestors G z' Z) (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub) = true
                   /\ is_assigned AZ z' = true).
       { apply ancestor_in_Z_corresponds_to_conditioned_node_rev.
-        destruct (member a (find_unblocked_ancestors_in_Z'' G Z AZ
+        destruct (member a (find_unblocked_ancestors_in_Z G Z AZ
                      (unblocked_ancestors_that_changed_A_to_B (nodes_in_graph G) Ua Ub))) as [|] eqn:HmemZ.
         + apply member_In_equiv in HmemZ. apply HmemZ.
         + assert (F: get_assigned_value Ub a = get_assigned_value U1 a).
