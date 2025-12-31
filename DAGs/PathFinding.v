@@ -313,32 +313,6 @@ Proof. intros [u2 v2] ps p Hin. revert p Hin. induction ps as [|h t IH]; intros 
         { right; apply IH; exact Hin_t. }
 Qed.
 
-(*helper 3.n for paths_start_to_end_correct *)
-Lemma extend_paths_from_start_by_edge_l_monotone :
-  forall e l1 l2, incl l1 l2 ->
-  incl (extend_paths_from_start_by_edge e l1)
-       (extend_paths_from_start_by_edge e l2).
-Proof.
-  intros [u2 v2] l1.
-  induction l1 as [|h t IH]; intros l2 Hincl p Hin; simpl in *.
-  - contradiction.
-  - destruct h as [[u1 v1] l1int].
-    (* specialize (IH (match Hincl with _ => _ end)).
-    (* split cases: p came from the head cell, or from the recursive tail;
-       every branch either conses h unchanged or wraps the tail in
-       add_path_no_repeats, which preserves membership via the helper. *)
-    (* A concise proof mirrors your _start lemma structure; here’s the skeleton: *)
-    revert Hin; generalize (extend_paths_from_start_by_edge (u2,v2) t).
-    destruct ((u1 =? u2) || (u1 =? v2)); simpl; intros L Hin; [now auto|].
-    destruct (member u2 l1int || member v2 l1int); simpl; [now auto|].
-    destruct (v1 =? u2); simpl.
-    + eapply add_path_no_repeats_superset; now auto.
-    + destruct (v1 =? v2); simpl.
-      * eapply add_path_no_repeats_superset; now auto.
-      * now auto. *)
-Admitted.
-
-
 (*helper 2.1 for paths_start_to_end_valid*)
 Lemma is_path_in_graph_helper_app_one :
   forall (G: graph) (x: list node) (y z: node),
@@ -619,22 +593,6 @@ Proof. intros u ps E. revert ps. induction E; simpl in *; eauto. intros. apply I
   apply extend_paths_from_start_by_edge_start. exact H.
 Qed.
 
-(*helper 3.n for paths_start_to_end_correct *)
-Lemma extend_paths_from_start_by_edges_l_monotone :
-  forall E l1 l2, incl l1 l2 ->
-  incl (extend_paths_from_start_by_edges E l1)
-       (extend_paths_from_start_by_edges E l2).
-Proof.
-  intros E; induction E as [|e E IH]; intros l1 l2 Hincl; simpl.
-  - exact Hincl.
-  - apply IH, extend_paths_from_start_by_edge_l_monotone; exact Hincl.
-Qed.
-Lemma incl_ps_in_extend_by_edge :
-  forall a ps, incl ps (extend_paths_from_start_by_edge a ps).
-Proof.
-  intros a ps p Hin. now apply extend_paths_from_start_by_edge_monotone.
-Qed.
-
 (* iteratively extend paths k times, like a for loop *)
 Fixpoint extend_paths_from_start_iter (E: edges) (l: paths) (k: nat) : paths :=
   match k with
@@ -653,63 +611,6 @@ Proof.
   - rewrite IH. reflexivity.
 Qed.
 
-Compute extend_paths_from_start_iter E (edges_as_paths_from_start 1 E) 4.
-
-Definition SeedsComplete (u:node) (E:edges) (ps:paths) : Prop :=
-  forall x, In (u,x) E \/ In (x,u) E -> In (u, x, []) ps.
-
-(*helper 3.3 for paths_start_to_end_correct *)
-Lemma edges_as_paths_from_start_correct (u:node) (E:edges):
-  SeedsComplete u E (edges_as_paths_from_start u E).
-Proof. unfold SeedsComplete. intros x Hin.
-  induction E as [| [a b] E' IH]; simpl in *.
-  - tauto.
-  - destruct (u =? a) eqn:HuA.
-    + apply Nat.eqb_eq in HuA; subst a.
-      simpl in Hin. destruct Hin as [H1 | H1].
-      * destruct H1 as [Heq | Htail].
-        -- inversion Heq; subst. left. reflexivity.
-        -- right. apply IH. left. exact Htail.
-      * destruct H1 as [Heq | Htail].
-        -- inversion Heq; subst. left. reflexivity.
-        -- right. apply IH. right. exact Htail.
-    + destruct (u =? b) eqn:HuB.
-      * apply Nat.eqb_eq in HuB; subst b.
-        simpl in Hin. destruct Hin as [H1 | H1].
-        -- destruct H1 as [Heq | Htail].
-           ++ inversion Heq; subst. left. reflexivity.
-           ++ right. apply IH. left. exact Htail.
-        -- destruct H1 as [Heq | Htail].
-            inversion Heq; subst. left. reflexivity.
-            right. apply IH. right. exact Htail.
-      * apply IH. destruct Hin as [H0 | H0]. destruct H0 as [H0 | H0].
-      inversion H0; subst. rewrite Nat.eqb_refl in HuA. discriminate HuA.
-      tauto. destruct H0 as [H0 | H0]. inversion H0; subst.
-      rewrite Nat.eqb_refl in HuB. discriminate HuB. tauto.
-Qed.
-
-(*all paths p starting at u, with length n, in graph (V,E) is in ps*)
-Definition CompleteAtn (ps: paths) (n: nat) (u: node) (V: nodes) (E: edges) : Prop :=
-  forall r,
-    is_path_in_graph r (V,E) = true -> path_start r = u -> acyclic_path_2 r -> path_length r = n ->
-    In r ps.
-
-Lemma extend_paths_from_start_by_edge_correct V E n u:
-  G_well_formed (V,E) = true ->
-  forall ps, CompleteAtn ps n u V E ->
-  forall e, In e E ->
-  forall p, is_path_in_graph p (V,E) = true -> acyclic_path_2 p ->
-  path_length p = S n -> path_start p = u -> path_end p = (fst e) \/ path_end p = (snd e) ->
-  In p (extend_paths_from_start_by_edge e ps).
-Proof. intros.
-Admitted.
-
-Lemma no_one_cycles_ind e E :
-  no_one_cycles (e :: E) = true -> no_one_cycles E = true.
-Proof. intro H. destruct e as [a b]. simpl in H.
-  destruct (a =? b) eqn:Hab. discriminate H. exact H.
-Qed.
-
 (*helper 3.n for paths_start_to_end_correct *)
 Lemma extend_paths_from_start_by_edges_monotone :
   forall E l, incl l (extend_paths_from_start_by_edges E l).
@@ -721,119 +622,13 @@ Proof.
     intros h Hin; apply IH, Hstep, Hin.
 Qed.
 
-Lemma CompleteAtn_weaken_edges :
-  forall ps n u V E a,
-    CompleteAtn ps n u V (a::E) ->
-    CompleteAtn ps n u V E.
-Proof.
-  intros ps n u V E a H r Hp Hu Hacy Hn.
-  assert (is_path_in_graph r (V,a::E) = true) as Hp'.
-  unfold is_path_in_graph in *. destruct r as [[u' v'] l].
-  eapply is_path_in_graph_helper_monotone_edges. eauto.
-  exact (H r Hp' Hu Hacy Hn).
-Qed.
-
-Lemma extend_paths_from_start_by_edges_correct V E n u:
-  G_well_formed (V,E) = true -> no_one_cycles E = true ->
-  forall ps, CompleteAtn ps n u V E ->
-  CompleteAtn (extend_paths_from_start_by_edges E ps) (S n) u V E.
-  (*given所有 length=n的 paths ps, extend_paths_from_start_by_edges E ps 会找到所有 length=S n的 path*)
-Proof. intros hwf hacyc ps Hcomp. pose proof (extend_paths_from_start_by_edge_correct _ _ _ _ hwf _ Hcomp).
-  unfold CompleteAtn. intros. induction E.
-
-  { simpl. destruct r as [[s e] ints]. simpl in H0. revert H0.
-    induction ints as [|h t IH]; simpl; intros Hpath.
-    - unfold is_path_in_graph in Hpath; simpl in Hpath.
-      apply andb_true_iff in Hpath as [Hedge _]. rewrite !Bool.andb_false_r in Hedge. discriminate Hedge.
-    - apply andb_true_iff in Hpath as [Hedge _]. rewrite !Bool.andb_false_r in Hedge. discriminate Hedge.
-  }
-
-  (* { simpl. *)
-  (*path r: length S n, ended with edge\in (a::E).
-  if path-end r = a, r\in (extend_paths_from_start_by_edge a ps)
-  if path-end r = e fs e\in E, r\in (extend_paths_from_start_by_edge e ps)
-  NTS: r\in (extend_paths_from_start_by_edges E (extend_paths_from_start_by_edge a ps))
-  -> (extend_paths_from_start_by_edge a ps) \subseteq (extend_paths_from_start_by_edges E (extend_paths_from_start_by_edge a ps))
-        using extend_paths_from_start_by_edges_monotone
-  ->  (extend_paths_from_start_by_edges E ps) \subseteq (extend_paths_from_start_by_edges E (extend_paths_from_start_by_edge a ps))
-  *)
-  (* pose proof (extend_paths_from_start_by_edge_correct V E n u) as IH'.
-    pose proof (G_well_formed_induction _ _ _ hwf). specialize (IHE H4); specialize (IH' H4); clear H4.
-    pose proof (no_one_cycles_ind _ _ hacyc). specialize (IHE H4); clear H4.
-    pose proof (CompleteAtn_weaken_edges _ _ _ _ _ _ Hcomp). specialize (IHE H4); specialize (IH' ps H4); clear H4.
-    assert (In a (a :: E)). simpl. tauto.
-    pose proof (H a H4 r H0 H2 H3 H1).
-    assert ((path_end r = fst a \/ path_end r = snd a)\/ ~(path_end r = fst a /\ path_end r = snd a)) by tauto.
-    destruct H6 as [casein | casenotin ].
-    specialize (H5 casein). eapply extend_paths_from_start_by_edges_monotone; eauto.
-    clear H H5. specialize (IHE IH'); clear IH'.
-
-
-    assert (exists e, In e E -> (path_end r = fst e \/ path_end r = snd e)).
-      { clear H4 IHE. unfold is_path_in_graph in H0. destruct r as [[r r'] rl].
-      pose proof (last_node_in_path_in_graph (V,a::E)) rl r r'.
-      assert (length ((r :: rl) ++ [r']) > 1). rewrite length_app. rewrite length_cons.
-      replace (length [r']) with 1 by trivial. lia. assert (node_in_graph r' (V, a :: E) = true). eapply H; eauto.
-      unfold node_in_graph in H5; clear H H5.
-      pose proof (G_well_formed_corollary _ _ hwf). admit. }
-
-    destruct H6. specialize (IHE H).
-
-
-  } *)
-Admitted.
-
-Lemma extend_paths_from_start_iter_correct V E (u:node) (n:nat) :
-  G_well_formed (V,E) = true -> no_one_cycles E = true ->
-  forall ps, SeedsComplete u E ps ->
-  forall n', n' <= n+2 -> CompleteAtn (extend_paths_from_start_iter E ps n) n' u V E.
-Proof. unfold CompleteAtn. intro Hwf. revert n. induction n.
-  - intros. simpl. unfold path_length in H5. rewrite <- H5 in H1. assert (length (path_int r) = 0) by lia. unfold path_int in H6.
-    clear H5 H1. destruct r as [[x v] l]. unfold path_start in H3; subst. rewrite length_zero_iff_nil in H6; subst. unfold SeedsComplete in H0.
-    eapply H0; eauto. inversion H2.
-    { apply Bool.andb_true_iff in H3. destruct H3 as [Hinner _].
-      apply Bool.orb_true_iff in Hinner. destruct Hinner as [Hleft | Hright].
-      - apply Bool.andb_true_iff in Hleft. destruct Hleft as [_ Hme].
-        apply member_edge_In_equiv in Hme. left; exact Hme.
-      - apply Bool.andb_true_iff in Hright. destruct Hright as [_ Hme].
-        apply member_edge_In_equiv in Hme. right; exact Hme. }
-  - intros. simpl. assert (SeedsComplete u E (extend_paths_from_start_by_edges E ps)) as hseed.
-    { unfold SeedsComplete in H0. unfold SeedsComplete. intros x [h1|h1]; eapply extend_paths_from_start_by_edges_monotone; eauto. }
-    (* "SeedsComplete u E (extend_paths_from_start_by_edges E ps)" *)
-  pose proof (IHn H (extend_paths_from_start_by_edges E ps) hseed) as IHn'. subst n'. clear hseed.
-  assert (forall p, is_path_in_graph p (V, E) = true -> path_start p = u -> path_length p <= n+2 -> acyclic_path_2 p ->
-  In p (extend_paths_from_start_iter E (extend_paths_from_start_by_edges E ps) n)).
-  intros. eapply IHn' with (n':= path_length p); eauto. clear IHn'. assert (path_length r <= n + 2 \/ path_length r = S n + 2) by lia.
-
-  destruct H6. eapply H5; eauto. clear H1.
-  pose proof (extend_paths_from_start_by_edges_correct V E ((path_length r)-1 ) u Hwf H (extend_paths_from_start_iter E ps n)).
-  replace (path_length r - 1) with (n + 2) in H1 by lia. rewrite extend_paths_from_start_iter_spec.
-  unfold CompleteAtn in H1. eapply H1; eauto.
-Qed.
-(* assume 每个 path都从 u开始
-
-任何path是 1-path \/ n-path (n\leq length V)
-
-1-path: 每个有 u的 edge都能变成 1-path ("edges_as_paths_from_start" complete)
-
-n-path:
-假设有完整的 n-path, 能找到所有 (S n)-path?
-  1. given任何 edge e, "extend_paths_from_start_by_edge e n-paths" 找到所有 (S n)-path that ends with e 和 complete n-path
-  2. given任何 edges E, "extend_paths_from_start_by_edges E n-paths" 找到所有 (S n)-path 和 complete n-path
-  3. given graph (V,E), "extend_iter" 找到所有 complete n-path (1\leq n \leq length V)
-*)
-
-
-Lemma max_acyclic_path_length : forall V E p,
-  G_well_formed (V,E) = true -> is_path_in_graph p (V,E) = true -> acyclic_path_2 p ->
-  path_length p <= length V.
-Admitted.
-
 (*helper 4 for paths_start_to_end_valid*)
 Lemma extend_paths_from_start_iter_valid :
   forall (V:nodes) (E:edges) (n:nat) (ps:list path) (p:path),
-    G_well_formed (V,E) = true -> (forall q, In q ps -> is_path_in_graph q (V,E) = true) ->
-    In p (extend_paths_from_start_iter E ps n) -> is_path_in_graph p (V,E) = true.
+    G_well_formed (V,E) = true ->
+    (forall q, In q ps -> is_path_in_graph q (V,E) = true) ->
+    In p (extend_paths_from_start_iter E ps n) ->
+    is_path_in_graph p (V,E) = true.
 Proof. induction n.
     - unfold extend_paths_from_start_iter. intros ps p Hwf Hall. exact (Hall p).
     - intros paths path H1 H2 H3. simpl in H3.
@@ -971,28 +766,375 @@ Proof. intros. destruct G as [V E]. unfold find_all_paths_from_start_to_end in H
   destruct H as [h1 h2]. unfold path_start_and_end. simpl. rewrite !Nat.eqb_refl. simpl. reflexivity.
 Qed.
 
+(*helpers for find_all_paths_complete*)
+
+Lemma eqbedge_true_eq :
+  forall e1 e2, eqbedge e1 e2 = true -> e1 = e2.
+Proof.
+  intros [u1 v1] [u2 v2] H.
+  unfold eqbedge in H; simpl in H.
+  apply andb_true_iff in H as [Hu Hv].
+  apply Nat.eqb_eq in Hu. apply Nat.eqb_eq in Hv.
+  subst; reflexivity.
+Qed.
+Lemma member_edge_true_iff :
+  forall e E, member_edge e E = true <-> In e E.
+Proof. intros e E. induction E as [|h t IH].
+  - simpl. split.
+    + intro H; discriminate.
+    + intro H; inversion H.
+  - simpl. rewrite orb_true_iff. rewrite IH. split.
+    + intros [H | H].
+      * apply eqbedge_true_eq in H. auto.
+      * right. exact H.
+    + intro H. destruct H as [H | H].
+      * left. subst. rewrite (eqbedge_refl e). auto.
+      * right. exact H.
+Qed.
+
+Lemma is_edge_true_implies_In_edge :
+  forall V E x y,
+    is_edge (x,y) (V,E) = true ->
+    In (x,y) E.
+Proof.
+  intros V E x y H. unfold is_edge in H; simpl in H.
+  apply andb_true_iff in H as [_ Hme].  (* peel off the last conjunct *)
+  apply (proj1 (member_edge_true_iff (x,y) E)). exact Hme.
+Qed.
+
+
+(* Lemma 1: Single-edge paths are captured *)
+Lemma edges_as_paths_captures_single_edges :
+  forall u v E,
+    In (u,v) E \/ In (v,u) E ->
+    In (u,v,[]) (edges_as_paths_from_start u E).
+Proof.
+  intros u v E Hin. induction E as [|h t IH].
+  - destruct Hin as [Hin|Hin]; inversion Hin.
+  - simpl. destruct h as [a b]. simpl in Hin. destruct Hin as [Hin | Hin].
+    + destruct Hin as [Huv | Hin_t].
+      * inversion Huv; subst a b. rewrite Nat.eqb_refl. simpl. left. reflexivity.
+      * destruct (u =? a) eqn:Hua.
+        -- right. apply IH. left. exact Hin_t.
+        -- destruct (u =? b) eqn:Hub.
+           ++ right. apply IH. left. exact Hin_t.
+           ++ apply IH. left. exact Hin_t.
+    +  destruct Hin as [Hvu | Hin_t].
+      *  inversion Hvu; subst a b. rewrite Nat.eqb_refl. simpl.
+         { destruct (u =? v) eqn:Huvb. apply Nat.eqb_eq in Huvb; subst v.
+          simpl. left. reflexivity. simpl. left. reflexivity. }
+      * (* tail *)
+        destruct (u =? a) eqn:Hua.
+        -- right. apply IH. right. exact Hin_t.
+        -- destruct (u =? b) eqn:Hub.
+           ++ right. apply IH. right. exact Hin_t.
+           ++ apply IH. right. exact Hin_t.
+Qed.
+
+
+Lemma neg_member_In_equiv : forall x l, member x l = false <-> ~In x l.
+Proof.
+  intros x l. rewrite <- member_In_equiv.
+  destruct (member x l); split; intro H; try discriminate; auto.
+  exfalso. apply H. reflexivity.
+Qed.
+Lemma eqblist_eq : forall l1 l2, eqblist l1 l2 = true <-> l1 = l2.
+Proof.
+  intros l1. induction l1 as [|h1 t1 IH]; intro l2; split; intro H.
+  - destruct l2 as [|h2 t2]. reflexivity. simpl in H. discriminate.
+  - subst l2. simpl. reflexivity.
+  - destruct l2 as [|h2 t2].
+    + simpl in H. discriminate.
+    + simpl in H. destruct (h1 =? h2) eqn:Heq.
+      * apply Nat.eqb_eq in Heq. subst h2.
+        apply IH in H. subst t2. reflexivity.
+      * discriminate.
+  - subst l2. simpl. rewrite Nat.eqb_refl. apply IH. reflexivity.
+Qed.
+Lemma member_path_true_iff : forall p ps, member_path p ps = true <-> In p ps.
+Proof. intros p ps. split.
+  - intro Hmem. induction ps as [|h t IH].
+    + simpl in Hmem. discriminate.
+    + simpl in Hmem. destruct (eqbpath h p) eqn:Heq.
+      * left. destruct h as [[h1 h2] hl]. destruct p as [[p1 p2] pl].
+        unfold eqbpath in Heq. apply andb_true_iff in Heq as [Heq1 Heq3].
+        apply andb_true_iff in Heq1 as [Heq1 Heq2]. apply Nat.eqb_eq in Heq1.
+        apply Nat.eqb_eq in Heq2. apply eqblist_eq in Heq3. subst. reflexivity.
+      * right. apply IH. exact Hmem.
+  - intro Hin. induction ps as [|h t IH].
+    + simpl in Hin. contradiction.
+    + simpl. destruct Hin as [Heq | Hin].
+      * subst h. destruct p as [[p1 p2] pl]. unfold eqbpath.
+        rewrite !Nat.eqb_refl. simpl. rewrite <- eqblist_refl. auto.
+      * destruct (eqbpath h p) eqn:Heq. reflexivity. apply IH. exact Hin.
+Qed.
+Lemma add_path_no_repeats_contains :
+  forall p l, In p (add_path_no_repeats p l).
+Proof.
+  intros p l.
+  unfold add_path_no_repeats.
+  destruct (member_path p l) eqn:Hm.
+  - apply (proj1 (member_path_true_iff p l)) in Hm; exact Hm.
+  - apply in_or_app; right; simpl; auto.
+Qed.
+Lemma member_or_false :
+  forall a b l,
+    member a l = false ->
+    member b l = false ->
+    (member a l || member b l) = false.
+Proof. intros; rewrite H, H0; reflexivity. Qed.
+
+
+(* Lemma 2: If we can extend a path p by edge e to get p',
+   then p' appears in the extension *)
+Lemma extend_by_edge_captures_extension :
+  forall u v w l e ps,
+    In (u, v, l) ps ->
+    e = (v, w) \/ e = (w, v) ->
+    acyclic_path_2 (u, v, l) ->
+    ~In w (u :: v :: l) ->  (* w not already in path *)
+    In (u, w, l ++ [v]) (extend_paths_from_start_by_edge e ps).
+Proof.
+  intros u v w l e ps Hin He Hacyc Hfresh.
+  revert Hin.
+  induction ps as [|p ps IH]; intro Hin.
+  - inversion Hin.
+  - simpl in Hin. destruct Hin as [Hp | Hin_tail].
+    + subst p. unfold extend_paths_from_start_by_edge; simpl.
+      simpl in Hacyc. destruct Hacyc as [Huv [Hnotin_u [Hnotin_v Hrest]]].
+      destruct He as [He | He]; subst e; simpl.
+      * assert (Hub : (u =? v) = false). { apply Nat.eqb_neq; exact Huv. }
+        assert (Huw : (u =? w) = false).
+        { apply Nat.eqb_neq. intro H; subst w. apply Hfresh. simpl; auto. }
+        rewrite Hub, Huw; simpl.
+        assert (Hmv : member v l = false).
+        { apply (proj2 (neg_member_In_equiv v l)); exact Hnotin_v. }
+        assert (Hmw : member w l = false).
+        { apply (proj2 (neg_member_In_equiv w l)).
+          intro Hinw. apply Hfresh. simpl. right. right. exact Hinw. }
+        rewrite (member_or_false v w l Hmv Hmw); simpl.
+        rewrite Nat.eqb_refl; simpl.
+        apply add_path_no_repeats_contains.
+
+      * assert (Huw : (u =? w) = false).
+        { apply Nat.eqb_neq. intro H; subst w. apply Hfresh. simpl; auto. }
+        assert (Hub : (u =? v) = false). { apply Nat.eqb_neq; exact Huv. }
+        rewrite Huw, Hub; simpl.
+        assert (Hmw : member w l = false).
+        { apply (proj2 (neg_member_In_equiv w l)).
+          intro Hinw. apply Hfresh. simpl. right. right. exact Hinw. }
+        assert (Hmv : member v l = false).
+        { apply (proj2 (neg_member_In_equiv v l)); exact Hnotin_v. }
+        rewrite (member_or_false w v l Hmw Hmv); simpl.
+        rewrite Nat.eqb_refl; simpl.
+        assert (Hvw : (v =? w) = false).
+        { apply Nat.eqb_neq. intro Heq; subst w. apply Hfresh. simpl. right. left. reflexivity. }
+        rewrite Hvw. apply add_path_no_repeats_contains.
+    + specialize (IH Hin_tail). unfold extend_paths_from_start_by_edge; simpl.
+      destruct p as [[u1 v1] l1]. destruct e as [u2 v2].
+      destruct (((u1 =? u2) || (u1 =? v2))) eqn:Htouch; simpl.
+      * right; exact IH.
+      * destruct ((member u2 l1 || member v2 l1)) eqn:Hrep; simpl.
+        right; exact IH.
+        destruct (v1 =? u2) eqn:Hend1; simpl.
+          {eapply add_path_no_repeats_superset. simpl. right. exact IH. }
+          { destruct (v1 =? v2) eqn:Hend2; simpl.
+            - eapply add_path_no_repeats_superset. simpl. right. exact IH.
+            - right; exact IH. }
+Qed.
+
+
+Lemma member_edge_cons :
+  forall e h t,
+    member_edge e (h :: t) = true ->
+    eqbedge e h = true \/ member_edge e t = true.
+Proof.
+  intros e h t H.
+  simpl in H. apply orb_true_iff in H. destruct H.
+  left. apply eqbedge_true_eq in H; subst. rewrite <- eqbedge_refl. auto.
+  right. auto.
+Qed.
+Lemma is_edge_cons_decomp :
+  forall V h t x y,
+    is_edge (x,y) (V, h::t) = true ->
+    eqbedge (x,y) h = true \/ is_edge (x,y) (V,t) = true.
+Proof.
+  intros V h t x y H. unfold is_edge in H. simpl in H.
+  apply andb_true_iff in H as [Hxy Hmem].
+  apply andb_true_iff in Hxy as [Hx Hy].
+  apply member_edge_cons in Hmem.
+  destruct Hmem as [Heqh | Htail].
+  - left; exact Heqh.
+  - right.
+    unfold is_edge. simpl.
+    apply andb_true_iff; split.
+    + apply andb_true_iff; split; assumption.
+    + exact Htail.
+Qed.
+
+
+(* Lemma 3: Extending by all edges preserves the extension property *)
+Lemma extend_by_edges_captures_extension :
+  forall G u v w l ps,
+    G_well_formed G = true ->
+    In (u, v, l) ps ->
+    (is_edge (v, w) G = true) \/ (is_edge (w, v) G = true) ->
+    acyclic_path_2 (u, v, l) ->
+    ~In w (u :: v :: l) ->
+    In (u, w, l ++ [v]) (extend_paths_from_start_by_edges (snd G) ps).
+Proof.
+  intros G u v w l ps Hwf Hin_p Hedge Hacyc Hfresh.
+  destruct G as [V E]; simpl.
+
+  revert ps Hin_p Hedge.
+  induction E as [|e E' IH]; intros ps Hin_p Hedge.
+  - destruct Hedge. simpl in H.
+    exfalso. apply andb_true_iff in H as [_ Hf]. discriminate.
+    simpl in H. exfalso. apply andb_true_iff in H as [_ Hf]. discriminate.
+  - simpl. pose proof (extend_paths_from_start_by_edge_monotone e ps (u, v, l) Hin_p) as Hin_p'.
+    destruct Hedge as [Hvw | Hwv].
+    + pose proof (is_edge_cons_decomp V e E' v w Hvw) as Hdec.
+      destruct Hdec as [Heq_head | Htail].
+      * assert (e = (v, w)).
+        { apply eqbedge_true_eq in Heq_head. auto. }
+        subst e. assert (Hin_ext :
+          In (u, w, l ++ [v]) (extend_paths_from_start_by_edge (v, w) ps)).
+        { eapply extend_by_edge_captures_extension; eauto. }
+        eapply (extend_paths_from_start_by_edges_monotone E') in Hin_ext.
+        exact Hin_ext.
+      * assert (G_well_formed (V, E') = true) as Hwf'. eapply G_well_formed_induction; eauto.
+        specialize (IH Hwf' (extend_paths_from_start_by_edge e ps) Hin_p' (or_introl Htail)).
+        exact IH.
+    + pose proof (is_edge_cons_decomp V e E' w v Hwv) as Hdec.
+      destruct Hdec as [Heq_head | Htail].
+      * assert (e = (w, v)).
+        { apply eqbedge_true_eq in Heq_head. auto. }
+        subst e. assert (Hin_ext :
+          In (u, w, l ++ [v]) (extend_paths_from_start_by_edge (w, v) ps)).
+        { eapply extend_by_edge_captures_extension; eauto. }
+        eapply (extend_paths_from_start_by_edges_monotone E') in Hin_ext.
+        exact Hin_ext.
+      * assert (G_well_formed (V, E') = true) as Hwf'. eapply G_well_formed_induction; eauto.
+        specialize (IH Hwf' (extend_paths_from_start_by_edge e ps) Hin_p' (or_intror Htail)).
+        exact IH.
+Qed.
+
+(* Lemma 4: paths of length k appear after k iterations *)
+Lemma paths_appear_after_k_iterations :
+  forall G u v l k,
+    G_well_formed G = true ->
+    is_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    length l = k ->
+    In (u, v, l) (extend_paths_from_start_iter (snd G)
+                    (edges_as_paths_from_start u (snd G)) k).
+Proof. intros G u v l k Hwf Hpath Hacyc Hlen.
+  destruct G as [V E]; simpl.
+  revert u v l Hpath Hacyc Hlen.
+  induction k as [|k' IH]; intros u v l Hpath Hacyc Hlen.
+  - assert (l = []) as Hl by (destruct l; simpl in Hlen; auto; lia).
+    subst l. simpl. pose proof edges_as_paths_captures_single_edges as Hcap.
+    simpl in Hpath. apply andb_true_iff in Hpath as [Hedge _].
+    apply orb_true_iff in Hedge as [Hedge | Hedge].
+    { assert (In (u,v) E) as HinE by (eapply is_edge_true_implies_In_edge; eauto).
+      eapply Hcap. left; exact HinE. }
+    { assert (In (v,u) E) as HinE by (eapply is_edge_true_implies_In_edge; eauto).
+      eapply Hcap. right; exact HinE. }
+  - simpl. rewrite extend_paths_from_start_iter_spec.
+    pose proof extend_by_edges_captures_extension. destruct l as [|w l'] using rev_ind.
+        { simpl in Hlen. discriminate Hlen. }
+    clear IHl'. rewrite length_app in Hlen. simpl in Hlen. assert (length l' = k') by lia; clear Hlen.
+    specialize (H (V,E)). eapply H; eauto.
+    * eapply IH; auto. apply subpath_still_path_2 with (u := w) (v := v) (l2 := []) (l3 := l' ++ [w]); simpl.
+      split. reflexivity. exact Hpath.
+      apply subpath_still_acyclic_2 with (u := w) (v := v) (l2 := []) (l3 := l' ++ [w]); simpl.
+      split. reflexivity. exact Hacyc.
+    * destruct l' as [|h l''] using rev_ind. apply two_paths_second_edge_correct with (a := u) (c := w).
+      exact Hpath. clear IHl''.
+      assert (Hedge : is_path_in_graph (w, v, []) (V, E) = true).
+        { apply (subpath_still_path u w v (l'' ++ [h]) [] ((l'' ++ [h]) ++ [w]) (V, E)).
+        split. simpl. reflexivity. auto. }
+      unfold is_path_in_graph in Hedge; simpl in Hedge. apply andb_prop in Hedge as [Hedge _].
+      apply orb_true_iff in Hedge. destruct Hedge. left. eauto. right. eauto.
+    * apply subpath_still_acyclic_2 with (u := w) (v := v) (l2 := []) (l3 := l' ++ [w]); simpl.
+      split. reflexivity. exact Hacyc.
+    * intro Hin. simpl in Hin. destruct Hin as [Heq | [Heq | Hin]].
+        { subst v. unfold acyclic_path_2 in Hacyc. destruct Hacyc as [Hneq _]. contradiction. }
+        { subst v. unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [_ [Hnotin _]]].
+          assert (In w (l' ++ [w])) by (apply in_or_app; right; simpl; auto). contradiction. }
+        { unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [_ [Hnotin _]]].
+            apply Hnotin. apply in_or_app. left. exact Hin. }
+Qed.
+
+Lemma extend_paths_from_start_iter_monotone :
+  forall E ps k1 k2,
+    k1 <= k2 ->
+    incl (extend_paths_from_start_iter E ps k1)
+         (extend_paths_from_start_iter E ps k2).
+Proof. intros E ps k1 k2 Hle. unfold incl. intros p Hin.
+  revert ps k1 Hle Hin. induction k2 as [|k2' IH]; intros ps k1 Hle Hin.
+  - assert (k1 = 0) by lia. subst k1. exact Hin.
+  - destruct k1 as [|k1'].
+    + clear IH Hle. simpl in Hin. induction k2' as [|k2'' IH2]; simpl.
+      * apply extend_paths_from_start_by_edges_monotone. exact Hin.
+      * simpl in IH2. rewrite extend_paths_from_start_iter_spec. apply extend_paths_from_start_by_edges_monotone.
+       apply IH2.
+    + simpl. simpl in Hin.  assert (Hle' : k1' <= k2') by lia. eapply IH; eauto.
+Qed.
+
+(* Lemma 5: For |V| iterations, all acyclic paths appear *)
+Lemma all_acyclic_paths_appear :
+  forall G u v l,
+    G_well_formed G = true ->
+    is_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    In (u, v, l) (extend_paths_from_start_iter (snd G)
+                    (edges_as_paths_from_start u (snd G)) (length (fst G))).
+Proof.
+  intros G u v l Hwf Hpath Hacyc.
+  destruct G as [V E]; simpl.
+  set (k := length l).
+  assert (Hk_bound : k <= length V).
+  { unfold k. unfold acyclic_path_2 in Hacyc.
+  destruct Hacyc as [Hneq [Hnotinu [Hnotinl Hacycl]]].
+  assert (Hacyc2 : acyclic_path_2 (u, v, l)).
+  { unfold acyclic_path_2. split; [exact Hneq | split; [exact Hnotinu | split; [exact Hnotinl | exact Hacycl]]]. }
+    apply path_length_acyclic_graph with (G := (V, E)) in Hacyc2; auto.
+    unfold path_length in Hacyc2. unfold num_nodes in Hacyc2. simpl in Hacyc2. lia. }
+  apply extend_paths_from_start_iter_monotone with (k1 := k).
+  - exact Hk_bound.
+  - pose proof paths_appear_after_k_iterations.
+    specialize (H (V,E) u v l k Hwf Hpath Hacyc). eapply H; lia.
+Qed.
+
 (*helper 3 for paths_start_to_end_correct*)
 Lemma find_all_paths_complete : forall G u v p,
     G_well_formed G = true -> no_one_cycles (snd G) = true ->
-    is_path_in_graph p G = true -> path_start_and_end p u v = true -> acyclic_path_2 p ->
+    is_path_in_graph p G = true -> path_start_and_end p u v = true
+    -> acyclic_path_2 p ->
     In p (find_all_paths_from_start_to_end u v G).
 Proof.
-  intros. destruct G as [V E]. unfold find_all_paths_from_start_to_end. apply filter_In.
-  unfold path_start_and_end in H2. apply andb_prop in H2. destruct H2 as [hstart hend].
-  rewrite Nat.eqb_eq in *. split; cycle 1. auto.
-
-  assert (SeedsComplete u E (edges_as_paths_from_start u E)). eapply edges_as_paths_from_start_correct; eauto.
-  assert (path_length p <= length V). eapply max_acyclic_path_length; eauto.
-  assert (path_length p <= length V + 2) by lia; clear H4.
-  pose proof (extend_paths_from_start_iter_correct _ _ u (length V) H H0 (edges_as_paths_from_start u E) H2 (path_length p) H5).
-  unfold CompleteAtn in H5. eapply H4; eauto.
+  intros G u v p Hwf Hno Hpath Hend Hacyc.
+  destruct p as [[u' v'] l].
+  (* Extract that u' = u and v' = v from path_start_and_end *)
+  unfold path_start_and_end in Hend. simpl in Hend.
+  apply andb_true_iff in Hend as [Hu Hv].
+  apply Nat.eqb_eq in Hu; apply Nat.eqb_eq in Hv.
+  subst u' v'.
+  (* Unfold the definition of find_all_paths_from_start_to_end *)
+  unfold find_all_paths_from_start_to_end.
+  destruct G as [V E]; simpl.
+  (* We need to show (u, v, l) is in the filtered result *)
+  apply filter_In. split.
+  - pose proof (all_acyclic_paths_appear (V,E) u v l Hwf Hpath Hacyc). simpl in H. assumption.
+  - simpl. apply Nat.eqb_refl.
 Qed.
 
 (* an acyclic path from u to v is in G iff it is outputted in the find_all_paths_from_start_to_end function *)
 Theorem paths_start_to_end_correct : forall p: path, forall u v: node, forall G: graph,
   G_well_formed G = true -> no_one_cycles (snd G) = true -> (
       (is_path_in_graph p G = true) /\ (path_start_and_end p u v = true) /\ acyclic_path_2 p
-  <-> In p (find_all_paths_from_start_to_end u v G) ).
+  <-> In p (find_all_paths_from_start_to_end u v G)).
 Proof. intros [[u' v'] l] u v [V E] Hwf Hno. split.
   - (* -> completeness *)
     intros (Hpath & Hend & Hacyc).
@@ -1009,8 +1151,6 @@ Proof. intros [[u' v'] l] u v [V E] Hwf Hno. split.
       * eapply paths_start_to_end_endpoints; eauto.
       * eapply paths_start_to_end_acyclic; eauto.
 Qed.
-
-
 
 
 (* below we define functions to find all undirected acyclic paths in G, without a specific
