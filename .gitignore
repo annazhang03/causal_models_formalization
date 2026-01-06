@@ -45,3 +45,8 @@ time-of-build-after.log
 time-of-build-before.log
 time-of-build-both.log
 time-of-build-pretty.log
+
+.Makefile.d
+*.lia.cache
+.lia.cache
+D.lia.cache
