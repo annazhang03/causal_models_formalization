@@ -123,27 +123,76 @@ Proof.
     apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc. assumption.
 Qed.
 
+Lemma remove_node_preserves_well_formed: forall (G: graph) (u: node),
+  G_well_formed G = true ->
+  G_well_formed (remove_node_from_graph G u) = true.
+Proof.
+  intros [V E] u Hwf.
+  unfold remove_node_from_graph; simpl.
+  unfold G_well_formed in *; simpl in *.
+  apply andb_true_iff in Hwf as [Hwf1 Hwf2].
+  apply andb_true_iff in Hwf1 as [Hwf_edges Hwf_nodup_V].
+  apply andb_true_iff. split.
+  - apply andb_true_iff. split.
+    + rewrite forallb_forall in *.
+      intros [a b] Hin.
+      unfold remove_associated_edges in Hin.
+      apply filter_In in Hin as [Hin Hnot_u].
+      apply andb_true_iff in Hnot_u as [Hb Ha].
+      apply negb_true_iff in Ha; apply negb_true_iff in Hb.
+      specialize (Hwf_edges (a, b) Hin); simpl in Hwf_edges.
+      apply andb_true_iff in Hwf_edges as [Hain Hbin].
+      simpl. apply andb_true_iff. split;
+      rewrite member_In_equiv in *;
+      unfold remove_node; apply filter_In; split; auto;
+      apply negb_true_iff; assumption.
+    + unfold remove_node.
+      rewrite forallb_forall in *.
+      intros v Hin.
+      apply filter_In in Hin as [Hin_V Htest].
+      specialize (Hwf_nodup_V v Hin_V).
+      apply Nat.eqb_eq in Hwf_nodup_V.
+      rewrite <- count_filter with (test := fun v0 => negb (v0 =? u)).
+      * apply Nat.eqb_eq. exact Hwf_nodup_V.
+      * exact Htest.
 
+  - rewrite forallb_forall in *.
+    intros e Hin.
+    unfold remove_associated_edges in Hin. (* This creates filter (filter E) *)
+    apply filter_In in Hin as [Hin_E Htest].
+    specialize (Hwf2 e Hin_E).
+    apply Nat.eqb_eq in Hwf2.
+    (* Now unfold remove_associated_edges in goal *)
+    unfold remove_associated_edges.
+    (* Apply count_edge_filter *)
+    rewrite <- count_edge_filter with (l := E) (test := fun edg => negb (snd edg =? u) && negb (fst edg =? u)).
+    + apply Nat.eqb_eq. exact Hwf2.
+    + exact Htest.
+Qed.
 
 (* simple properties of acyclic graphs *)
 Lemma remove_node_preserves_acyclic: forall (G: graph) (u: node),
+  G_well_formed G = true ->
   contains_cycle G = false -> contains_cycle (remove_node_from_graph G u) = false.
 Proof.
-  intros G u H.
+  intros G u Hwf H.
   destruct (contains_cycle (remove_node_from_graph G u)) as [|] eqn:Hcyc.
   - apply contains_cycle_true_correct in Hcyc. destruct Hcyc as [p Hp].
     apply contains_cycle_false_correct with (p := p) in H.
     + destruct Hp as [_ Hp]. exfalso. apply Hp. apply H.
+    + auto.
     + apply remove_node_preserves_directed_path with (u := u). apply Hp.
+    + eapply remove_node_preserves_well_formed; eauto.
   - reflexivity.
 Qed.
 
 Lemma acyclic_no_self_loop: forall (G: graph) (u: node),
+  G_well_formed G = true ->
   contains_cycle G = false -> is_edge (u, u) G = false.
 Proof.
-  intros G u Hcyc.
+  intros G u Hwf Hcyc.
   destruct (is_edge (u, u) G) as [|] eqn:Hedge.
-  - apply contains_cycle_false_correct with (p := (u, u, [])) in Hcyc.
+  - apply contains_cycle_false_correct with (p := (u, u, [])) in Hcyc; eauto.
     + simpl in Hcyc. destruct Hcyc as [Hcyc _]. unfold not in Hcyc.
         exfalso. apply Hcyc. reflexivity.
     + simpl. rewrite Hedge. reflexivity.
@@ -151,11 +200,12 @@ Proof.
 Qed.
 
 Lemma acyclic_no_two_cycle: forall (G: graph) (u v: node),
+  G_well_formed G = true ->
   contains_cycle G = false -> is_edge (u, v) G = true -> is_edge (v, u) G = false.
 Proof.
-  intros G u v Hcyc He.
+  intros G u v Hwf Hcyc He.
   destruct (is_edge (v, u) G) as [|] eqn:Hvu.
-  - apply contains_cycle_false_correct with (p := (u, u, [v])) in Hcyc.
+  - apply contains_cycle_false_correct with (p := (u, u, [v])) in Hcyc; eauto.
     + simpl in Hcyc. destruct Hcyc as [F _]. exfalso. apply F. reflexivity.
     + simpl. rewrite He. rewrite Hvu. reflexivity.
   - reflexivity.
