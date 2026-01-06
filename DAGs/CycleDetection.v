@@ -102,23 +102,25 @@ Proof. reflexivity. Qed.
 
 (* correctness proof for contains_cycle function and the contrapositive *)
 Theorem contains_cycle_true_correct : forall G: graph,
+  G_well_formed G = true ->
   (exists p: path, is_directed_path_in_graph p G = true /\ ~(acyclic_path_2 p))
   <-> contains_cycle G = true.
 Proof.
 Admitted.
 
 Theorem contains_cycle_false_correct : forall G: graph, forall p: path,
+  G_well_formed G = true ->
   contains_cycle G = false -> ((is_directed_path_in_graph p G = true) -> acyclic_path_2 p).
 Proof.
   intros G p.
   pose proof contains_cycle_true_correct as cycle_true.
   specialize (cycle_true G).
-  intros Hcyc Hpath.
+  intros Hwf Hcyc Hpath.
   destruct (classic (acyclic_path_2 p)) as [HnC | HC].
   - apply HnC.
   - assert (H: (exists p' : path, is_directed_path_in_graph p' G = true /\ ~ acyclic_path_2 p')).
     { exists p. split. apply Hpath. apply HC. }
-    apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc.
+    apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc. assumption.
 Qed.
 
 
