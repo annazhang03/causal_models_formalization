@@ -6,6 +6,7 @@ From Utils Require Import Logic.
 From Coq Require Import Classical.
 From Coq Require Import Classical_Prop.
 Import ListNotations.
+Import Lia.
 
 (* this file provides functions and correctness theorems for cycle detection
    within a directed graph by performing DFS in a manner similar to in DAG_PathFinding *)
@@ -138,39 +139,186 @@ Proof. intros V E Hwf.
 Qed.
 
 
+Lemma add_path_no_repeats_preserves_directed :
+  forall (G : graph) (p : path) (ps : paths),
+    directed_paths_in_graph ps G ->
+    is_directed_path_in_graph p G = true ->
+    directed_paths_in_graph (add_path_no_repeats p ps) G.
+Proof. intros G p ps Hps Hp. unfold add_path_no_repeats.
+  destruct (member_path p ps); [exact Hps|].
+  unfold directed_paths_in_graph in *.
+  apply Forall_app; split; [exact Hps|].
+  constructor; [exact Hp|constructor].
+Qed.
+Lemma is_dir_path_in_graph_helper_app_one :
+  forall (G: graph) (x: list node) (y z: node),
+    is_dir_path_in_graph_helper (x ++ [y]) G = true ->
+    is_edge (y, z) G = true ->
+    is_dir_path_in_graph_helper (x ++ [y; z]) G = true.
+Proof.
+  intros G x; induction x as [|a x IH]; intros y z Hxy Hyz; simpl in *.
+  - simpl. now rewrite Hyz.
+  - destruct x as [|a2 x']; simpl in *.
+    + apply Bool.andb_true_iff in Hxy as [Ha _].
+      apply Bool.andb_true_iff; split; [exact Ha|].
+      simpl. now rewrite Hyz.
+    + apply Bool.andb_true_iff in Hxy as [Ha Hrest].
+      apply Bool.andb_true_iff; split; [exact Ha|]. now apply IH.
+Qed.
 Lemma directed_path_extend_last :
-  forall V E u1 v1 l1 u2 v2,
-    is_directed_path_in_graph (u1, v1, l1) (V,E) = true ->
-    is_edge (u2,v2) (V,E) = true ->
-    u2 = v1 ->
-    is_directed_path_in_graph (u1, v2, l1 ++ [v1]) (V,E) = true.
-Admitted.
+  forall G u1 v1 l1 v2,
+    is_directed_path_in_graph (u1, v1, l1) G = true ->
+    is_edge (v1,v2) G = true ->
+    is_directed_path_in_graph (u1, v2, l1 ++ [v1]) G = true.
+Proof. intros G u1 v1 l1 v2 Hdir Hedge.
+  unfold is_directed_path_in_graph in *.
+  simpl in *. set (x := u1 :: l1).
+  change (is_dir_path_in_graph_helper (x ++ [v1]) G = true) in Hdir.
+  rewrite <- app_assoc. simpl.
+  change (is_dir_path_in_graph_helper (x ++ [v1; v2]) G = true).
+  eapply is_dir_path_in_graph_helper_app_one; eauto.
+Qed.
 Lemma dfs_extend_by_edge_no_cycle :
-  forall V E e l,
-    In e E ->
-    directed_paths_in_graph l (V,E) ->
-    (forall p, is_directed_path_in_graph p (V,E) = true -> acyclic_path_2 p) ->
+  forall G e l,
+    G_well_formed G = true ->
+    In e (snd G) ->
+    directed_paths_in_graph l G ->
+    (forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p) ->
     fst (dfs_extend_by_edge e l) = false /\
-    directed_paths_in_graph (snd (dfs_extend_by_edge e l)) (V,E).
-Admitted.
+    directed_paths_in_graph (snd (dfs_extend_by_edge e l)) G.
+Proof. intros G e l Hwf HinE Hdir Hall.
+  destruct G as [V E]; simpl in *.
+  pose proof (G_well_formed_corollary V E Hwf) as Hwf_cor.
+  assert (Hedge_true : forall u v, In (u,v) E -> is_edge (u,v) (V,E) = true).
+  { intros u v Hin. unfold is_edge. simpl.
+    specialize (Hwf_cor u v Hin) as [Hu Hv].
+    apply (proj2 (member_In_equiv V u)) in Hu.
+    apply (proj2 (member_In_equiv V v)) in Hv.
+    assert (Huv : member_edge (u,v) E = true).
+    { apply (proj2 (member_edge_In_equiv E (u, v))). exact Hin. }
+    rewrite Hu, Hv, Huv. reflexivity.
+  }
+  induction l as [|h t IH]; simpl.
+  - split; simpl; auto.
+  - unfold directed_paths_in_graph in Hdir. rewrite Forall_cons_iff in Hdir.
+    destruct Hdir as [Hhdir Htdir]. destruct h as [[u1 v1] l1].
+    destruct e as [u2 v2]. simpl in *.
 
+    (* Case 1: self-loop u2=?v2 *)
+    destruct (u2 =? v2) eqn:Hself.
+    { apply Nat.eqb_eq in Hself; subst v2.
+      assert (Hed : is_edge (u2,u2) (V,E) = true).
+      { apply Hedge_true. exact HinE. }
+      assert (Hdp : is_directed_path_in_graph (u2,u2,[]) (V,E) = true).
+      { simpl. simpl. unfold is_edge in Hed. rewrite Hed. simpl. reflexivity. }
+      pose proof (Hall (u2,u2,[]) Hdp) as Hacyc.
+      destruct Hacyc as [Hneq _].
+      exfalso; exact (Hneq eq_refl). }
 
+    (* Case 2: 2-cycle test (u2=?v1)&&(u1=?v2) *)
+    destruct ((u2 =? v1) && (u1 =? v2)) eqn:Htwo.
+    { apply andb_true_iff in Htwo as [Hu2v1 Hu1v2].
+      apply Nat.eqb_eq in Hu2v1.
+      apply Nat.eqb_eq in Hu1v2.
+      subst u2 v2.
+      assert (Hed : is_edge (v1,u1) (V,E) = true).
+      { apply Hedge_true. exact HinE. }
+      assert (Hnewdir : is_directed_path_in_graph (u1,u1,l1 ++ [v1]) (V,E) = true).
+      { eapply directed_path_extend_last; eauto. }
+      pose proof (Hall (u1,u1,l1 ++ [v1]) Hnewdir) as Hacyc.
+      destruct Hacyc as [Hneq _].
+      exfalso; exact (Hneq eq_refl). }
+
+    (* Case 3: (u2=?v1) && member v2 l1 *)
+    destruct ((u2 =? v1) && (member v2 l1)) eqn:Hinside.
+    { apply andb_true_iff in Hinside as [Hu2v1 Hmem].
+      apply Nat.eqb_eq in Hu2v1. subst u2.
+      assert (Hed : is_edge (v1,v2) (V,E) = true).
+      { apply Hedge_true. exact HinE. }
+      assert (Hnewdir : is_directed_path_in_graph (u1,v2,l1 ++ [v1]) (V,E) = true).
+      { eapply directed_path_extend_last; eauto. }
+      pose proof (Hall (u1,v2,l1 ++ [v1]) Hnewdir) as Hacyc.
+      destruct Hacyc as [_ [_ [HnotInV _]]].
+      assert (HinL1 : In v2 l1).
+      { apply (proj1 (member_In_equiv l1 v2)); exact Hmem. }
+      assert (HinInt : In v2 (l1 ++ [v1])).
+      { apply in_or_app; left; exact HinL1. }
+      exfalso; exact (HnotInV HinInt).
+    }
+
+    (* Case 4: u2=?v1 *)
+    destruct (u2 =? v1) eqn:Hu2v1.
+    { apply Nat.eqb_eq in Hu2v1. subst u2.
+      assert (Hed : is_edge (v1,v2) (V,E) = true).
+      { apply Hedge_true. exact HinE. }
+      fold (G_well_formed (V, E)) in Hwf.
+      fold (directed_paths_in_graph t (V, E)) in Htdir.
+      specialize (IH Htdir).
+      destruct IH as [Hfst_t Hdir_t].
+      split.
+      - simpl. exact Hfst_t.
+      - unfold directed_paths_in_graph.
+        constructor.
+        + exact Hhdir.
+        + assert (Hnewdir : is_directed_path_in_graph (u1,v2,l1 ++ [v1]) (V,E) = true).
+          { eapply directed_path_extend_last; eauto. }
+          eapply add_path_no_repeats_preserves_directed; eauto.
+      }
+
+    { fold (directed_paths_in_graph t (V, E)) in Htdir.
+      specialize (IH Htdir).
+      destruct IH as [Hfst_t Hdir_t].
+      split.
+      - simpl. exact Hfst_t.
+      - unfold directed_paths_in_graph.
+        constructor; [exact Hhdir| exact Hdir_t].
+    }
+Qed.
+
+Lemma dfs_extend_by_edges_no_cycle_gen :
+  forall G E_iter l,
+    G_well_formed G = true ->
+    (forall e, In e E_iter -> In e (snd G)) ->
+    directed_paths_in_graph l G ->
+    (forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p) ->
+    fst (dfs_extend_by_edges E_iter l) = false /\
+    directed_paths_in_graph (snd (dfs_extend_by_edges E_iter l)) G.
+Proof. intros G E_iter.
+  induction E_iter as [|e t IH]; intros l Hwf Hsub Hdir Hall; simpl.
+  - split; simpl; auto.
+  - assert (HinG : In e (snd G)) by (apply Hsub; left; reflexivity).
+    pose proof (dfs_extend_by_edge_no_cycle G e l Hwf HinG Hdir Hall) as [Hfst_edge Hdir_edge].
+    rewrite Hfst_edge. apply IH with (l := snd (dfs_extend_by_edge e l)).
+    + exact Hwf.
+    + intros e' Hin_t. apply Hsub. right. exact Hin_t.
+    + exact Hdir_edge.
+    + exact Hall.
+Qed.
 Lemma dfs_extend_by_edges_no_cycle :
-  forall V E l,
-    directed_paths_in_graph l (V,E) ->
-    (forall p, is_directed_path_in_graph p (V,E) = true -> acyclic_path_2 p) ->
-    fst (dfs_extend_by_edges E l) = false
-    /\ directed_paths_in_graph (snd (dfs_extend_by_edges E l)) (V,E).
-Admitted.
+  forall G l, G_well_formed G = true ->
+    directed_paths_in_graph l G ->
+    (forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p) ->
+    fst (dfs_extend_by_edges (snd G) l) = false
+    /\ directed_paths_in_graph (snd (dfs_extend_by_edges (snd G) l)) G.
+Proof. intros G l Hwf Hdir Hall.
+  pose proof (dfs_extend_by_edges_no_cycle_gen G (snd G) l Hwf) as H.
+  specialize (H (fun e Hin => Hin) Hdir Hall). exact H.
+Qed.
 
 
 Lemma dfs_iter_no_cycle :
-  forall V E k l,
-    directed_paths_in_graph l (V,E) ->
-    (forall p, is_directed_path_in_graph p (V,E) = true -> acyclic_path_2 p) ->
-    fst (dfs_extend_by_edges_iter E l k) = false /\
-    directed_paths_in_graph (snd (dfs_extend_by_edges_iter E l k)) (V,E).
-Admitted.
+  forall G k l, G_well_formed G = true ->
+    directed_paths_in_graph l G ->
+    (forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p) ->
+    fst (dfs_extend_by_edges_iter (snd G) l k) = false /\
+    directed_paths_in_graph (snd (dfs_extend_by_edges_iter (snd G) l k)) G.
+Proof. intros G k.
+  induction k as [|k' IH]; intros l Hwf Hdir Hall; simpl.
+  - split; simpl; auto.
+  - pose proof (dfs_extend_by_edges_no_cycle G l Hwf Hdir Hall) as [Hfst Hedgedir].
+    rewrite Hfst.
+    exact (IH (snd (dfs_extend_by_edges (snd G) l)) Hwf Hedgedir Hall).
+Qed.
 (*helpers end*)
 
 (* Main lemmas for contains_cycle_true_correct *)
@@ -182,7 +330,7 @@ Lemma contains_cycle_complete :
 Proof. intros [V E] Hwf Hall.
     unfold contains_cycle.
     pose proof (directed_edges_as_paths_in_graph V E Hwf) as Hinit.
-    pose proof (dfs_iter_no_cycle V E (length V) (directed_edges_as_paths E) Hinit Hall) as [Hfst _].
+    pose proof (dfs_iter_no_cycle (V, E) (length V) (directed_edges_as_paths E) Hwf Hinit Hall) as [Hfst _].
     exact Hfst.
 Qed.
 
