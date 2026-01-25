@@ -101,7 +101,7 @@ Proof. reflexivity. Qed.
 Example but_not_when_only_one_added: contains_cycle (V_cf, E_cf ++ [(6, 1)]) = false.
 Proof. reflexivity. Qed.
 
-(* helpers for contains_cycle_complete *)
+(* helpers for contains_cycle_false_complete *)
 Definition directed_paths_in_graph (l: paths) (G: graph) : Prop :=
   Forall (fun p => is_directed_path_in_graph p G = true) l.
 
@@ -321,8 +321,39 @@ Proof. intros G k.
 Qed.
 (*helpers end*)
 
-(* Main lemmas for contains_cycle_true_correct *)
-Lemma contains_cycle_complete :
+(* "helpers for contains_cycle_true_complete" *)
+Lemma directed_edges_as_paths_In :
+  forall (E : edges) (u v : node),
+    In (u,v) E <-> In (u,v,[]) (directed_edges_as_paths E).
+Proof.
+  induction E as [| [a b] t IH]; intros u v; simpl.
+  - split; intros H; contradiction.
+  - simpl. split.
+    + intros [H | H].
+      * inversion H; subst. left. reflexivity.
+      * right. apply IH. exact H.
+    + intros [H | H].
+      * inversion H; subst. left. reflexivity.
+      * right. apply IH. exact H.
+Qed.
+
+Lemma paths_appear_after_k_iterations :
+  forall G u v l k, G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    length l = k ->
+    In (u, v, l) (extend_paths_from_start_iter (snd G)
+                    (edges_as_paths_from_start u (snd G)) k).
+Lemma all_acyclic_paths_appear :
+  forall G u v l, G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    In (u, v, l) (extend_paths_from_start_iter (snd G)
+                    (edges_as_paths_from_start u (snd G)) (length (fst G))).
+(*helpers end*)
+
+(* Main completeness lemmas for contains_cycle_true_correct *)
+Lemma contains_cycle_false_complete :
   forall G,
     G_well_formed G = true ->
     (forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p) ->
@@ -334,13 +365,20 @@ Proof. intros [V E] Hwf Hall.
     exact Hfst.
 Qed.
 
-Lemma contains_cycle_sound :
+Lemma contains_cycle_true_complete1 :
   forall G,
     G_well_formed G = true ->
     contains_cycle G = false ->
-    forall p, is_directed_path_in_graph p G = true ->
-      acyclic_path_2 p.
-Proof.
+    forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p.
+Proof. intros [V E] Hwf Hcycle. unfold contains_cycle in Hcycle.
+Admitted.
+
+Lemma contains_cycle_true_complete2 :
+  forall G,
+    G_well_formed G = true ->
+    (exists p, is_directed_path_in_graph p G = true /\ ~acyclic_path_2 p) ->
+    contains_cycle G = true.
+Proof. intros [V E] Hwf Hex. destruct Hex as [p [Hdir Hacyc]]. unfold contains_cycle.
 Admitted.
 
 (* correctness proof for contains_cycle function and the contrapositive *)
@@ -348,17 +386,15 @@ Theorem contains_cycle_true_correct : forall G: graph,
   G_well_formed G = true ->
   (exists p: path, is_directed_path_in_graph p G = true /\ ~(acyclic_path_2 p))
   <-> contains_cycle G = true.
-  (*logically the same as
-  (∀ p, is_directed_path_in_graph p G = true → acyclic_path_2 p) ↔ contains_cycle G = false *)
 Proof. intros [V E] Hwf. unfold contains_cycle. split.
   - intros [p [Hpath Hcyclic]].
     unfold contains_cycle.
     destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) (length V))) eqn:Hiter; eauto.
     exfalso. assert (Hacyc : acyclic_path_2 p).
-      { eapply contains_cycle_sound; eauto. }
+      { eapply contains_cycle_true_complete1; eauto. }
       contradiction.
 
-  - intro Hcycle. pose proof contains_cycle_complete.
+  - intro Hcycle. pose proof contains_cycle_false_complete.
   assert (Hcontra: ~ (forall p : path, is_directed_path_in_graph p (V, E) = true -> acyclic_path_2 p)).
   { intro Hall. specialize (H (V, E) Hwf Hall). unfold contains_cycle in H. rewrite Hcycle in H. discriminate. }
   clear H. apply not_all_ex_not in Hcontra. destruct Hcontra as [p Hp].
