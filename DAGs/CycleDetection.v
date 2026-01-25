@@ -344,12 +344,14 @@ Lemma paths_appear_after_k_iterations :
     length l = k ->
     In (u, v, l) (extend_paths_from_start_iter (snd G)
                     (edges_as_paths_from_start u (snd G)) k).
+Admitted.
 Lemma all_acyclic_paths_appear :
   forall G u v l, G_well_formed G = true ->
     is_directed_path_in_graph (u, v, l) G = true ->
     acyclic_path_2 (u, v, l) ->
     In (u, v, l) (extend_paths_from_start_iter (snd G)
                     (edges_as_paths_from_start u (snd G)) (length (fst G))).
+Admitted.
 (*helpers end*)
 
 (* Main completeness lemmas for contains_cycle_true_correct *)
