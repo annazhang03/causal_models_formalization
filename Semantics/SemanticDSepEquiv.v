@@ -17,9 +17,9 @@ From DAGs Require Import PathFinding.
 From DAGs Require Import Basics.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-Require Import Coq.Logic.FunctionalExtensionality.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+Require Import Stdlib.Logic.FunctionalExtensionality.
 
 
 Import ListNotations.

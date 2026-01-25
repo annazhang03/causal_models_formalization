@@ -1,12 +1,12 @@
-Require Import Coq.Lists.List.
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Lists.List.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
-From Coq Require Import Bool.Bool.
-From Coq Require Import Init.Nat.
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-From Coq Require Import Lists.List. Import ListNotations.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Init.Nat.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+From Stdlib Require Import Lists.List. Import ListNotations.
 Require Import Classical.
 From Utils Require Import List_Basics.
 From Utils Require Import Logic.
@@ -447,7 +447,7 @@ Proof.
       * inversion Hl'. inversion Hl. rewrite H2 in Hc. rewrite eqb_refl in Hc.
         assert (In a t). { rewrite H1. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
       * apply IH with (l1' := tl1') (l1 := tl1).
-        -- destruct (h =? a) as [|] eqn:Hha. 
+        -- destruct (h =? a) as [|] eqn:Hha.
            ++ assert (In a t). { inversion Hl. apply membership_append_r. left. reflexivity. } apply member_count_at_least_1 in H. lia.
            ++ apply Hc.
         -- inversion Hl'. reflexivity.

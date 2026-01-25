@@ -1,12 +1,12 @@
-Require Import Coq.Lists.List.
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Lists.List.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
-From Coq Require Import Bool.Bool.
-From Coq Require Import Init.Nat.
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-From Coq Require Import Lists.List. Import ListNotations.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Init.Nat.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+From Stdlib Require Import Lists.List. Import ListNotations.
 Require Import Classical.
 
 
@@ -60,7 +60,7 @@ Fixpoint member (v : nat) (s : list nat) : bool
     end.
 
 (* equate our boolean member function with propositional membership predicate *)
-Lemma member_In_equiv : 
+Lemma member_In_equiv :
   forall (l : list nat) (x: nat), member x l = true <-> In x l.
 Proof.
   intros l x.
@@ -80,7 +80,7 @@ Proof.
 Qed.
 
 (* relate boolean and propositional forms of non-membership *)
-Lemma member_In_equiv_F : 
+Lemma member_In_equiv_F :
   forall (l : list nat) (x: nat), member x l = false <-> ~(In x l).
 Proof.
   intros l x.
@@ -103,13 +103,13 @@ Qed.
 
 (* return number of appearances of v in l *)
 Fixpoint count (v : nat) (l : list nat) : nat
-  := match l with 
+  := match l with
       | nil => 0
       | h :: t => if (h =? v) then S (count v t) else count v t
      end.
 
 (* a non-member of l has count 0 in l *)
-Lemma not_member_count_0 : 
+Lemma not_member_count_0 :
   forall (l : list nat) (x : nat), member x l = false -> count x l = 0.
 Proof.
   intros l x H.
@@ -246,7 +246,7 @@ Proof.
     + simpl. rewrite Hhx. apply IH.
 Qed.
 
-(* if nth_error returns u for two distinct indicees, then u must appear in 
+(* if nth_error returns u for two distinct indicees, then u must appear in
    l more than once *)
 Lemma nth_error_count: forall (l: list nat) (u: nat) (j k: nat),
   nth_error l j = Some u /\ nth_error l k = Some u
@@ -374,7 +374,7 @@ Proof.
       * symmetry. apply IH. intros H. apply Hmem. right. apply H.
 Qed.
 
-(* if the index of x in the concatenation of l1 and l2 is i, and i is 
+(* if the index of x in the concatenation of l1 and l2 is i, and i is
    less than the length of l1, then x is in l1 at index i *)
 Lemma index_append_2: forall (l1 l2: list nat) (x i: nat),
   index (l1 ++ l2) x = Some i /\ i < length l1 ->

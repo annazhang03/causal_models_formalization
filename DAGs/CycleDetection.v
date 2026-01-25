@@ -3,8 +3,8 @@ From DAGs Require Import PathFinding.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 
-From Coq Require Import Classical.
-From Coq Require Import Classical_Prop.
+From Stdlib Require Import Classical.
+From Stdlib Require Import Classical_Prop.
 Import ListNotations.
 Import Lia.
 

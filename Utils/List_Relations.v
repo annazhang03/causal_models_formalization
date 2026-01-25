@@ -1,12 +1,12 @@
-Require Import Coq.Lists.List.
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Lists.List.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
-From Coq Require Import Bool.Bool.
-From Coq Require Import Init.Nat.
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-From Coq Require Import Lists.List. Import ListNotations.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Init.Nat.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+From Stdlib Require Import Lists.List. Import ListNotations.
 Require Import Classical.
 From Utils Require Import List_Basics.
 From Utils Require Import Logic.
@@ -16,7 +16,7 @@ From Utils Require Import Logic.
    relate two lists, such as overlap, subset, union, and intersection *)
 
 Fixpoint overlap (s1 : list nat) (s2 : list nat) : bool
-  := match s1 with 
+  := match s1 with
       | nil => false
       | h :: t => if (member h s2) then true else overlap t s2
     end.
@@ -81,7 +81,7 @@ Proof.
   { intros H. induction l1 as [| h t IH].
   - simpl. reflexivity.
   - simpl. destruct (member h l2) as [|] eqn:Hmem.
-    + specialize (H h). apply member_In_equiv in Hmem. apply H in Hmem. 
+    + specialize (H h). apply member_In_equiv in Hmem. apply H in Hmem.
       unfold not in Hmem. simpl in Hmem. exfalso. apply Hmem. left. reflexivity.
     + apply IH. simpl in H.
       intros x Hxl2. specialize (H x). intros Hxt. apply H in Hxl2. unfold not in Hxl2.
@@ -185,8 +185,8 @@ Proof.
   intros l1 l2 x [Hsub Hmem].
   induction l1 as [| h t IH].
   - simpl in Hmem. exfalso. apply Hmem.
-  - simpl in Hsub. simpl in Hmem. 
-    apply split_and_true in Hsub. destruct Hsub as [Hhl2 Hsubt]. 
+  - simpl in Hsub. simpl in Hmem.
+    apply split_and_true in Hsub. destruct Hsub as [Hhl2 Hsubt].
     destruct Hmem as [Hhx | Hmem].
     + apply member_In_equiv. rewrite <- Hhx. apply Hhl2.
     + apply IH in Hsubt. apply Hsubt. apply Hmem.
@@ -271,12 +271,12 @@ Proof.
       * intros H. apply IH in H. destruct H as [H | H].
         -- left. apply H.
         -- right. simpl. right. apply H.
-      * intros [H | [H | H]]. 
+      * intros [H | [H | H]].
         -- apply IH. left. apply H.
         -- apply IH. left. apply member_In_equiv. rewrite <- H. apply mem.
         -- apply IH. right. apply H.
     + split.
-      * intros H. simpl in H. destruct H as [H | H]. 
+      * intros H. simpl in H. destruct H as [H | H].
         -- right. left. apply H.
         -- apply IH in H. destruct H as [H | H].
            ++ left. apply H.

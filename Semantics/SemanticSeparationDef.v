@@ -6,8 +6,8 @@ From DAGs Require Import Basics.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 
@@ -169,7 +169,7 @@ Proof.
             ** simpl in HUG. apply split_and_true in HUG. apply HUG.
          ++ clear IH. clear HU. induction t as [| h' t' IH].
             ** simpl in Hw. apply Hw.
-            ** simpl in Hw. 
+            ** simpl in Hw.
                assert (HhU': exists (hu: X), get_assigned_value U h' = Some hu). { apply assigned_has_value with (L := u :: h' :: t'). split. right. left. reflexivity. apply HUG. }
                destruct HhU' as [hu Hhu].
                destruct (u =? h') as [|] eqn:Huh'. simpl in Hut. rewrite eqb_sym in Hut. rewrite Huh' in Hut. discriminate Hut.

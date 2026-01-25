@@ -9,8 +9,8 @@ From DAGs Require Import Descendants.
 From DAGs Require Import PathFinding.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 
@@ -40,7 +40,7 @@ Proof.
   unfold find_new_node.
   destruct (member (max_list V + 1) V) as [|] eqn:Hmem.
   - apply member_In_equiv in Hmem. apply max_correct in Hmem.
-    apply leb_le in Hmem. 
+    apply leb_le in Hmem.
     lia.
   - reflexivity.
 Qed.
@@ -153,7 +153,7 @@ Proof.
       simpl in Hpre. rewrite Hpre. simpl. reflexivity.
     + apply IH in Hind. simpl. rewrite Hind. rewrite orb_comm. simpl. reflexivity. }
   { intros Hsub. induction l2 as [| h2 t2 IH].
-  - destruct l1 as [| h1 t1]. 
+  - destruct l1 as [| h1 t1].
     + simpl. reflexivity.
     + simpl in Hsub. discriminate Hsub.
   - simpl in Hsub. apply split_orb_true in Hsub. destruct Hsub as [Hpre | Hind].
@@ -214,7 +214,7 @@ Proof.
   - intros o u. split.
     { intros Hmem. simpl in Hmem. destruct (h + o =? u + o) as [|] eqn:Hhu.
     + simpl. rewrite Hhu. reflexivity.
-    + simpl. rewrite Hhu. 
+    + simpl. rewrite Hhu.
       apply IH. destruct (h =? u) as [|] eqn:Hhu1.
       * rewrite eqb_eq in Hhu1. rewrite Hhu1 in Hhu.
         rewrite eqb_refl in Hhu. discriminate Hhu.
@@ -453,7 +453,7 @@ Qed.
 
 Lemma duplicate_graph_maintains_single_collider: forall (u v c: node) (G: graph) (o: nat),
   o = max_node_in_graph G ->
-  is_collider_bool u v c G = true <-> 
+  is_collider_bool u v c G = true <->
   is_collider_bool (u + o) (v + o) (c + o) (duplicate_graph G) = true.
 Proof.
   intros u v c G o Ho. split.
@@ -475,7 +475,7 @@ Qed.
 
 Lemma duplicate_graph_maintains_single_collider_f: forall (u v c: node) (G: graph) (o: nat),
   o = max_node_in_graph G ->
-  is_collider_bool u v c G = false <-> 
+  is_collider_bool u v c G = false <->
   is_collider_bool (u + o) (v + o) (c + o) (duplicate_graph G) = false.
 Proof.
   intros u v c G o Ho. split.
@@ -628,7 +628,7 @@ Qed.
 Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes,
   o = max_node_in_graph G ->
   (exists p: path, path_start_and_end p u v = true
-                  /\ node_in_graph u G = true /\ node_in_graph v G = true 
+                  /\ node_in_graph u G = true /\ node_in_graph v G = true
                   /\ d_connected_2 p G Z)
   <->
   (exists p': path, path_start_and_end p' (u + o) (v + o) = true /\ (exists int: nodes, path_int p' = shift_nodes_by_offset int o)
