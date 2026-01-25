@@ -7,7 +7,7 @@ From Stdlib Require Import Arith.Arith.
 From Stdlib Require Import Arith.EqNat. Import Nat.
 From Stdlib Require Import Lia.
 From Stdlib Require Import Lists.List. Import ListNotations.
-Require Import Classical.
+From Stdlib Require Import Classical.
 From Utils Require Import List_Basics.
 From Utils Require Import Logic.
 From Utils Require Import EqType.
