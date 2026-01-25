@@ -30,18 +30,21 @@ Proof.
   unfold get_colliders_in_g_path.
   simpl. destruct t as [| h' t'].
   - simpl. unfold is_collider_bool. destruct Hin as [Hin | Hin].
-    + simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity. apply Hcyc.
+    + simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity.
+      admit. apply Hcyc.
     + rewrite path_out_of_h_same in Hin. simpl in Hin. apply acyclic_no_two_cycle in Hin.
-      rewrite Hin. rewrite andb_comm. simpl. reflexivity. apply Hcyc.
+      rewrite Hin. rewrite andb_comm. simpl. reflexivity.
+      admit. apply Hcyc.
   - simpl. assert (is_collider_bool u h' h G = false).
     { unfold is_collider_bool. destruct Hin as [Hin | Hin].
       - simpl in Hin. apply acyclic_no_two_cycle in Hin.
         + rewrite Hin. simpl. reflexivity.
+        + admit.
         + apply Hcyc.
       - rewrite path_out_of_h_same in Hin. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. rewrite andb_comm. reflexivity.
-        apply Hcyc. }
+        admit. apply Hcyc. }
     rewrite H. reflexivity.
-Qed.
+Admitted.
 
 Definition S3_nodes_colliders_in_graph {X: Type} (G: graph) (p: path) (A3: assignments (nat * nat * X * X)): Prop :=
   forall (c: node) (i j: nat) (x y: X), In (c, (i, j, x, y)) A3

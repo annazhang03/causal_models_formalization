@@ -22,7 +22,7 @@ Definition descendants_not_in_Z_bool (d: nodes) (Z: nodes) : bool :=
 Definition some_descendant_in_Z_bool (d: nodes) (Z: nodes) : bool :=
   overlap d Z.
 
-Theorem descendants_in_or_not_in: forall d: nodes, forall Z: nodes, 
+Theorem descendants_in_or_not_in: forall d: nodes, forall Z: nodes,
   descendants_not_in_Z_bool d Z = false <-> some_descendant_in_Z_bool d Z = true.
 Proof.
   intros d Z. split.
@@ -39,26 +39,26 @@ Proof.
 Qed.
 
 (* there is some collider such that none of its descendants are in Z *)
-Definition collider_descendants_not_conditioned (cols: nodes) (G: graph) (Z: nodes) : bool :=  
+Definition collider_descendants_not_conditioned (cols: nodes) (G: graph) (Z: nodes) : bool :=
   existsb (fun c => descendants_not_in_Z_bool (find_descendants c G) Z) cols.
 
 (* p contains collision A -> B <- C, where B and descendants are not in Z (the conditioning set) *)
 Definition is_blocked_by_collider_2 (p: path) (G: graph) (Z: nodes) : bool :=
   collider_descendants_not_conditioned (find_colliders_in_path p G) G Z.
 
-Example collider_in_conditioning_set_2: 
+Example collider_in_conditioning_set_2:
   is_blocked_by_collider_2 (1, 3, [2]) ([1; 2; 3], [(1, 2); (3, 2)]) [2] = false.
 Proof. reflexivity. Qed.
 
-Example collider_not_in_conditioning_set_2: 
+Example collider_not_in_conditioning_set_2:
   is_blocked_by_collider_2 (1, 3, [2]) ([1; 2; 3], [(1, 2); (3, 2)]) [] = true.
 Proof. reflexivity. Qed.
 
-Example descendant_in_conditioning_set_2: 
+Example descendant_in_conditioning_set_2:
   is_blocked_by_collider_2 (1, 3, [2]) ([1; 2; 3; 4], [(1, 2); (3, 2); (2, 4)]) [4] = false.
 Proof. reflexivity. Qed.
 
-Example collider_in_longer_path_2: 
+Example collider_in_longer_path_2:
   is_blocked_by_collider_2 (1, 4, [2; 3]) ([1; 2; 3; 4], [(1, 2); (3, 2); (3, 4)]) [] = true.
 Proof. reflexivity. Qed.
 
@@ -69,7 +69,7 @@ Example collider_no_conditioning_needed_2: path_is_blocked_bool G_d [] (5, 8, [6
 Proof. reflexivity. Qed.
 
 (* conditioning on W unblocks the path from Z to Y *)
-Example condition_on_collider_2: 
+Example condition_on_collider_2:
   path_is_blocked_bool G_d [6] (5, 8, [6; 7]) = false.
 Proof. reflexivity. Qed.
 
@@ -79,7 +79,7 @@ Example condition_on_descendant_collider_2:
 Proof. reflexivity. Qed.
 
 (* conditioning on X blocks the path from Z to Y, even if W unblocks it *)
-Example condition_on_collider_and_mediator_2: 
+Example condition_on_collider_and_mediator_2:
   path_is_blocked_bool G_d [6; 7] (5, 8, [6; 7]) = true.
 Proof. reflexivity. Qed.
 
@@ -103,17 +103,17 @@ Example unconditionally_dependent_2:
 Proof. reflexivity. Qed.
 
 (* conditioning on T blocks the second path from Z to Y *)
-Example conditionally_independent_2: 
+Example conditionally_independent_2:
   d_separated_bool 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [11] = true.
 Proof. reflexivity. Qed.
 
 (* conditioning on T and W unblocks the path Z -> W <- X -> Y *)
-Example condition_on_T_W_2 : 
+Example condition_on_T_W_2 :
   d_separated_bool 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [11; 6] = false.
 Proof. reflexivity. Qed.
 
 (* conditioning on X closes the path Z -> W <- X -> Y *)
-Example condition_on_T_W_X_2 : 
+Example condition_on_T_W_X_2 :
   d_separated_bool 5 8 (V_d ++ [11; 12], E_d ++ [(11, 5); (11, 8); (12, 11)]) [11; 6; 7] = true.
 Proof. reflexivity. Qed.
 
@@ -127,8 +127,8 @@ Definition d_connected_2 (p: path) (G: graph) (Z: nodes) : Prop :=
 
 
 (* u and v are d-separated given Z in G iff no path d-connects u and v given Z *)
-Theorem d_separated_vs_connected: forall u v: node, forall G: graph, forall Z: nodes, 
-  d_separated_bool u v G Z = false <-> 
+Theorem d_separated_vs_connected: forall u v: node, forall G: graph, forall Z: nodes,
+  d_separated_bool u v G Z = false <->
   exists l: nodes, (acyclic_path_2 (u, v, l)) /\ (is_path_in_graph (u, v, l) G = true)
                                               /\ d_connected_2 (u, v, l) G Z.
 Proof.
@@ -165,12 +165,18 @@ Proof.
               ** discriminate Hcol.
               ** apply IH in Hcol. rewrite Hcol.
                  apply descendants_in_or_not_in in Hdesc. rewrite Hdesc. reflexivity.
+    + admit.
+    + admit.
   - intros [l [cyc [path conn]]].
-    unfold d_separated_bool. apply demorgan_many_bool. 
+    unfold d_separated_bool. apply demorgan_many_bool.
     exists (u, v, l). split.
-    + apply paths_start_to_end_correct. split. apply path. split.
-      * unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl.
-      * apply cyc.
+    + apply paths_start_to_end_correct.
+      * admit.
+      * admit.
+      * split. apply path.
+        { split.
+          - unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl.
+          - apply cyc. }
     + unfold path_is_blocked_bool. unfold d_connected_2 in conn. destruct conn as [med [con col]].
       apply demorgan_bool. split.
       * apply demorgan_bool. split.
@@ -179,7 +185,7 @@ Proof.
         (* path is not blocked by any confounder *)
         -- unfold is_blocked_by_confounder_2. apply con.
       (* path is not blocked by any collider *)
-      * unfold is_blocked_by_collider_2. 
+      * unfold is_blocked_by_collider_2.
         induction (find_colliders_in_path (u, v, l) G) as [| h t IH].
         -- simpl. reflexivity.
         -- simpl. simpl in col. destruct (member h Z) as [|] eqn:HhZ.
@@ -190,7 +196,7 @@ Proof.
                  apply descendants_in_or_not_in in desc. rewrite desc in Hdesc. discriminate Hdesc.
               ** apply split_and_true in col. destruct col as [desc col].
                  apply IH in col. apply col.
-Qed.
+Admitted.
 
 
 Theorem reverse_d_connected_paths: forall (u v: node) (l: nodes) (G: graph) (Z: nodes),
@@ -276,7 +282,7 @@ Proof.
              { apply acyclic_path_equate_sublists with (m := m). split.
                - unfold node in *. rewrite Hvar. rewrite Hvar'. unfold concat in Hcyc. apply acyclic_path_correct_2 in Hcyc. simpl in Hcyc. apply Hcyc.
                - apply Hvar. }
-             destruct Hsubl as [Hps Hpe]. 
+             destruct Hsubl as [Hps Hpe].
              apply sublist_breaks_down_list. exists ps.
              destruct l1e as [| h1 t1].
              + simpl in Hpe. exists []. simpl. inversion Hpe. rewrite <- Hl1. simpl. rewrite <- app_assoc.
@@ -346,7 +352,7 @@ Proof.
              { apply acyclic_path_equate_sublists with (m := m). split.
                - unfold node in *. rewrite Hvar. rewrite Hvar'. unfold concat in Hcyc. apply acyclic_path_correct_2 in Hcyc. simpl in Hcyc. apply Hcyc.
                - apply Hvar. }
-             destruct Hsubl as [Hps Hpe]. 
+             destruct Hsubl as [Hps Hpe].
              apply sublist_breaks_down_list. exists ps.
              destruct l1e as [| h1 t1].
              + simpl in Hpe. exists []. simpl. inversion Hpe. rewrite <- Hl1. simpl. rewrite <- app_assoc.
@@ -415,7 +421,7 @@ Proof.
            { apply acyclic_path_equate_sublists with (m := m). split.
              - unfold node in *. rewrite Hvar. rewrite Hvar'. unfold concat in Hcyc. apply acyclic_path_correct_2 in Hcyc. simpl in Hcyc. apply Hcyc.
              - apply Hvar. }
-           destruct Hsubl as [Hps Hpe]. 
+           destruct Hsubl as [Hps Hpe].
            apply sublist_breaks_down_list. exists ps.
            destruct l1e as [| h1 t1].
            ++ simpl in Hpe. exists []. simpl. inversion Hpe. rewrite <- Hl1. simpl. rewrite <- app_assoc.

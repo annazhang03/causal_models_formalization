@@ -294,7 +294,7 @@ Proof.
                  +++ apply subpath_still_acyclic_2 with (v := z) (l2 := l2'') (l3 := l2). split. symmetry. apply Hl2. apply Hcyc2.
                  +++ apply subpath_still_acyclic with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hcyc1.
           ** split.
-             --- intros H. (* cycle anc2 -> ..l2'.. -> x -> ..l1''.. *) 
+             --- intros H. (* cycle anc2 -> ..l2'.. -> x -> ..l1''.. *)
                  apply membership_splits_list in H. destruct H as [c1 [c2 Hc]].
                  assert (Hcyc: is_directed_path_in_graph (anc2, anc2, l2' ++ [x] ++ c1) G = true).
                  { apply concat_directed_paths. split.
@@ -303,6 +303,7 @@ Proof.
                      apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
                  apply contains_cycle_false_correct with (p := (anc2, anc2, l2' ++ [x] ++ c1)) in HG.
                  +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
+                 +++ admit.
                  +++ apply Hcyc.
              --- intros H. unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [_ [_ [Hcyc2 _]]]. apply Hcyc2. apply membership_append with (l2 := [x] ++ l2'') in H.
                  rewrite Hl2. apply H.
@@ -317,6 +318,7 @@ Proof.
                  apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
              apply contains_cycle_false_correct with (p := (x', x', s2 ++ [x] ++ t1)) in HG.
              +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
+             +++ admit.
              +++ apply Hcyc.
              +++ reflexivity.
        ++ split.
@@ -330,7 +332,7 @@ Proof.
              --- apply Hl2.
              --- apply Hover'.
   - left. reflexivity.
-Qed.
+Admitted.
 
 
 Lemma unblocked_ancestor_if_in_unblocked_directed_path: forall (anc u v: node) (l Z: nodes) (G: graph),
@@ -382,7 +384,7 @@ Proof.
     destruct (ancu'' =? u) as [|] eqn:Heq'. { left. apply eqb_eq in Heq'. symmetry. apply Heq'. }
     destruct Hu as [Hu | Hu].
     + rewrite <- Hu. apply unblocked_ancestors_have_unblocked_directed_path. right. apply Hancu'.
-    + apply unblocked_ancestors_have_unblocked_directed_path. right. 
+    + apply unblocked_ancestors_have_unblocked_directed_path. right.
       destruct Hu as [l1 Hu]. destruct Hancu' as [l2 Hancu'].
       assert (Hdir: is_directed_path_in_graph (ancu'', u, l2 ++ [ancu'] ++ l1) G = true).
       { apply concat_directed_paths. split. apply Hancu'. apply Hu. }

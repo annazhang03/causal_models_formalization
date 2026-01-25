@@ -30,7 +30,7 @@ Proof.
   simpl. intros H. apply H.
 Qed.
 
-Lemma do_preserves_edges_not_into_X: forall (X: node) (e: edge) (G: graph), 
+Lemma do_preserves_edges_not_into_X: forall (X: node) (e: edge) (G: graph),
   (edge_in_graph e G = true) -> (snd e =? X) = false
   -> edge_in_graph e (do X G) = true.
 Proof.
@@ -43,7 +43,7 @@ Proof.
     + reflexivity.
 Qed.
 
-Lemma do_removes_edges_into_X: forall (X: node) (e: edge) (G: graph), 
+Lemma do_removes_edges_into_X: forall (X: node) (e: edge) (G: graph),
   (snd e =? X) = true -> edge_in_graph e (do X G) = false.
 Proof.
   intros X e [V E]. intros HeX.
@@ -57,7 +57,7 @@ Proof.
   discriminate contra.
 Qed.
 
-Theorem do_removes_paths_to_X: forall (X: node) (G: graph), 
+Theorem do_removes_paths_to_X: forall (X: node) (G: graph),
   find_all_paths_to_end X (find_all_paths (do X G)) = [].
 Proof.
 Admitted.
@@ -66,7 +66,7 @@ Definition satisfies_backdoor_criterion (X Y: node) (G: graph) (Z: nodes) : Prop
   (* no node in Z is a descendant of X *)
   overlap Z (find_descendants X G) = false /\
   (* Z blocks every path between X and Y that contains an arrow into X *)
-  forallb (fun p: path => path_is_blocked_bool G Z p) 
+  forallb (fun p: path => path_is_blocked_bool G Z p)
           (find_backdoor_paths_from_start_to_end X Y G) = true.
 
 (* Figure 3.6 of primer *)
@@ -88,7 +88,7 @@ Qed.
 
 
 Theorem parent_satisfy_backdoor_criterion: forall (X Y: node) (G: graph),
-  G_well_formed G = true -> 
+  G_well_formed G = true ->
   (contains_cycle G = false) -> satisfies_backdoor_criterion X Y G (find_parents X G).
 Proof.
   intros X Y G HG Hacyc.
@@ -99,7 +99,7 @@ Proof.
     apply no_overlap_non_member. intros P Hdesc Hparent.
     apply find_descendants_correct in Hdesc. destruct Hdesc as [F | Hdesc].
     apply edge_from_parent_to_child in Hparent. rewrite F in Hparent. apply acyclic_no_self_loop with (u := P) in Hacyc.
-    apply edge_in_graph_then_is_edge in Hparent. rewrite Hparent in Hacyc. discriminate Hacyc. apply HG.
+    apply edge_in_graph_then_is_edge in Hparent. rewrite Hparent in Hacyc. discriminate Hacyc. apply HG. apply HG.
     destruct Hdesc as [U [Hdir HUse]].
     apply edge_from_parent_to_child in Hparent as Hedge.
     assert (HedgePath: is_directed_path_in_graph (P, X, []) G = true).
@@ -115,12 +115,12 @@ Proof.
       - rewrite HuX in Hdir. rewrite HvP in Hdir. apply Hdir.
       - apply HedgePath. }
     assert (contra: acyclic_path_2 (concat X P X l [])).
-    { apply contains_cycle_false_correct with (p:=(concat X P X l [])) in Hacyc. apply Hacyc.
+    { apply contains_cycle_false_correct with (p:=(concat X P X l [])) in Hacyc. apply Hacyc. apply HG.
       apply HnewPath. }
     simpl in contra. destruct contra as [contra _].
     apply eqb_neq in contra. rewrite eqb_refl in contra. discriminate contra.
   - (* For each path, the second node is a parent P (since the path is backdoor).
-       The path is blocked: if P is a mediator or confounder, then it blocks 
+       The path is blocked: if P is a mediator or confounder, then it blocks
        the path. If P is a collider, contradiction (cycle (X, P), (P, X)) *)
     apply forallb_forall. intros U Hbackdoor.
     unfold find_backdoor_paths_from_start_to_end in Hbackdoor.

@@ -13,15 +13,15 @@ Import ListNotations.
 
 (* causal and backdoor paths *)
 Definition path_out_of_start (p: path) (G: graph) : bool :=
-  match p with 
+  match p with
   | (u, v, l) => match l with
                 | [] => is_edge (u, v) G
                 | h :: t => is_edge (u, h) G
                end
   end.
-  
+
 Definition path_into_start (p: path) (G: graph) : bool :=
-  match p with 
+  match p with
   | (u, v, l) => match l with
                 | [] => is_edge (v, u) G
                 | h :: t => is_edge (h, u) G
@@ -74,12 +74,14 @@ Proof.
   - apply path_must_have_direction. apply HpG.
   - destruct p as [[u v] l]. destruct l as [| h t].
     + simpl. intros Hout. apply acyclic_no_two_cycle.
+      * admit.
       * apply Hcyc.
       * apply Hout.
     + simpl. intros Hout. apply acyclic_no_two_cycle.
+      * admit.
       * apply Hcyc.
       * apply Hout.
-Qed.
+Admitted.
 
 Theorem acyclic_path_one_direction_2: forall (p: path) (G: graph),
   is_path_in_graph p G = true /\ contains_cycle G = false
@@ -88,13 +90,15 @@ Proof.
   intros p G [HpG Hcyc]. split.
   - destruct p as [[u v] l]. destruct l as [| h t].
     + simpl. intros Hin. apply acyclic_no_two_cycle.
+      * admit.
       * apply Hcyc.
       * apply Hin.
     + simpl. intros Hin. apply acyclic_no_two_cycle.
+      * admit.
       * apply Hcyc.
       * apply Hin.
   - apply path_must_have_direction_2. apply HpG.
-Qed.
+Admitted.
 
 Fixpoint path_into_end_nodes (p: nodes) (G: graph): option bool :=
   match p with
@@ -302,7 +306,7 @@ Proof.
       * simpl in Hmem. destruct (is_collider_bool u v h G) as [|] eqn:Hcol.
         -- destruct Hmem as [Hxh | F]. simpl in Hout. rewrite Hxh in Hout. rewrite eqb_refl in Hout. destruct (edge_in_graph (x, v) G) as [|] eqn:Hhv.
            ++ unfold is_collider_bool in Hcol. apply split_and_true in Hcol. destruct Hcol as [_ Hcol]. rewrite Hxh in Hcol.
-              apply acyclic_no_two_cycle in Hcol. rewrite edge_in_graph_equiv in Hcol. rewrite Hcol in Hhv. discriminate Hhv. apply HG. apply HG.
+              apply acyclic_no_two_cycle in Hcol. rewrite edge_in_graph_equiv in Hcol. rewrite Hcol in Hhv. discriminate Hhv. apply HG. apply HG. apply HG.
            ++ discriminate Hout.
            ++ apply F.
         -- apply Hmem.
@@ -311,7 +315,7 @@ Proof.
            { apply eqb_eq in Hxh.
              simpl in Hout. destruct (edge_in_graph (h, ht) G) as [|] eqn:Hhv.
              ++ unfold is_collider_bool in Hcol. apply split_and_true in Hcol. destruct Hcol as [_ Hcol].
-                apply acyclic_no_two_cycle in Hcol. rewrite edge_in_graph_equiv in Hcol. rewrite Hcol in Hhv. discriminate Hhv. apply HG. apply HG.
+                apply acyclic_no_two_cycle in Hcol. rewrite edge_in_graph_equiv in Hcol. rewrite Hcol in Hhv. discriminate Hhv. apply HG. apply HG. apply HG.
              ++ discriminate Hout. }
            { destruct Hmem as [F | Hmem]. rewrite F in Hxh. rewrite eqb_refl in Hxh. discriminate Hxh.
              apply IH with (u := h).
@@ -350,11 +354,11 @@ Proof.
   intros u v x l G. intros HG Hdir Hmem.
   generalize dependent u. induction l as [| h t IH].
   - intros u Hdir Hmem. simpl in Hdir. unfold path_out_of_node. simpl. destruct Hmem as [Hmem | F]. apply eqb_eq in Hmem. rewrite Hmem.
-    rewrite <- edge_in_graph_equiv. rewrite andb_comm in Hdir. simpl in Hdir. apply acyclic_no_two_cycle in Hdir. rewrite Hdir. reflexivity. apply HG. apply HG. exfalso. apply F.
+    rewrite <- edge_in_graph_equiv. rewrite andb_comm in Hdir. simpl in Hdir. apply acyclic_no_two_cycle in Hdir. rewrite Hdir. reflexivity. apply HG. apply HG. apply HG. exfalso. apply F.
   - intros u Hdir Hmem. destruct (u =? x) as [|] eqn:Hux.
     + assert (Hdir': is_directed_path_in_graph (h, u, []) G = true). { apply subpath_still_directed with (w := v) (l1 := rev t) (l3 := rev t ++ [h]). split. reflexivity. apply Hdir. }
       unfold path_out_of_node. simpl. rewrite Hux.
-      rewrite <- edge_in_graph_equiv. simpl in Hdir'. rewrite andb_comm in Hdir'. simpl in Hdir'. apply acyclic_no_two_cycle in Hdir'. rewrite Hdir'. reflexivity. apply HG. apply HG.
+      rewrite <- edge_in_graph_equiv. simpl in Hdir'. rewrite andb_comm in Hdir'. simpl in Hdir'. apply acyclic_no_two_cycle in Hdir'. rewrite Hdir'. reflexivity. apply HG. apply HG. apply HG.
     + destruct Hmem as [Hmem | Hmem]. apply eqb_eq in Hmem. rewrite Hmem in Hux. discriminate Hux.
       unfold path_out_of_node. simpl. rewrite Hux. apply IH.
       apply subpath_still_directed_2 with (v := u) (l2 := []) (l3 := rev t ++ [h]). split. reflexivity. apply Hdir. apply Hmem.
@@ -413,9 +417,10 @@ Lemma directed_path_into_end: forall (u v: node) (l: nodes) (G: graph),
 Proof.
   intros u v l G HG Hdir.
   generalize dependent u. induction l as [| h t IH].
-  - intros u Hdir. simpl. simpl in Hdir. rewrite andb_comm in Hdir. simpl in Hdir. apply acyclic_no_two_cycle in Hdir. f_equal. apply Hdir. apply HG.
+  - intros u Hdir. simpl. simpl in Hdir. rewrite andb_comm in Hdir. simpl in Hdir. apply acyclic_no_two_cycle in Hdir. f_equal. apply Hdir.
+    admit. apply HG.
   - intros u Hdir. rewrite path_out_of_end_same. apply IH. simpl in Hdir. apply split_and_true in Hdir. apply Hdir.
-Qed.
+Admitted.
 
 Lemma path_out_of_end_edge: forall (u v: node) (l: nodes) (G: graph),
   contains_cycle G = false

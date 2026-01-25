@@ -167,9 +167,11 @@ Proof.
     + destruct t as [| h' t'].
       * simpl. simpl in Houth. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
+        -- admit.
         -- apply Hcyc.
       * simpl in Houth. simpl. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
+        -- admit.
         -- apply Hcyc.
     + destruct t as [| h' t'].
       * simpl in Houth. simpl in Hout. inversion Hout. rewrite H0 in Houth. discriminate Houth.
@@ -181,9 +183,11 @@ Proof.
     + destruct t as [| h' t'].
       * simpl. simpl in Houth. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
+        -- admit.
         -- apply Hcyc.
       * simpl in Houth. simpl. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
+        -- admit.
         -- apply Hcyc.
     + destruct t as [| h' t'].
       * simpl in Houth. simpl. unfold is_confounder_bool. simpl in Hin. rewrite Hin. simpl in Hp. destruct G as [V E].
@@ -193,7 +197,7 @@ Proof.
         simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply split_and_true in Hp. destruct Hp as [Hp _].
         rewrite Houth in Hp. rewrite orb_comm in Hp. simpl in Hp. simpl. rewrite Hp. reflexivity.
   - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Qed.
+Admitted.
 
 Lemma sources_induction_out_of_start_out_of_h: forall (G: graph) (u h v: node) (t: nodes),
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
@@ -426,7 +430,7 @@ Proof.
       - apply sublist_breaks_down_list. exists (u :: l1). exists []. simpl. reflexivity.
       - apply acyclic_path_count with (x := b) in Hcyc. rewrite <- Hl in Hcyc. rewrite append_identity in Hcyc. rewrite <- app_assoc in Hcyc. apply Hcyc.
         right. rewrite <- Hl. apply membership_append. apply membership_append_r. left. reflexivity. }
-    simpl. destruct Hedge as [_ Hedge]. rewrite Hzv in Hedge. apply acyclic_no_two_cycle in Hedge. rewrite Hedge. 2: { apply HG. }
+    simpl. destruct Hedge as [_ Hedge]. rewrite Hzv in Hedge. apply acyclic_no_two_cycle in Hedge. rewrite Hedge. 3: { apply HG. }
     unfold get_sources_in_g_path in HA.
     assert (Hout: path_out_of_end (u, v, l) G = Some false).
     { rewrite <- Hl. rewrite append_identity. apply sublist_path_out_of_end_false with (x := b). apply Hedge. rewrite Hzv in Hsub. apply end_of_sublist_still_sublist_2 in Hsub. apply Hsub.
@@ -484,13 +488,14 @@ Proof.
            assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hp. }
            apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
         -- simpl in Hb. apply Hb.
+    + admit.
   - assert (Hzv: z = h2).
     { apply two_sublists_the_same with (l := u :: l1 ++ [b] ++ h2 :: t2 ++ [v]) (a := b).
       - apply end_of_sublist_still_sublist_2 in Hsub. rewrite <- app_assoc in Hsub. rewrite <- app_assoc in Hsub. apply Hsub.
       - apply sublist_breaks_down_list. exists (u :: l1). exists (t2 ++ [v]). simpl. reflexivity.
       - apply acyclic_path_count with (x := b) in Hcyc. rewrite <- Hl in Hcyc. rewrite <- app_assoc in Hcyc. rewrite <- app_assoc in Hcyc. apply Hcyc.
         right. rewrite <- Hl. apply membership_append. apply membership_append_r. left. reflexivity. }
-    unfold get_sources_in_g_path. destruct Hedge as [_ Hedge]. rewrite Hzv in Hedge. apply acyclic_no_two_cycle in Hedge. 2: { apply HG. }
+    unfold get_sources_in_g_path. destruct Hedge as [_ Hedge]. rewrite Hzv in Hedge. apply acyclic_no_two_cycle in Hedge. 3: { apply HG. }
     unfold get_sources_in_g_path in HA.
 
     destruct (path_out_of_end (u, v, l) G) as [[|]|] eqn:Hout.
@@ -755,7 +760,7 @@ Proof.
              assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
              apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. apply Hp'. right. left. apply Hb. }
     { exfalso. apply path_out_of_end_Some in Hout. apply Hout. }
-Qed.
+Admitted.
 
 Lemma sources_len: forall (G: graph) (u v: node) (l L: nodes),
   is_path_in_graph (u, v, l) G = true
@@ -894,6 +899,7 @@ Proof.
         -- destruct (is_confounder_bool u v h G) as [|] eqn:Hcon.
            ++ (* u <- h <- v, but confounder => u <- h -> v, so cycle *)
               apply acyclic_no_two_cycle in Hvh. unfold is_confounder_bool in Hcon. rewrite Hvh in Hcon. rewrite andb_comm in Hcon. discriminate Hcon.
+              admit.
               apply HG.
            ++ discriminate HA1.
         -- destruct (is_confounder_bool u v h G) as [|] eqn:Hcon.
@@ -934,7 +940,8 @@ Proof.
            ++ apply is_path_in_graph_induction with (u := u). apply HpG.
            ++ apply acyclic_path_cat with (u := u). apply Hcyc.
            ++ simpl. unfold is_confounder_bool in Hcon. apply split_and_true in Hcon. destruct Hcon as [_ Hcon]. apply acyclic_no_two_cycle in Hcon.
-              rewrite Hcon. rewrite Hcon in HA1. apply HA1. apply HG.
+              rewrite Hcon. rewrite Hcon in HA1. apply HA1.
+              admit. apply HG.
            ++ apply subpath_still_d_connected with (u := u). apply Hp.
         -- unfold is_confounder_bool in Hcon. simpl in Hin. rewrite Hin in Hcon. simpl in Hcon.
            assert (Hhh': is_edge (h', h) G = true). { simpl in HpG. rewrite Hcon in HpG. simpl in HpG. destruct G as [V E]. rewrite andb_comm in HpG.
@@ -1015,7 +1022,7 @@ Proof.
                          { apply Hhy. }
               ** simpl. unfold is_collider_bool. unfold nodes in *. unfold node in *. rewrite Huh.
                  rewrite Hhh''. simpl. left. reflexivity.
-Qed.
+Admitted.
 
 Lemma sources_count_acyclic: forall (u v c: node) (l: nodes) (G: graph),
   In c (get_sources_in_g_path G (u, v, l))

@@ -494,6 +494,8 @@ Proof.
   - reflexivity.
 Qed.
 
+(*need contains_cycle = false -> no_one_cycles*)
+
 Lemma acyclic_no_two_cycle: forall (G: graph) (u v: node),
   G_well_formed G = true ->
   contains_cycle G = false -> is_edge (u, v) G = true -> is_edge (v, u) G = false.
