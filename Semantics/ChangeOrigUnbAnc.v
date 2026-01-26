@@ -12,8 +12,8 @@ From DAGs Require Import TopologicalSort.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 From Utils Require Import EqType.
@@ -134,7 +134,7 @@ Proof.
             apply edge_from_parent_to_child in Hmemp. simpl in Hmemp. rewrite Hmemp. reflexivity.
          ++ repeat split. intros F.
             apply edge_from_parent_to_child in Hmemp. rewrite F in Hmemp.
-            assert (Hmemp': is_edge (u, u) G = false). { apply acyclic_no_self_loop. easy. }
+            assert (Hmemp': is_edge (u, u) G = false). { apply acyclic_no_self_loop. apply HG. easy. }
             unfold is_edge in Hmemp'. destruct G as [V E]. simpl in HuG. rewrite HuG in Hmemp'. simpl in Hmemp'.
             simpl in Hmemp. rewrite Hmemp in Hmemp'. discriminate Hmemp'.
          ++ intros F. apply F.

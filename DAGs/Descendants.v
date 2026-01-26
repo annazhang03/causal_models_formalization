@@ -2,7 +2,7 @@ From DAGs Require Import Basics.
 From DAGs Require Import CycleDetection.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Arith.EqNat. Import Nat.
 
 Import ListNotations.
 
@@ -15,7 +15,7 @@ Import ListNotations.
 Fixpoint directed_edges_as_paths_from_start (s: node) (E: edges) : paths :=
   match E with
   | [] => []
-  | h :: t => match h with 
+  | h :: t => match h with
               | (u, v) => if (u =? s) then (u, v, []) :: directed_edges_as_paths_from_start s t
                           else directed_edges_as_paths_from_start s t
               end
@@ -67,7 +67,7 @@ Fixpoint get_endpoints (p: paths) : nodes :=
 (* every node is always a descendant of itself.
    other descendants are all possible ending points of directed paths in G that
    start from s *)
-Definition find_descendants (s: node) (G: graph) : nodes := 
+Definition find_descendants (s: node) (G: graph) : nodes :=
   s :: get_endpoints (find_directed_paths_from_start s G).
 
 Example descendants_of_1: find_descendants 1 G = [1; 2].
@@ -87,7 +87,7 @@ Qed.
 
 (* v is a descendant of u iff u = v or there is a directed path from u to v *)
 Theorem find_descendants_correct: forall G: graph, forall u v: node,
-  In v (find_descendants u G) <-> 
+  In v (find_descendants u G) <->
   u = v \/ exists U: path, is_directed_path_in_graph U G = true /\ path_start_and_end U u v = true.
 Proof.
   intros G u v. split.
@@ -103,7 +103,7 @@ Admitted.
 
 (* find ancestors of a node by finding all nodes in G of which the given
    node is a descendant *)
-Definition find_ancestors (e: node) (G: graph) : nodes := 
+Definition find_ancestors (e: node) (G: graph) : nodes :=
   match G with
   | (V, E) => filter (fun s => member e (find_descendants s G)) V
   end.

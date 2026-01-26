@@ -3,8 +3,8 @@ From DAGs Require Import PathFinding.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 
-From Coq Require Import Classical.
-From Coq Require Import Classical_Prop.
+From Stdlib Require Import Classical.
+From Stdlib Require Import Classical_Prop.
 Import ListNotations.
 Import Lia.
 
@@ -101,7 +101,7 @@ Proof. reflexivity. Qed.
 Example but_not_when_only_one_added: contains_cycle (V_cf, E_cf ++ [(6, 1)]) = false.
 Proof. reflexivity. Qed.
 
-(* helpers for contains_cycle_complete *)
+(* helpers for contains_cycle_false_complete *)
 Definition directed_paths_in_graph (l: paths) (G: graph) : Prop :=
   Forall (fun p => is_directed_path_in_graph p G = true) l.
 
@@ -321,8 +321,41 @@ Proof. intros G k.
 Qed.
 (*helpers end*)
 
-(* Main lemmas for contains_cycle_true_correct *)
-Lemma contains_cycle_complete :
+(* "helpers for contains_cycle_true_complete" *)
+Lemma directed_edges_as_paths_In :
+  forall (E : edges) (u v : node),
+    In (u,v) E <-> In (u,v,[]) (directed_edges_as_paths E).
+Proof.
+  induction E as [| [a b] t IH]; intros u v; simpl.
+  - split; intros H; contradiction.
+  - simpl. split.
+    + intros [H | H].
+      * inversion H; subst. left. reflexivity.
+      * right. apply IH. exact H.
+    + intros [H | H].
+      * inversion H; subst. left. reflexivity.
+      * right. apply IH. exact H.
+Qed.
+
+Lemma paths_appear_after_k_iterations :
+  forall G u v l k, G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    length l = k ->
+    In (u, v, l) (extend_paths_from_start_iter (snd G)
+                    (edges_as_paths_from_start u (snd G)) k).
+Admitted.
+Lemma all_acyclic_paths_appear :
+  forall G u v l, G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    In (u, v, l) (extend_paths_from_start_iter (snd G)
+                    (edges_as_paths_from_start u (snd G)) (length (fst G))).
+Admitted.
+(*helpers end*)
+
+(* Main completeness lemmas for contains_cycle_true_correct *)
+Lemma contains_cycle_false_complete :
   forall G,
     G_well_formed G = true ->
     (forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p) ->
@@ -334,13 +367,20 @@ Proof. intros [V E] Hwf Hall.
     exact Hfst.
 Qed.
 
-Lemma contains_cycle_sound :
+Lemma contains_cycle_true_complete1 :
   forall G,
     G_well_formed G = true ->
     contains_cycle G = false ->
-    forall p, is_directed_path_in_graph p G = true ->
-      acyclic_path_2 p.
-Proof.
+    forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p.
+Proof. intros [V E] Hwf Hcycle. unfold contains_cycle in Hcycle.
+Admitted.
+
+Lemma contains_cycle_true_complete2 :
+  forall G,
+    G_well_formed G = true ->
+    (exists p, is_directed_path_in_graph p G = true /\ ~acyclic_path_2 p) ->
+    contains_cycle G = true.
+Proof. intros [V E] Hwf Hex. destruct Hex as [p [Hdir Hacyc]]. unfold contains_cycle.
 Admitted.
 
 (* correctness proof for contains_cycle function and the contrapositive *)
@@ -348,17 +388,15 @@ Theorem contains_cycle_true_correct : forall G: graph,
   G_well_formed G = true ->
   (exists p: path, is_directed_path_in_graph p G = true /\ ~(acyclic_path_2 p))
   <-> contains_cycle G = true.
-  (*logically the same as
-  (∀ p, is_directed_path_in_graph p G = true → acyclic_path_2 p) ↔ contains_cycle G = false *)
 Proof. intros [V E] Hwf. unfold contains_cycle. split.
   - intros [p [Hpath Hcyclic]].
     unfold contains_cycle.
     destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) (length V))) eqn:Hiter; eauto.
     exfalso. assert (Hacyc : acyclic_path_2 p).
-      { eapply contains_cycle_sound; eauto. }
+      { eapply contains_cycle_true_complete1; eauto. }
       contradiction.
 
-  - intro Hcycle. pose proof contains_cycle_complete.
+  - intro Hcycle. pose proof contains_cycle_false_complete.
   assert (Hcontra: ~ (forall p : path, is_directed_path_in_graph p (V, E) = true -> acyclic_path_2 p)).
   { intro Hall. specialize (H (V, E) Hwf Hall). unfold contains_cycle in H. rewrite Hcycle in H. discriminate. }
   clear H. apply not_all_ex_not in Hcontra. destruct Hcontra as [p Hp].
@@ -454,6 +492,28 @@ Proof.
         exfalso. apply Hcyc. reflexivity.
     + simpl. rewrite Hedge. reflexivity.
   - reflexivity.
+Qed.
+
+Lemma contains_cycle_E_ind: forall V E e,
+  G_well_formed (V,e::E) = true ->
+  contains_cycle (V,e::E) = false -> contains_cycle (V,E) = false.
+Proof. intros V E e Hwf Hcyc. unfold contains_cycle in *.
+Admitted.
+
+Lemma contains_cycle_no_self_loop: forall (G: graph),
+  G_well_formed G = true ->
+  contains_cycle G = false -> no_one_cycles (snd G) = true.
+Proof. intros [V E]. induction E as [| [u v] E' IH].
+  - intros. simpl in *. auto.
+  - intros. simpl. case (u =? v) eqn:Heq.
+      + apply Nat.eqb_eq in Heq; subst. pose proof (acyclic_no_self_loop _ v H H0).
+        rewrite <- H1 in *. simpl. pose proof (G_well_formed_corollary _ _ H).
+        assert (In (v,v) ((v, v) :: E')). { simpl. left. reflexivity. }
+        specialize (H2 _ _ H3); clear H3. destruct H2 as [_ H2].
+        rewrite <- member_In_equiv in H2. rewrite H2. simpl.
+        rewrite Nat.eqb_refl. simpl. reflexivity.
+      + eapply IH; eauto. eapply G_well_formed_induction; eauto.
+        eapply contains_cycle_E_ind; eauto.
 Qed.
 
 Lemma acyclic_no_two_cycle: forall (G: graph) (u v: node),

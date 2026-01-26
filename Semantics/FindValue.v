@@ -6,8 +6,8 @@ From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 From Utils Require Import EqType.
@@ -57,7 +57,7 @@ Proof.
 Qed.
 
 
-Lemma parent_assignments_preserves_index: forall X (P: assignments X) (V: nodes) (p: list X) 
+Lemma parent_assignments_preserves_index: forall X (P: assignments X) (V: nodes) (p: list X)
                                               (i: nat) (x: X) (m: node),
   (get_parent_assignments P V = Some p /\ index V m = Some i /\ get_assigned_value P m = Some x)
   -> nth_error p i = Some x.
@@ -424,7 +424,7 @@ Theorem get_values_exists_then_all_nodes_assigned: forall X (G: graph) (g: graph
 Proof.
   intros X G g U A values H. destruct (topological_sort G) as [ts|] eqn:Hts.
   - apply get_values_exists_then_all_nodes_assigned_helper with (ts := ts) (g := g) (U := U) (A := A) (A_eval := []).
-    split. apply Hts. unfold get_values in H. rewrite Hts in H. apply H. 
+    split. apply Hts. unfold get_values in H. rewrite Hts in H. apply H.
   - unfold get_values in H. rewrite Hts in H. discriminate H.
 Qed.
 
@@ -471,7 +471,7 @@ Proof.
               ** assert (Hp: forall v: node, In v (find_parents u G) -> In v tsp).
                  { apply topo_sort_parents_before with (t := t). split. apply Hwf.
                    apply eqb_eq in Hhu. rewrite Hhu in Hts. apply Hts. }
-                 unfold get_assigned_value. simpl. rewrite Hhu. apply eqb_eq in Hhu. 
+                 unfold get_assigned_value. simpl. rewrite Hhu. apply eqb_eq in Hhu.
                  assert (H: get_value_of_node u G g U1 A1 A1' = get_value_of_node u G g U2 A2 A2').
                  { apply value_same_if_parents_are_same. repeat split.
                  - unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
@@ -542,7 +542,7 @@ Theorem get_values_only_dependent_on_parents:
   forall X (G: graph) (u: node) (g: graphfun) (U1 U2 A1 A2 V1 V2: assignments X),
   G_well_formed G = true /\ node_in_graph u G = true ->
   get_values G g U1 A1 = Some V1 /\ get_values G g U2 A2 = Some V2 ->
-  (forall (v: node), In v (find_parents u G) 
+  (forall (v: node), In v (find_parents u G)
           -> get_assigned_value V1 v = get_assigned_value V2 v)
   /\ get_assigned_value U1 u = get_assigned_value U2 u
   /\ is_assignment_for U1 (nodes_in_graph G) = true /\ is_assignment_for U2 (nodes_in_graph G) = true
@@ -774,7 +774,7 @@ Proof.
         apply Hts. apply index_exists. exists i'. apply Hi'. }
   destruct Hj as [j Hj].
   assert (Hlem: exists (x: X), nth_error V j = Some (p, x) /\ find_value G g p U [] = Some x).
-  { apply find_value_preserves_index with (ts := ts). easy. easy. easy. 
+  { apply find_value_preserves_index with (ts := ts). easy. easy. easy.
     rewrite <- HV. apply get_values_from_topo_sort_equiv. easy. easy. easy. }
   destruct Hlem as [x [Hpx Hx]].
   rewrite Hx. symmetry.
@@ -797,7 +797,7 @@ Proof.
 Qed.
 
 Lemma find_value_get_value_node {X: Type}: forall (ts: nodes) (G: graph) (g: graphfun) (U: assignments X) (u: node),
-  forall (i: nat) (V V': assignments X), 
+  forall (i: nat) (V V': assignments X),
   G_well_formed G = true /\ contains_cycle G = false ->
   is_assignment_for U (nodes_in_graph G) = true
   -> topological_sort G = Some ts /\ nth_error ts i = Some u
@@ -844,7 +844,7 @@ Proof.
       * inversion Hv. specialize IH with (values := r). simpl.
         assert (u =? h = false). { destruct (u =? h) as [|] eqn:Hhu. exfalso. apply Hu. left. apply eqb_eq. rewrite eqb_sym. apply Hhu. reflexivity. }
         rewrite H. simpl. apply IH.
-        -- intros F. apply Hu. right. apply F. 
+        -- intros F. apply Hu. right. apply F.
         -- reflexivity.
       * discriminate Hv.
     + discriminate Hv.

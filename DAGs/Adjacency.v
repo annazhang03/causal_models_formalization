@@ -1,11 +1,11 @@
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 
-From Coq Require Export Init.Nat.
-From Coq Require Export Lists.List.
-From Coq Require Export Bool.Bool.
-From Coq Require Export Arith.PeanoNat.
-Require Import Coq.Program.Wf.
+From Stdlib Require Export Init.Nat.
+From Stdlib Require Export Lists.List.
+From Stdlib Require Export Bool.Bool.
+From Stdlib Require Export Arith.PeanoNat.
+Require Import Stdlib.Program.Wf.
 
 Import ListNotations.
 
@@ -62,7 +62,7 @@ Fixpoint get_adjacency_list (V: nodes) (E: edges) : adj_list :=
 
 Compute get_adjacency_list V E.
 
-Theorem adjacency_list_equiv: forall V neighbors: nodes, forall E: edges, forall u v: node, 
+Theorem adjacency_list_equiv: forall V neighbors: nodes, forall E: edges, forall u v: node,
   (neighbors = neighbors_of_node u E) ->
   ((In (u, neighbors) (get_adjacency_list V E) /\ In v neighbors) <-> (In (u, v) E /\ In u V)).
 Proof.
@@ -73,7 +73,7 @@ Proof.
     -- induction V as [| h t IH].
         + simpl in Hadj. exfalso. apply Hadj.
         + simpl in Hadj. destruct Hadj as [Hadj | Hadj].
-          * injection Hadj as Hhu Hnb. 
+          * injection Hadj as Hhu Hnb.
             rewrite <- Hnb in Hv. apply member_In_equiv in Hv. apply neighbors_vs_edges in Hv.
             apply member_edge_In_equiv in Hv. rewrite Hhu in Hv. apply Hv.
           * apply IH. apply Hadj.
@@ -81,7 +81,7 @@ Proof.
         + simpl. simpl in Hadj. apply Hadj.
         + simpl. simpl in Hadj. destruct Hadj as [Hadj | Hadj].
           * injection Hadj as Hhu Hnb. left. apply Hhu.
-          * right. apply IH. apply Hadj. 
+          * right. apply IH. apply Hadj.
   - intros H. split.
     + induction V as [| h t IH].
       * simpl. simpl in H. destruct H as [_ H]. apply H.

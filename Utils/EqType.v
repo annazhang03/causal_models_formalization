@@ -1,5 +1,5 @@
-Require Import Coq.Lists.List.
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Lists.List.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
 
 (* generalize some of the above properties to any types containing a decidable equality function

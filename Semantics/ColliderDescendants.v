@@ -7,8 +7,8 @@ From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 
@@ -456,7 +456,7 @@ Proof.
               specialize HD with (c := h). assert (Hh: In h (h :: t)). { left. reflexivity. } apply HD in Hh.
               destruct Hh as [Hh | Hh].
               destruct Hh as [Hh _]. rewrite Hxh in Hh. inversion Hh. rewrite H1 in Hxhh. simpl in Hxhh. rewrite eqb_refl in Hxhh. discriminate Hxhh.
-              destruct Hh as [ph [dh [Hh Hh']]]. rewrite Hxh in Hh. inversion Hh. destruct Hh' as [_ [_ [Hh' _]]]. rewrite H1 in Hx. simpl in Hx. 
+              destruct Hh as [ph [dh [Hh Hh']]]. rewrite Hxh in Hh. inversion Hh. destruct Hh' as [_ [_ [Hh' _]]]. rewrite H1 in Hx. simpl in Hx.
               apply acyclic_path_count with (x := x) in Hh'. simpl. apply member_count_at_least_1 in Hx. simpl in Hh'.
               destruct (h =? x) as [|]. inversion Hh'. unfold nodes in *. unfold node in *. lia. rewrite add_comm. simpl. apply Hh'. right. apply Hx.
            ++ assert (Hxmem: ~In x (fst xh ++ [snd xh])).
@@ -471,7 +471,7 @@ Qed.
 Lemma descendant_paths_disjoint_subpath: forall (Dh Dx: assignments (nodes * node)) (h v x: node) (l1 l2 lhv: nodes) (G: graph) (Z: nodes),
   descendant_paths_disjoint Dh h v lhv G Z
   -> get_collider_descendants_for_subpath Dh
-          (find_colliders_in_path (x, v, l2) G) = 
+          (find_colliders_in_path (x, v, l2) G) =
         Some Dx
   -> lhv = l1 ++ [x] ++ l2
   -> descendant_paths_disjoint Dx x v l2 G Z.

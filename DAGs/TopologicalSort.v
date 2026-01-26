@@ -3,8 +3,8 @@ From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 
@@ -163,7 +163,8 @@ Proof.
           - rewrite H0 in Hrepeat. lia.
           - rewrite H1 in Hrepeat. lia. }
         assert (contra: contains_cycle G = true).
-        { apply contains_cycle_true_correct. exists cycle. split.
+        { apply contains_cycle_true_correct. rewrite HG; auto.
+        exists cycle. split.
           - apply Hpath.
           - apply Hcycle. }
         rewrite HG in contra. rewrite Hcyc in contra. discriminate contra.
@@ -211,7 +212,7 @@ Proof.
   - simpl in H. inversion H.
   - simpl in H. destruct (get_indegree_zero (V, E)) as [| h t] eqn:Hind.
     + unfold get_indegree_zero in Hind. rewrite Hind in H. discriminate H.
-    + unfold get_indegree_zero in Hind. rewrite Hind in H. 
+    + unfold get_indegree_zero in Hind. rewrite Hind in H.
       destruct (topological_sort_helper (remove_node h V, remove_associated_edges h E) l') as [r|] eqn:Hr.
       * inversion H. unfold topological_sort. simpl. rewrite <- H1.
         assert (Hlen': length V = S (length (remove_node h V))).
@@ -259,7 +260,7 @@ Proof.
           + simpl in Hiters. lia.
           + simpl. reflexivity.
         - simpl. simpl in Hiters. lia.
-        - apply remove_node_preserves_acyclic with (u := h) in Hcyc. apply Hcyc. }
+        - apply remove_node_preserves_acyclic with (u := h) in Hcyc. apply Hcyc. auto. }
       destruct H as [r H]. simpl in H. rewrite Hiters' in H. rewrite H. exists (h :: r). reflexivity.
 Qed.
 
@@ -386,7 +387,7 @@ Proof.
 Qed.
 
 Lemma topo_sort_contains_nodes_exactly_once: forall (G: graph) (sorted: nodes),
-  G_well_formed G = true /\ topological_sort G = Some sorted -> 
+  G_well_formed G = true /\ topological_sort G = Some sorted ->
   forall (u: node), node_in_graph u G = true -> count u sorted = 1.
 Proof.
   intros G ts [Hwf Hts].
@@ -415,7 +416,7 @@ Proof.
         - intros u1 Hmem. destruct G as [V E]. simpl in Hmem. simpl.
           unfold remove_node in Hmem. apply filter_true in Hmem. destruct Hmem as [Hmem Huu1].
           simpl in Hnode. specialize Hnode with (u := u1). apply Hnode in Hmem.
-          unfold remove_node. 
+          unfold remove_node.
           assert (H1: count u1 V = count u1 (filter (fun v : nat => negb (v =? h)) V)).
           { apply count_filter. apply Huu1. }
           rewrite <- H1. apply Hmem.
@@ -453,7 +454,7 @@ Corollary topo_sort_parents: forall (G: graph) (c p: node) (sorted: nodes),
   G_well_formed G = true /\ topological_sort G = Some sorted
   -> In p (find_parents c G)
   -> exists (i j: nat), Some i = index sorted p /\ Some j = index sorted c /\ i < j.
-Proof. 
+Proof.
   intros G c p sorted. intros [Hwf Hts].
   intros Hmem. apply edge_from_parent_to_child in Hmem.
   apply topo_sort_correct with (G := G) (u := p) (v := c) (sorted := sorted).
