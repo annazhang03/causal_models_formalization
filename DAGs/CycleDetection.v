@@ -322,7 +322,123 @@ Qed.
 (*helpers end*)
 
 (* "helpers for contains_cycle_true_complete" *)
-Lemma directed_edges_as_paths_In :
+Lemma eqbpath_eq : forall p1 p2, eqbpath p1 p2 = true <-> p1 = p2.
+Proof.
+  intros [[u1 v1] l1] [[u2 v2] l2].
+  unfold eqbpath. simpl.
+  split; intros H.
+  - apply andb_true_iff in H as [H1 H2].
+    apply andb_true_iff in H1 as [Hu Hv].
+    apply Nat.eqb_eq in Hu.
+    apply Nat.eqb_eq in Hv.
+    apply eqblist_eq in H2.
+    subst. reflexivity.
+  - injection H as Hu Hv Hl. subst.
+    apply andb_true_iff. split.
+    + apply andb_true_iff. split.
+      * apply Nat.eqb_refl.
+      * apply Nat.eqb_refl.
+    + apply eqblist_eq. reflexivity.
+Qed.
+Lemma dfs_extend_by_edge_detects_cycle :
+  forall G e l p, G_well_formed G = true ->
+    In e (snd G) ->
+    directed_paths_in_graph l G ->
+    is_directed_path_in_graph p G = true ->
+    ~acyclic_path_2 p ->
+    (exists q, In q l /\
+               (match q, e with
+                | (u1, v1, l1), (u2, v2) =>
+                    (u2 = v2 /\ p = (u2, u2, [])) \/
+                    (u2 = v1 /\ u1 = v2 /\ p = (u1, u1, l1 ++ [v1])) \/
+                    (u2 = v1 /\ In v2 l1 /\ p = (u1, v2, l1 ++ [v1]))
+                end)) ->
+    fst (dfs_extend_by_edge e l) = true.
+Proof. intros G e l p Hwf HinE Hdir Hdir_p Hcyc [q [Hin_q Hcond]].
+  destruct e as [u2 v2].
+  induction l as [|h t IH].
+  - simpl in Hin_q. contradiction.
+  - simpl.
+    destruct (eqbpath h q) eqn:Heqb.
+    destruct h as [[u1' v1'] l1'].
+    + destruct q as [[u1 v1] l1].
+      apply eqbpath_eq in Heqb.
+      injection Heqb as Heq_u Heq_v Heq_l; subst u1' v1' l1'.
+      destruct Hcond as [Hself | [Hback | Hinside]].
+      * (* Self-loop case: u2 = v2 *)
+        destruct Hself as [Hu2v2 Hp].
+        subst v2.
+        rewrite Nat.eqb_refl.
+        simpl. reflexivity.
+      * (* Back-edge case: u2 = v1 /\ u1 = v2 *)
+        destruct Hback as [Hu2v1 [Hu1v2 Hp]].
+        subst u2 v2.
+        destruct (v1 =? u1) eqn:Hv1u1.
+        { simpl. reflexivity. }
+        rewrite Nat.eqb_refl.
+        rewrite Nat.eqb_refl.
+        simpl. reflexivity.
+      * (* Intermediate cycle case: u2 = v1 /\ In v2 l1 *)
+        destruct Hinside as [Hu2v1 [Hin_v2 Hp]].
+        subst u2.
+        destruct (v1 =? v2) eqn:Hv1v2.
+        { simpl. reflexivity. }
+        destruct ((v1 =? v1) && (u1 =? v2)) eqn:Hback_test.
+        { simpl. reflexivity. }
+        assert (Hmem : member v2 l1 = true).
+        { apply (proj2 (member_In_equiv l1 v2)). exact Hin_v2. }
+        rewrite Nat.eqb_refl.
+        rewrite Hmem.
+        simpl. reflexivity.
+
+    + assert (Hin_q_t : In q t).
+      { simpl in Hin_q. destruct Hin_q as [Hq_eq | Hq_in].
+        - subst q. exfalso. assert (h = h); eauto.
+          rewrite <- eqbpath_eq in H. rewrite H in Heqb. discriminate Heqb.
+        - exact Hq_in. }
+      unfold directed_paths_in_graph in Hdir.
+      rewrite Forall_cons_iff in Hdir.
+      destruct Hdir as [_ Hdir_t].
+      specialize (IH Hdir_t Hin_q_t). destruct h as [[u1' v1'] l1'].
+      destruct (u2 =? v2) eqn:Hu2v2; simpl; [reflexivity | ].
+      destruct ((u2 =? v1') && (u1' =? v2)) eqn:Hback; simpl; [reflexivity | ].
+      destruct ((u2 =? v1') && (member v2 l1')) eqn:Hinside_h; simpl; [reflexivity | ].
+      destruct (u2 =? v1') eqn:Hu2v1'.
+      * simpl. exact IH.
+      * simpl. exact IH.
+Qed.
+
+
+Lemma dfs_extend_by_edges_detects_cycle :
+  forall G E_iter l p, G_well_formed G = true ->
+    (forall e, In e E_iter -> In e (snd G)) ->
+    directed_paths_in_graph l G ->
+    is_directed_path_in_graph p G = true ->
+    ~acyclic_path_2 p ->
+    (exists e, In e E_iter /\
+               exists q, In q l /\
+               (match q, e with
+                | (u1, v1, l1), (u2, v2) =>
+                    (u2 = v2 /\ p = (u2, u2, [])) \/
+                    (u2 = v1 /\ u1 = v2 /\ p = (u1, u1, l1 ++ [v1])) \/
+                    (u2 = v1 /\ In v2 l1 /\ p = (u1, v2, l1 ++ [v1]))
+                end)) ->
+    fst (dfs_extend_by_edges E_iter l) = true.
+Admitted.
+
+Lemma cyclic_path_eventually_detected :
+  forall G p k l,
+    G_well_formed G = true ->
+    directed_paths_in_graph l G ->
+    is_directed_path_in_graph p G = true ->
+    ~acyclic_path_2 p ->
+    (forall e, In e (snd G) ->
+       exists u v, e = (u, v) /\ In (u, v, []) l) ->
+    k >= path_length p ->
+    fst (dfs_extend_by_edges_iter (snd G) l k) = true.
+Admitted.
+
+Lemma directed_edges_as_paths_complete :
   forall (E : edges) (u v : node),
     In (u,v) E <-> In (u,v,[]) (directed_edges_as_paths E).
 Proof.
@@ -337,20 +453,12 @@ Proof.
       * right. apply IH. exact H.
 Qed.
 
-Lemma paths_appear_after_k_iterations :
-  forall G u v l k, G_well_formed G = true ->
-    is_directed_path_in_graph (u, v, l) G = true ->
-    acyclic_path_2 (u, v, l) ->
-    length l = k ->
-    In (u, v, l) (extend_paths_from_start_iter (snd G)
-                    (edges_as_paths_from_start u (snd G)) k).
-Admitted.
-Lemma all_acyclic_paths_appear :
-  forall G u v l, G_well_formed G = true ->
-    is_directed_path_in_graph (u, v, l) G = true ->
-    acyclic_path_2 (u, v, l) ->
-    In (u, v, l) (extend_paths_from_start_iter (snd G)
-                    (edges_as_paths_from_start u (snd G)) (length (fst G))).
+Lemma cyclic_path_length_bound :
+  forall G p,
+    G_well_formed G = true ->
+    is_directed_path_in_graph p G = true ->
+    ~acyclic_path_2 p ->
+    path_length p <= length (fst G).
 Admitted.
 (*helpers end*)
 
@@ -380,8 +488,17 @@ Lemma contains_cycle_true_complete2 :
     G_well_formed G = true ->
     (exists p, is_directed_path_in_graph p G = true /\ ~acyclic_path_2 p) ->
     contains_cycle G = true.
-Proof. intros [V E] Hwf Hex. destruct Hex as [p [Hdir Hacyc]]. unfold contains_cycle.
-Admitted.
+Proof. intros G Hwf [p [Hdir Hcyc]]. unfold contains_cycle. destruct G as [V E]; simpl.
+  assert (Hinit : forall e, In e E -> exists u v, e = (u, v) /\ In (u, v, []) (directed_edges_as_paths E)).
+  { intros e Hin. destruct e as [u v]. exists u, v.
+    split. reflexivity. rewrite <- directed_edges_as_paths_complete. exact Hin. }
+  assert (Hbound : path_length p <= length V).
+  { pose proof cyclic_path_length_bound. specialize (H (V,E) p Hwf Hdir Hcyc). apply H. }
+  assert (Hdir_init : directed_paths_in_graph (directed_edges_as_paths E) (V, E)).
+  { apply directed_edges_as_paths_in_graph. exact Hwf. }
+  pose proof cyclic_path_eventually_detected. specialize (H (V,E) p (length V) (directed_edges_as_paths E)
+    Hwf Hdir_init Hdir Hcyc Hinit). eapply H; eauto.
+Qed.
 
 (* correctness proof for contains_cycle function and the contrapositive *)
 Theorem contains_cycle_true_correct : forall G: graph,
