@@ -494,7 +494,27 @@ Proof.
   - reflexivity.
 Qed.
 
-(*need contains_cycle = false -> no_one_cycles*)
+Lemma contains_cycle_E_ind: forall V E e,
+  G_well_formed (V,e::E) = true ->
+  contains_cycle (V,e::E) = false -> contains_cycle (V,E) = false.
+Proof. intros V E e Hwf Hcyc. unfold contains_cycle in *.
+Admitted.
+
+Lemma contains_cycle_no_self_loop: forall (G: graph),
+  G_well_formed G = true ->
+  contains_cycle G = false -> no_one_cycles (snd G) = true.
+Proof. intros [V E]. induction E as [| [u v] E' IH].
+  - intros. simpl in *. auto.
+  - intros. simpl. case (u =? v) eqn:Heq.
+      + apply Nat.eqb_eq in Heq; subst. pose proof (acyclic_no_self_loop _ v H H0).
+        rewrite <- H1 in *. simpl. pose proof (G_well_formed_corollary _ _ H).
+        assert (In (v,v) ((v, v) :: E')). { simpl. left. reflexivity. }
+        specialize (H2 _ _ H3); clear H3. destruct H2 as [_ H2].
+        rewrite <- member_In_equiv in H2. rewrite H2. simpl.
+        rewrite Nat.eqb_refl. simpl. reflexivity.
+      + eapply IH; eauto. eapply G_well_formed_induction; eauto.
+        eapply contains_cycle_E_ind; eauto.
+Qed.
 
 Lemma acyclic_no_two_cycle: forall (G: graph) (u v: node),
   G_well_formed G = true ->
