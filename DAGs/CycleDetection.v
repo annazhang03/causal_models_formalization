@@ -409,8 +409,87 @@ Proof. intros G e l p Hwf HinE Hdir Hdir_p Hcyc [q [Hin_q Hcond]].
 Qed.
 
 
+Lemma dfs_extend_by_edge_preserves_paths :
+  forall e l q,
+    In q l ->
+    fst (dfs_extend_by_edge e l) = false ->
+    In q (snd (dfs_extend_by_edge e l)).
+Proof.
+  intros e l. induction l as [|h t IH]; intros q Hin_q Hfst.
+  - simpl in Hin_q. contradiction.
+  - simpl in *.
+    destruct h as [[u1 v1] l1].
+    destruct e as [u2 v2].
+    destruct (u2 =? v2) eqn:Hu2v2; simpl in Hfst; try discriminate.
+    destruct ((u2 =? v1) && (u1 =? v2)) eqn:Hback; simpl in Hfst; try discriminate.
+    destruct ((u2 =? v1) && (member v2 l1)) eqn:Hinside; simpl in Hfst; try discriminate.
+    destruct (u2 =? v1) eqn:Hu2v1.
+    + simpl in Hfst.
+      destruct Hin_q as [Hq_h | Hq_t].
+      * subst q. simpl. left. reflexivity.
+      * simpl.
+        specialize (IH q Hq_t Hfst).
+        unfold add_path_no_repeats.
+        destruct (member_path (u1, v2, l1 ++ [v1]) (snd (dfs_extend_by_edge (u2, v2) t))) eqn:Hmem.
+        -- right. exact IH.
+        -- right. apply in_or_app. left. exact IH.
+    + simpl in Hfst.
+      destruct Hin_q as [Hq_h | Hq_t].
+      * subst q. simpl. left. reflexivity.
+      * simpl. right. apply IH; assumption.
+Qed.
+
+Lemma dfs_extend_by_edge_preserves_directed :
+  forall G e l,
+    G_well_formed G = true ->
+    In e (snd G) ->
+    directed_paths_in_graph l G ->
+    fst (dfs_extend_by_edge e l) = false ->
+    directed_paths_in_graph (snd (dfs_extend_by_edge e l)) G.
+Proof.
+  intros G e l Hwf HinE Hdir Hfst.
+  destruct G as [V E]; simpl in *.
+  induction l as [|h t IH]; simpl in *.
+  - exact Hdir.
+  - destruct h as [[u1 v1] l1].
+    destruct e as [u2 v2].
+    unfold directed_paths_in_graph in Hdir.
+    rewrite Forall_cons_iff in Hdir.
+    destruct Hdir as [Hhdir Htdir].
+    destruct (u2 =? v2) eqn:Hu2v2; simpl in Hfst; try discriminate.
+    destruct ((u2 =? v1) && (u1 =? v2)) eqn:Hback; simpl in Hfst; try discriminate.
+    destruct ((u2 =? v1) && (member v2 l1)) eqn:Hinside; simpl in Hfst; try discriminate.
+    destruct (u2 =? v1) eqn:Hu2v1.
+    + simpl in Hfst.
+      unfold directed_paths_in_graph in IH.
+      specialize (IH Htdir Hfst).
+      unfold directed_paths_in_graph.
+      constructor.
+      * exact Hhdir.
+      * assert (HinG : In (u2, v2) E) by exact HinE.
+        pose proof (G_well_formed_corollary V E Hwf) as Hwf_cor.
+        specialize (Hwf_cor u2 v2 HinG) as [Hu2_in Hv2_in].
+        assert (Hedge : is_edge (v1, v2) (V, E) = true).
+        { unfold is_edge. simpl.
+          apply Nat.eqb_eq in Hu2v1. subst u2.
+          apply (proj2 (member_In_equiv V v1)) in Hu2_in.
+          apply (proj2 (member_In_equiv V v2)) in Hv2_in.
+          rewrite Hu2_in, Hv2_in.
+          assert (Hmem_edge : member_edge (v1, v2) E = true).
+          { apply (proj2 (member_edge_In_equiv E (v1, v2))). exact HinG. }
+          rewrite Hmem_edge. reflexivity. }
+        assert (Hnewdir : is_directed_path_in_graph (u1, v2, l1 ++ [v1]) (V, E) = true).
+        { eapply directed_path_extend_last; eauto. }
+        eapply add_path_no_repeats_preserves_directed; eauto.
+    + simpl in Hfst.
+      unfold directed_paths_in_graph in IH.
+      specialize (IH Htdir Hfst).
+      unfold directed_paths_in_graph.
+      constructor; [exact Hhdir | exact IH].
+Qed.
 Lemma dfs_extend_by_edges_detects_cycle :
-  forall G E_iter l p, G_well_formed G = true ->
+  forall G E_iter l p,
+    G_well_formed G = true ->
     (forall e, In e E_iter -> In e (snd G)) ->
     directed_paths_in_graph l G ->
     is_directed_path_in_graph p G = true ->
@@ -424,7 +503,75 @@ Lemma dfs_extend_by_edges_detects_cycle :
                     (u2 = v1 /\ In v2 l1 /\ p = (u1, v2, l1 ++ [v1]))
                 end)) ->
     fst (dfs_extend_by_edges E_iter l) = true.
-Admitted.
+Proof.
+  intros G E_iter.
+  induction E_iter as [|e_head E_tail IH]; intros l p Hwf Hsub Hdir Hdir_p Hcyc [e [Hin_e [q [Hin_q Hcond]]]].
+  - simpl in Hin_e. contradiction.
+  - simpl.
+    simpl in Hin_e.
+    destruct Hin_e as [He_eq | He_tail].
+    + subst e. assert (HinG : In e_head (snd G)).
+      { apply Hsub. left. reflexivity. }
+      pose proof (dfs_extend_by_edge_detects_cycle G e_head l p Hwf HinG Hdir Hdir_p Hcyc) as Hdetect.
+      assert (Hexists : exists q, In q l /\
+                        (match q, e_head with
+                         | (u1, v1, l1), (u2, v2) =>
+                             (u2 = v2 /\ p = (u2, u2, [])) \/
+                             (u2 = v1 /\ u1 = v2 /\ p = (u1, u1, l1 ++ [v1])) \/
+                             (u2 = v1 /\ In v2 l1 /\ p = (u1, v2, l1 ++ [v1]))
+                         end)).
+      { exists q. split; assumption. }
+      specialize (Hdetect Hexists). rewrite Hdetect. reflexivity.
+    + destruct (fst (dfs_extend_by_edge e_head l)) eqn:Hfst_head.
+      * reflexivity.
+      * apply IH with (l := snd (dfs_extend_by_edge e_head l)) (p := p).
+        -- exact Hwf.
+        -- intros e' Hin_tail. apply Hsub. right. exact Hin_tail.
+        -- assert (HinG : In e_head (snd G)).
+           { apply Hsub. left. reflexivity. }
+           eapply dfs_extend_by_edge_preserves_directed; eauto.
+        -- exact Hdir_p.
+        -- exact Hcyc.
+        -- exists e. split.
+           ++ exact He_tail.
+           ++ exists q. split.
+              ** eapply dfs_extend_by_edge_preserves_paths; eauto.
+              ** exact Hcond.
+Qed.
+
+
+Lemma dfs_extend_by_edges_preserves_paths :
+  forall E l q,
+    In q l ->
+    fst (dfs_extend_by_edges E l) = false ->
+    In q (snd (dfs_extend_by_edges E l)).
+Proof.
+  intros E.
+  induction E as [|e_head E_tail IH]; intros l q Hin_q Hfst.
+  - simpl in *. exact Hin_q.
+  - simpl in Hfst.
+    destruct (fst (dfs_extend_by_edge e_head l)) eqn:Hfst_head.
+    + discriminate.
+    + simpl in Hfst. simpl. rewrite Hfst_head. eapply IH; eauto.
+      eapply dfs_extend_by_edge_preserves_paths; eauto.
+Qed.
+
+Lemma dfs_iter_preserves_paths :
+  forall (G:graph) k l q,
+    In q l ->
+    fst (dfs_extend_by_edges_iter (snd G) l k) = false ->
+    In q (snd (dfs_extend_by_edges_iter (snd G) l k)).
+Proof.
+  intros G k.
+  induction k as [|k' IH]; intros l q Hin_q Hfst.
+  - simpl in *. exact Hin_q.
+  - simpl in Hfst.
+    destruct (fst (dfs_extend_by_edges (snd G) l)) eqn:Hfst_edges.
+    + discriminate.
+    + simpl. rewrite Hfst_edges. apply IH.
+      * eapply dfs_extend_by_edges_preserves_paths; eauto.
+      * exact Hfst.
+Qed.
 
 Lemma cyclic_path_eventually_detected :
   forall G p k l,
@@ -475,15 +622,7 @@ Proof. intros [V E] Hwf Hall.
     exact Hfst.
 Qed.
 
-Lemma contains_cycle_true_complete1 :
-  forall G,
-    G_well_formed G = true ->
-    contains_cycle G = false ->
-    forall p, is_directed_path_in_graph p G = true -> acyclic_path_2 p.
-Proof. intros [V E] Hwf Hcycle. unfold contains_cycle in Hcycle.
-Admitted.
-
-Lemma contains_cycle_true_complete2 :
+Lemma contains_cycle_true_complete :
   forall G,
     G_well_formed G = true ->
     (exists p, is_directed_path_in_graph p G = true /\ ~acyclic_path_2 p) ->
@@ -506,12 +645,7 @@ Theorem contains_cycle_true_correct : forall G: graph,
   (exists p: path, is_directed_path_in_graph p G = true /\ ~(acyclic_path_2 p))
   <-> contains_cycle G = true.
 Proof. intros [V E] Hwf. unfold contains_cycle. split.
-  - intros [p [Hpath Hcyclic]].
-    unfold contains_cycle.
-    destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) (length V))) eqn:Hiter; eauto.
-    exfalso. assert (Hacyc : acyclic_path_2 p).
-      { eapply contains_cycle_true_complete1; eauto. }
-      contradiction.
+  - eapply contains_cycle_true_complete; eauto.
 
   - intro Hcycle. pose proof contains_cycle_false_complete.
   assert (Hcontra: ~ (forall p : path, is_directed_path_in_graph p (V, E) = true -> acyclic_path_2 p)).
@@ -572,7 +706,7 @@ Proof.
 
   - rewrite forallb_forall in *.
     intros e Hin.
-    unfold remove_associated_edges in Hin. (* This creates filter (filter E) *)
+    unfold remove_associated_edges in Hin.
     apply filter_In in Hin as [Hin_E Htest].
     specialize (Hwf2 e Hin_E).
     apply Nat.eqb_eq in Hwf2.
