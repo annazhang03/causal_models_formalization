@@ -748,8 +748,19 @@ Qed.
 Lemma contains_cycle_E_ind: forall V E e,
   G_well_formed (V,e::E) = true ->
   contains_cycle (V,e::E) = false -> contains_cycle (V,E) = false.
-Proof. intros V E e Hwf Hcyc. unfold contains_cycle in *.
-Admitted.
+Proof. intros V E e Hwf Hcyc. assert (HwfE: G_well_formed (V, E) = true).
+  { eapply G_well_formed_induction; eauto. }
+  destruct (contains_cycle (V, E)) eqn:HcycE; auto.
+  apply contains_cycle_true_correct in HcycE; auto.
+  destruct HcycE as [p [Hp1 Hp2]].
+  assert (Hp1': is_directed_path_in_graph p (V, e::E) = true).
+  { eapply dir_path_in_graph_monotone_edges; eauto. }
+  assert (Hwf': G_well_formed (V, e::E) = true) by auto.
+  apply contains_cycle_true_correct in Hwf' as Hcycle.
+  assert (exists p : path, is_directed_path_in_graph p (V, e :: E) = true /\ ~ acyclic_path_2 p) as Hcycle'.
+  {exists p. eauto. }
+  rewrite Hcycle in Hcycle'. rewrite Hcycle' in Hcyc. auto.
+Qed.
 
 Lemma contains_cycle_no_self_loop: forall (G: graph),
   G_well_formed G = true ->
