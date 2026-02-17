@@ -1,10 +1,11 @@
 From DAGs Require Import Basics.
-From DAGs Require Import CycleDetection.
+From DAGs Require Import CycleDetection PathFinding.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 From Stdlib Require Import Arith.EqNat. Import Nat.
 
 Import ListNotations.
+Import Lia.
 
 (* this file defines the functions necessary to find directed paths in a graph that start
    and end at specific nodes, find all descendants of a node in a graph, and thereby find
@@ -33,11 +34,242 @@ Definition find_directed_paths_to_end (t: node) (G: graph): paths :=
   filter (fun (p: path) => path_end p =? t)
          (snd (dfs_extend_by_edges_iter (edges_in_graph G) (directed_edges_as_paths (edges_in_graph G)) (num_nodes G))).
 
+Lemma directed_paths_to_end_sound : forall p: path, forall v: node, forall G: graph,
+  G_well_formed G = true -> contains_cycle G = false ->
+    In p (find_directed_paths_to_end v G) -> (is_directed_path_in_graph p G = true) /\ (path_end p =? v = true) /\ acyclic_path_2 p.
+Proof. intros p v G Hwf Hno_cycle Hin.
+  unfold find_directed_paths_to_end in Hin.
+  apply filter_In in Hin.
+  destruct Hin as [Hin_iter Hend].
+  destruct G as [V E].
+  unfold edges_in_graph, num_nodes in Hin_iter; simpl in Hin_iter.
+  assert (Hdir_edges : directed_paths_in_graph (directed_edges_as_paths E) (V, E)).
+  { apply directed_edges_as_paths_in_graph. exact Hwf. }
+  assert (Hall_acyclic : forall p', is_directed_path_in_graph p' (V, E) = true -> acyclic_path_2 p').
+  { intros p' Hpath'. eapply contains_cycle_false_correct; eauto. }
+  assert (Hiter := dfs_iter_no_cycle (V, E) (length V) (directed_edges_as_paths E) Hwf Hdir_edges Hall_acyclic).
+  destruct Hiter as [_ Hdir_result].
+
+  assert (Hpath : is_directed_path_in_graph p (V, E) = true).
+  { unfold directed_paths_in_graph in Hdir_result.
+    rewrite Forall_forall in Hdir_result. apply Hdir_result. exact Hin_iter. }
+  split; [| split].
+  - exact Hpath.
+  - exact Hend.
+  - eapply contains_cycle_false_correct; eauto.
+Qed.
+
+Lemma dfs_extend_by_edge_complete :
+  forall u v w l (e:edge) (ps:paths),
+    In (u, v, l) ps ->
+    e = (v, w) ->
+    acyclic_path_2 (u, v, l) ->
+    ~In w (u :: v :: l) ->
+    fst (dfs_extend_by_edge e ps) = false ->
+    In (u, w, l ++ [v]) (snd (dfs_extend_by_edge e ps)).
+Proof.
+  intros u v w l e ps Hin Hedge Hacyc Hnotin Hno_cycle. subst e.
+  induction ps as [|h ps' IH].
+  - simpl in Hin. contradiction.
+  - simpl in Hin.
+    destruct Hin as [Heq | Hin'].
+    + subst h. simpl.
+      destruct (v =? w) eqn:Hvw.
+      * apply Nat.eqb_eq in Hvw. subst w. exfalso. apply Hnotin. simpl. right. left. reflexivity.
+      * simpl in Hno_cycle. rewrite Hvw in Hno_cycle. rewrite Nat.eqb_refl in *. simpl in Hno_cycle.
+        destruct (u =? w) eqn:Huw.
+        { apply Nat.eqb_eq in Huw. subst w. exfalso. apply Hnotin. simpl. left. reflexivity. }
+        simpl in Hno_cycle. simpl.
+        destruct (member w l) eqn:Hmem.
+        { exfalso. apply Hnotin. simpl. right. right. apply member_In_equiv. exact Hmem. }
+        simpl in Hno_cycle. remember (dfs_extend_by_edge (v, w) ps') as res eqn:Hres.
+        destruct res as [cycle_rec paths_rec].
+        destruct cycle_rec eqn:Hcycle_rec.
+        { simpl in Hno_cycle. discriminate. }
+        simpl. right. unfold add_path_no_repeats.
+        destruct (member_path (u, w, l ++ [v]) paths_rec) eqn:Hmem_path.
+        { rewrite <- member_path_true_iff. exact Hmem_path. }
+        { apply in_or_app. right. simpl. left. reflexivity. }
+
+    + destruct h as [[h_u h_v] h_l]. simpl.
+      destruct (v =? w) eqn:Hvw.
+      * simpl in Hno_cycle. rewrite Hvw in Hno_cycle. discriminate.
+      * simpl in Hno_cycle. rewrite Hvw in Hno_cycle.
+        destruct ((v =? h_v) && (h_u =? w)) eqn:Hcycle_h.
+        { simpl in Hno_cycle. discriminate. }
+        destruct ((v =? h_v) && (member w h_l)) eqn:Hcycle_h2.
+        { simpl in Hno_cycle. discriminate. }
+        destruct (v =? h_v) eqn:Hextend_h.
+        { remember (dfs_extend_by_edge (v, w) ps') as res eqn:Hres. destruct res as [cycle_rec paths_rec].
+          destruct cycle_rec eqn:Hcycle_rec.
+          - simpl in Hno_cycle. discriminate.
+          - simpl. right.
+            assert (Hno_cycle_rec : fst (dfs_extend_by_edge (v, w) ps') = false).
+            { rewrite <- Hres. simpl. reflexivity. } simpl in IH.
+            assert (meaningless: false = false ); auto.
+            specialize (IH Hin' meaningless).
+            assert (snd ((dfs_extend_by_edge (v, w) ps')) = paths_rec).
+            { rewrite <- Hres. simpl. reflexivity. } eapply add_path_no_repeats_superset; eauto. }
+
+        { remember (dfs_extend_by_edge (v, w) ps') as res eqn:Hres. destruct res as [cycle_rec paths_rec].
+          destruct cycle_rec eqn:Hcycle_rec.
+          - simpl in Hno_cycle. discriminate.
+          - simpl. right.
+            assert (Hno_cycle_rec : fst (dfs_extend_by_edge (v, w) ps') = false).
+            { rewrite <- Hres. simpl. reflexivity. }
+            assert (meaningless: false = false ); auto. }
+Qed.
+
+Lemma dfs_extend_by_edges_complete :
+  forall G u v w l (ps:paths),
+    G_well_formed G = true ->
+    In (u, v, l) ps ->
+    In (v, w) (snd G) ->
+    acyclic_path_2 (u, v, l) ->
+    ~In w (u :: v :: l) ->
+    fst (dfs_extend_by_edges (snd G) ps) = false ->
+    In (u, w, l ++ [v]) (snd (dfs_extend_by_edges (snd G) ps)).
+Proof.
+  intros [V E] u v w l ps Hwf Hin_p Hedge Hacyc Hfresh Hcyc. simpl. simpl in Hcyc.
+  revert ps Hin_p Hedge Hcyc.
+  induction E as [|e E' IH]; intros ps Hin_p Hedge Hcyc.
+  - destruct Hedge.
+  - simpl. pose proof (dfs_extend_by_edge_preserves_paths e ps (u, v, l) Hin_p) as Hin_p'.
+    simpl in Hedge. destruct Hedge as [Heq_head | Htail].
+    + subst e. destruct (fst (dfs_extend_by_edge (v, w) ps)) eqn:Hcyc_edge.
+      { exfalso. simpl in Hcyc. rewrite Hcyc_edge in Hcyc; simpl in Hcyc. discriminate. }
+      { assert (Hin_after_edge : In (u, w, l ++ [v]) (snd (dfs_extend_by_edge (v, w) ps))).
+        eapply dfs_extend_by_edge_complete; eauto.
+        assert (Hno_cycle_E' : fst (dfs_extend_by_edges E' (snd (dfs_extend_by_edge (v, w) ps))) = false).
+        { simpl in Hcyc. rewrite Hcyc_edge in Hcyc. auto. }
+        eapply dfs_extend_by_edges_preserves_paths; eauto. }
+    + destruct (fst (dfs_extend_by_edge e ps)) eqn:Hcyc_e.
+      { exfalso. simpl in Hcyc. rewrite Hcyc_e in Hcyc; simpl in Hcyc. discriminate. }
+      { simpl. eapply IH; eauto.
+        - eapply G_well_formed_induction. exact Hwf.
+        - simpl in Hcyc. rewrite Hcyc_e in Hcyc. auto. }
+Qed.
+
+Lemma cycle_propagates :
+  forall E (l:paths) k,
+    fst (dfs_extend_by_edges_iter E l k) = true ->
+    fst (dfs_extend_by_edges_iter E l (S k)) = true.
+Proof.
+  intros E l k Hcyc. induction k as [|k' IH].
+  - simpl in Hcyc. discriminate.
+  - simpl in Hcyc. destruct (fst (dfs_extend_by_edges E l)) eqn:Hfst.
+    simpl. rewrite Hfst. simpl. reflexivity.
+    simpl. rewrite Hfst. destruct (fst (dfs_extend_by_edges E (snd (dfs_extend_by_edges E l)))).
+    simpl. reflexivity. simpl in IH. rewrite Hfst in IH.
+Admitted.
+
+Lemma dfs_paths_appear_after_k_iterations :
+  forall G u v l k,
+    G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    length l = k ->
+    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) k) = false ->
+    In (u, v, l) (snd (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) k)).
+Proof. intros [V E] u v l k Hwf Hpath Hacyc Hlen Hcyc. simpl.
+  revert u v l Hpath Hacyc Hlen Hcyc.
+  induction k as [|k' IH]; intros u v l Hpath Hacyc Hlen Hcyc.
+  - assert (l = []) as Hl by (destruct l; simpl in Hlen; auto; lia).
+    subst l. simpl. pose proof directed_edges_as_paths_complete as Hcap.
+    apply Hcap. unfold is_directed_path_in_graph in Hpath.
+    simpl in Hpath. apply andb_true_iff in Hpath as [Hedge _].
+    assert (In (u,v) E) as HinE by (eapply is_edge_true_implies_In_edge; eauto). auto.
+  - erewrite dfs_extend_by_edges_iter_spec; eauto; cycle 1.
+    { simpl in Hcyc. destruct (fst (dfs_extend_by_edges E (directed_edges_as_paths E))) eqn:Hedges.
+      - simpl in Hcyc. discriminate.
+      - assert (Hno_cycle_Sk' : fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) (S k')) = false).
+        { simpl. rewrite Hedges. simpl. exact Hcyc. }
+        destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) k')) eqn:Hcyc_k'.
+        exfalso. apply cycle_propagates in Hcyc_k'. rewrite Hcyc_k' in Hno_cycle_Sk'. discriminate. auto. }
+    { pose proof dfs_extend_by_edges_complete. destruct l as [|w l'] using rev_ind.
+      { simpl in Hlen. discriminate Hlen. }
+      clear IHl'. rewrite length_app in Hlen. simpl in Hlen. assert (length l' = k') by lia; clear Hlen.
+      specialize (H (V,E)). eapply H; eauto.
+      - eapply IH; auto.
+        * pose proof subpath_still_directed_2. specialize (H1 u w v l' [] (l' ++ [w]) (V,E)).
+          assert (l' ++ [w] ++ [] = l' ++ [w] /\ is_directed_path_in_graph (u, v, l' ++ [w]) (V, E) = true).
+          { constructor. simpl. auto. auto. } specialize (H1 H2); clear H2. auto.
+        * pose proof subpath_still_acyclic_2. specialize (H1 u w v l' [] (l' ++ [w])).
+          assert (l' ++ [w] ++ [] = l' ++ [w] /\ acyclic_path_2 (u, v, l' ++ [w])).
+          { constructor; simpl; auto. } specialize (H1 H2); clear H2. auto.
+        * pose proof cycle_propagates.
+          destruct (fst (dfs_extend_by_edges_iter (snd (V, E)) (directed_edges_as_paths (snd (V, E))) k')) eqn:Hcyc_k'.
+          exfalso. apply (H1 (snd (V, E)) (directed_edges_as_paths (snd (V, E))) k') in Hcyc_k'.
+          rewrite Hcyc_k' in Hcyc. discriminate. reflexivity.
+      - simpl. pose proof directed_path_has_directed_edge_end.
+        specialize (H1 u v (l' ++ [w]) _ Hpath). destruct H1. destruct l' as [|h l''].
+        * simpl in H1. discriminate.
+        * discriminate.
+        * destruct H1. destruct H1. destruct H1 as [Heq Hedge]. apply is_edge_true_implies_In_edge in Hedge.
+          apply app_inj_tail in Heq as [_ Heq]. rewrite Heq. exact Hedge.
+      - pose proof subpath_still_acyclic_2. specialize (H1 u w v l' [] (l' ++ [w])).
+          assert (l' ++ [w] ++ [] = l' ++ [w] /\ acyclic_path_2 (u, v, l' ++ [w])).
+          { constructor; simpl; auto. } specialize (H1 H2); clear H2. auto.
+      - intro Hin. simpl in Hin. destruct Hin as [Heq | [Heq | Hin]].
+        { subst v. unfold acyclic_path_2 in Hacyc. destruct Hacyc as [Hneq _]. contradiction. }
+        { subst v. unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [_ [Hnotin _]]].
+          assert (In w (l' ++ [w])) by (apply in_or_app; right; simpl; auto). contradiction. }
+        { unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [_ [Hnotin _]]].
+            apply Hnotin. apply in_or_app. left. exact Hin. }
+      - rewrite <- dfs_extend_by_edges_iter_spec. eapply Hcyc; eauto.
+        pose proof cycle_propagates.
+        destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) k')) eqn:Hfst; [|reflexivity].
+        exfalso. apply H1 in Hfst. replace (snd (V,E)) with E in Hcyc by auto. rewrite Hcyc in Hfst. discriminate. }
+Qed.
+
+
+Lemma extend_paths_from_start_iter_monotone :
+  forall E ps k1 k2,
+    k1 <= k2 ->
+    fst (dfs_extend_by_edges_iter E ps k2) = false ->
+    incl (snd (dfs_extend_by_edges_iter E ps k1))
+         (snd (dfs_extend_by_edges_iter E ps k2)).
+Proof. intros E ps k1 k2 Hle Hf. unfold incl. intros p Hin.
+  revert ps k1 Hle Hin Hf. induction k2 as [|k2' IH]; intros ps k1 Hle Hin Hf.
+  - assert (k1 = 0) by lia. subst k1. exact Hin.
+  - destruct k1 as [|k1'].
+    + clear IH Hle. simpl in Hin. induction k2' as [|k2'' IH2]; simpl.
+      destruct (fst (dfs_extend_by_edges E ps)). simpl. eapply dfs_extend_by_edges_preserves_paths; eauto.
+Admitted.
+Lemma all_acyclic_directed_paths_appear :
+  forall G u v l,
+    G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) (length (fst G))) = false ->
+    In (u, v, l) (snd (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) (length (fst G)))).
+Admitted.
+Theorem directed_paths_to_end_complete : forall p: path, forall v: node, forall G: graph,
+  G_well_formed G = true -> contains_cycle G = false ->
+      (is_directed_path_in_graph p G = true) -> (path_end p =? v = true) -> acyclic_path_2 p
+  -> In p (find_directed_paths_to_end v G).
+Proof.
+  intros p v G Hwf Hno_cycle Hpath Hend Hacyc. unfold find_directed_paths_to_end.
+  apply filter_In. split.
+  - unfold edges_in_graph, num_nodes. destruct G as [V E]; destruct p as [[u w] l].
+    pose proof all_acyclic_directed_paths_appear.
+    specialize (H _ _ _ _ Hwf Hpath Hacyc). simpl in H.
+    assert (Hdir_edges : directed_paths_in_graph (directed_edges_as_paths E) (V, E)).
+    { apply directed_edges_as_paths_in_graph. exact Hwf. }
+    assert (Hall_acyclic : forall p', is_directed_path_in_graph p' (V, E) = true -> acyclic_path_2 p').
+    { intros p' Hpath'. eapply contains_cycle_false_correct; eauto. }
+    assert (Hiter := dfs_iter_no_cycle (V, E) (length V) (directed_edges_as_paths E) Hwf Hdir_edges Hall_acyclic).
+    destruct Hiter as [Hno_cycle_iter _]. apply (H Hno_cycle_iter).
+  - exact Hend.
+Qed.
 Theorem directed_paths_to_end_correct : forall p: path, forall v: node, forall G: graph,
+  G_well_formed G = true -> contains_cycle G = false ->
       (is_directed_path_in_graph p G = true) /\ (path_end p =? v = true) /\ acyclic_path_2 p
   <-> In p (find_directed_paths_to_end v G).
-Proof.
-Admitted.
+Proof. constructor; cycle 1.
+  - intros. eapply directed_paths_to_end_sound; eauto.
+  - intros. eapply directed_paths_to_end_complete; auto; apply H1.
+Qed.
 
 
 Example directed_paths_from_1: find_directed_paths_from_start 1 G = [(1, 2, [])].
@@ -87,6 +319,7 @@ Qed.
 
 (* v is a descendant of u iff u = v or there is a directed path from u to v *)
 Theorem find_descendants_correct: forall G: graph, forall u v: node,
+  (* contains_cycle G = false -> *)
   In v (find_descendants u G) <->
   u = v \/ exists U: path, is_directed_path_in_graph U G = true /\ path_start_and_end U u v = true.
 Proof.
