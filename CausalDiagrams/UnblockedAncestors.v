@@ -101,6 +101,7 @@ Definition find_unblocked_ancestors (G: graph) (v: node) (Z: nodes): nodes :=
 
 
 Theorem unblocked_ancestors_have_unblocked_directed_path: forall (G: graph) (v a: node) (Z: nodes),
+  G_well_formed G = true -> contains_cycle G = false ->
   In a (find_unblocked_ancestors G v Z)
   <-> (a = v)
       \/ (exists (l: nodes), is_directed_path_in_graph (a, v, l) G = true
@@ -108,7 +109,7 @@ Theorem unblocked_ancestors_have_unblocked_directed_path: forall (G: graph) (v a
          /\ forall (w: node), (w = a \/ In w l) -> ~(In w Z)).
 Proof.
   (* path can be acyclic because if there is a directed path, can remove cycle *)
-  intros G v a Z. split.
+  intros G v a Z Hwf Hcyc. split.
   - intros H. unfold find_unblocked_ancestors in H. simpl in H. destruct H as [H | H].
     + left. rewrite H. reflexivity.
     + right. apply in_unblocked_ancestors_of_some_path in H. destruct H as [p [Hp Ha]].
@@ -129,12 +130,14 @@ Proof.
            { apply subpath_still_acyclic with (w := u) (l1 := tl2) (l3 := l). split.
              rewrite reverse_list_twice with (l := l). unfold nodes in *. unfold node in *. rewrite Hl. rewrite reverse_list_append. simpl.
              rewrite <- reverse_list_twice. rewrite <- app_assoc. reflexivity. apply Hp. }
+        -- auto.
+        -- auto.
       * intros w Hw. apply HlZ. destruct Hw as [Hw | Hw]. apply membership_append_r. left. symmetry. apply Hw. apply membership_append. apply membership_rev. apply Hw.
   - intros [H | H].
     + unfold find_unblocked_ancestors. simpl. left. rewrite H. reflexivity.
     + destruct H as [l [Hp [Hc Hw]]]. unfold find_unblocked_ancestors. right. apply in_unblocked_ancestors_of_some_path.
       exists (a, v, l). split.
-      * apply directed_paths_to_end_correct. split. apply Hp. split. simpl. apply eqb_refl. apply Hc.
+      * apply directed_paths_to_end_correct; eauto. split. apply Hp. split. simpl. apply eqb_refl. apply Hc.
       * simpl. apply unblocked_member_means_in_path_2. exists (rev l). exists []. split. rewrite append_identity. reflexivity.
         intros x Hx. apply Hw. apply membership_append_or in Hx. destruct Hx as [Hx | [Hx | Hx]]. right. apply membership_rev. apply Hx.
         left. symmetry. apply Hx. exfalso. apply Hx.
@@ -194,6 +197,7 @@ Qed.
 
 
 Theorem acyclic_path_if_common_ancestor: forall (u v anc: node) (lv lu: nodes) (Z: nodes) (G: graph) (len: nat),
+  G_well_formed G = true -> contains_cycle G = false ->
   u <> v /\ ~(In u (find_unblocked_ancestors G v Z)) /\ ~(In v (find_unblocked_ancestors G u Z))
   -> length lu < len
   -> is_directed_path_in_graph (anc, v, lv) G = true /\ acyclic_path_2 (anc, v, lv) /\ (forall w : node, w = anc \/ In w lv -> ~ In w Z)
@@ -201,7 +205,7 @@ Theorem acyclic_path_if_common_ancestor: forall (u v anc: node) (lv lu: nodes) (
   -> exists (anc': node) (lu' lv': nodes), is_directed_path_in_graph (anc', u, lu') G = true /\ is_directed_path_in_graph (anc', v, lv') G = true
       /\ (forall w : node, w = anc' \/ In w lu' \/ In w lv' -> ~ In w Z) /\ acyclic_path_2 (u, v, (rev lu') ++ (anc' :: lv')).
 Proof.
-  intros u v anc lv lu Z G len. intros [Huv [HuvZ HvuZ]] Hlen [Hdirv [Hcycv HlvZ]]. intros [Hdiru [Hcycu HluZ]].
+  intros u v anc lv lu Z G len Hwf Hcyc. intros [Huv [HuvZ HvuZ]] Hlen [Hdirv [Hcycv HlvZ]]. intros [Hdiru [Hcycu HluZ]].
   (* u <- ..lu.. <- anc -> ..lv.. -> v *)
   generalize dependent anc. generalize dependent lv. generalize dependent lu. induction len as [| len' IH].
   - intros lu Hlen lv anc Hdirv Hcycv HlvZ Hdiru Hcycu HluZ. lia. (* Hlen *)
@@ -239,7 +243,7 @@ Proof.
         * apply reverse_path_still_acyclic. apply Hcycu.
         * apply Hcycv.
         * split. (* u and v cannot be unblocked ancestors of each other *)
-          { intros Hu. apply HuvZ. apply unblocked_ancestors_have_unblocked_directed_path. right.
+          { intros Hu. apply HuvZ. apply unblocked_ancestors_have_unblocked_directed_path; eauto. right.
             pose proof Hu as Hu'. apply membership_splits_list in Hu. destruct Hu as [l1 [l2 Hu]]. exists l2. split.
             ++ apply subpath_still_directed with (w := anc) (l1 := l1) (l3 := lv). split. apply Hu. apply Hdirv.
             ++ split.
@@ -249,7 +253,7 @@ Proof.
                   --- apply HlvZ. right. apply sublist_member with (l1 := l2). split. apply Hw. apply sublist_breaks_down_list.
                       exists (l1 ++ [u]). exists []. rewrite append_identity. rewrite <- app_assoc. apply Hu. }
           { intros Hv. apply membership_rev in Hv. rewrite <- reverse_list_twice in Hv.
-            apply HvuZ. apply unblocked_ancestors_have_unblocked_directed_path. right.
+            apply HvuZ. apply unblocked_ancestors_have_unblocked_directed_path; eauto. right.
             pose proof Hv as Hv'. apply membership_splits_list in Hv. destruct Hv as [l1 [l2 Hv]]. exists l2. split.
             ++ apply subpath_still_directed with (w := anc) (l1 := l1) (l3 := lu). split. apply Hv. apply Hdiru.
             ++ split.
@@ -336,12 +340,13 @@ Admitted.
 
 
 Lemma unblocked_ancestor_if_in_unblocked_directed_path: forall (anc u v: node) (l Z: nodes) (G: graph),
+  G_well_formed G = true -> contains_cycle G = false ->
   is_directed_path_in_graph (anc, v, l) G = true /\ acyclic_path_2 (anc, v, l) /\ (forall w : node, w = anc \/ In w l -> ~ In w Z)
   -> In u l
   -> In u (find_unblocked_ancestors G v Z).
 Proof.
-  intros anc u v l Z G. intros [Hdir [Hcyc HlZ]]. intros Hu.
-  apply unblocked_ancestors_have_unblocked_directed_path. right.
+  intros anc u v l Z G Hwf Hcycle. intros [Hdir [Hcyc HlZ]]. intros Hu.
+  apply unblocked_ancestors_have_unblocked_directed_path; eauto. right.
   - apply membership_splits_list in Hu. destruct Hu as [l1 [l2 Hl]].
     exists l2. split.
     + apply subpath_still_directed with (w := anc) (l1 := l1) (l3 := l). split. apply Hl. apply Hdir.
@@ -354,12 +359,13 @@ Proof.
 Qed.
 
 Lemma unblocked_ancestor_if_in_unblocked_directed_path_2: forall (anc u v: node) (l Z: nodes) (G: graph),
+  G_well_formed G = true -> contains_cycle G = false ->
   is_directed_path_in_graph (anc, v, l) G = true /\ acyclic_path_2 (anc, v, l) /\ (forall w : node, w = anc \/ In w l -> ~ In w Z)
   -> In u l
   -> In anc (find_unblocked_ancestors G u Z).
 Proof.
-  intros anc u v l Z G. intros [Hdir [Hcyc HlZ]]. intros Hu.
-  apply unblocked_ancestors_have_unblocked_directed_path. right.
+  intros anc u v l Z G Hwf Hcycle. intros [Hdir [Hcyc HlZ]]. intros Hu.
+  apply unblocked_ancestors_have_unblocked_directed_path; eauto. right.
   - apply membership_splits_list in Hu. destruct Hu as [l1 [l2 Hl]].
     exists l1. split.
     + apply subpath_still_directed_2 with (v := v) (l2 := l2) (l3 := l). split. apply Hl. apply Hdir.
@@ -372,19 +378,20 @@ Proof.
 Qed.
 
 Lemma unblocked_ancestors_transitive: forall (u ancu' ancu'': node) (G: graph) (Z: nodes),
+  G_well_formed G = true -> contains_cycle G = false ->
   In ancu' (find_unblocked_ancestors G u Z)
   -> In ancu'' (find_unblocked_ancestors G ancu' Z)
   -> In ancu'' (find_unblocked_ancestors G u Z).
 Proof.
-  intros u ancu' ancu'' G Z Hu Hancu'. apply unblocked_ancestors_have_unblocked_directed_path in Hancu'.
+  intros u ancu' ancu'' G Z Hwf Hcyc Hu Hancu'. apply unblocked_ancestors_have_unblocked_directed_path in Hancu'; eauto.
   destruct (ancu'' =? ancu') as [|] eqn:Heq.
   - apply eqb_eq in Heq. rewrite Heq. apply Hu.
   - destruct Hancu' as [Hancu' | Hancu']. rewrite Hancu' in Heq. rewrite eqb_refl in Heq. discriminate Heq.
-    apply unblocked_ancestors_have_unblocked_directed_path in Hu.
+    apply unblocked_ancestors_have_unblocked_directed_path in Hu; eauto.
     destruct (ancu'' =? u) as [|] eqn:Heq'. { left. apply eqb_eq in Heq'. symmetry. apply Heq'. }
     destruct Hu as [Hu | Hu].
-    + rewrite <- Hu. apply unblocked_ancestors_have_unblocked_directed_path. right. apply Hancu'.
-    + apply unblocked_ancestors_have_unblocked_directed_path. right.
+    + rewrite <- Hu. apply unblocked_ancestors_have_unblocked_directed_path; eauto.
+    + apply unblocked_ancestors_have_unblocked_directed_path; eauto. right.
       destruct Hu as [l1 Hu]. destruct Hancu' as [l2 Hancu'].
       assert (Hdir: is_directed_path_in_graph (ancu'', u, l2 ++ [ancu'] ++ l1) G = true).
       { apply concat_directed_paths. split. apply Hancu'. apply Hu. }
@@ -402,19 +409,20 @@ Qed.
 
 
 Lemma no_common_unblocked_ancestors_transitive: forall (u v ancu': node) (G: graph) (Z: nodes),
+  G_well_formed G = true -> contains_cycle G = false ->
   overlap (find_unblocked_ancestors G u Z) (find_unblocked_ancestors G v Z) = false
   /\ In ancu' (find_unblocked_ancestors G u Z)
   -> overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z) = false.
 Proof.
-  intros u v ancu' G Z [Hover Hanc].
-  apply unblocked_ancestors_have_unblocked_directed_path in Hanc. destruct Hanc as [Hanc | Hanc].
+  intros u v ancu' G Z Hwf Hcyc [Hover Hanc].
+  apply unblocked_ancestors_have_unblocked_directed_path in Hanc; eauto. destruct Hanc as [Hanc | Hanc].
   { rewrite Hanc. apply Hover. }
   { destruct Hanc as [lu Hlu].
     destruct (overlap (find_unblocked_ancestors G ancu' Z) (find_unblocked_ancestors G v Z)) as [|] eqn:F.
     - apply overlap_has_member_in_common in F. destruct F as [x [Hxancu' Hxv]].
-      apply no_overlap_non_member with (x := x) in Hover. apply unblocked_ancestors_transitive with (u := u) in Hxancu'.
+      apply no_overlap_non_member with (x := x) in Hover. apply unblocked_ancestors_transitive with (u := u) in Hxancu'; eauto.
       + exfalso. apply Hover. apply Hxancu'.
-      + apply unblocked_ancestors_have_unblocked_directed_path. right. exists lu. apply Hlu.
+      + apply unblocked_ancestors_have_unblocked_directed_path; eauto.
       + apply Hxv.
     - reflexivity. }
 Qed.
@@ -427,24 +435,26 @@ Example unblocked_ancestors_1: find_unblocked_ancestors G_anc 1 [2;4] = [1].
 Proof. reflexivity. Qed.
 
 Lemma single_edge_unblocked_ancestor: forall (u h: node) (G: graph) (Z: nodes),
+  G_well_formed G = true -> contains_cycle G = false ->
   is_edge (u, h) G = true
   -> ~In u Z
   -> u <> h
   -> In u (find_unblocked_ancestors G h Z).
 Proof.
-  intros u h G Z. intros Huh HuZ Hcyc.
-  apply unblocked_ancestors_have_unblocked_directed_path. right. exists []. split. simpl. rewrite Huh. reflexivity.
+  intros u h G Z Hwf Hcycle. intros Huh HuZ Hcyc.
+  apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists []. split. simpl. rewrite Huh. reflexivity.
   split. simpl. split. apply Hcyc. easy.
   intros w [Hw | Hw].
   rewrite Hw. apply HuZ. exfalso. apply Hw.
 Qed.
 
 Lemma single_edge_unblocked_ancestor_path: forall (u h v: node) (t: nodes) (G: graph) (Z: nodes),
+  G_well_formed G = true -> contains_cycle G = false ->
   is_edge (u, h) G = true
   -> ~In u Z
   -> acyclic_path_2 (u, v, h :: t)
   -> In u (find_unblocked_ancestors G h Z).
 Proof.
-  intros u h v t G Z. intros Huh HuZ Hcyc.
-  apply single_edge_unblocked_ancestor. apply Huh. apply HuZ. intros H. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. left. symmetry. apply H.
+  intros u h v t G Z. intros Hwf Hcycle Huh HuZ Hcyc.
+  apply single_edge_unblocked_ancestor; eauto. intros H. destruct Hcyc as [_ [Hcyc _]]. apply Hcyc. left. symmetry. apply H.
 Qed.

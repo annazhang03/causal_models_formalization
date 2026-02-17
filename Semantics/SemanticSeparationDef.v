@@ -3,6 +3,7 @@ From Semantics Require Import FindValue.
 From CausalDiagrams Require Import Assignments.
 From CausalDiagrams Require Import UnblockedAncestors.
 From DAGs Require Import Basics.
+From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
@@ -39,20 +40,22 @@ Fixpoint find_unblocked_ancestors_in_Z {X: Type} `{EqType X} (G: graph) (Z: node
    that is both in S and an unblocked ancestor of Z, then any unblocked ancestor (anc) of z is also in the output
    of find_unblocked_ancestors_in_Z. *)
 Theorem ancestor_in_Z_corresponds_to_conditioned_node {X: Type} `{EqType X}: forall (G: graph) (Z S: nodes) (AZ: assignments X) (anc z: node),
-  is_assigned AZ z = true
+  G_well_formed G = true
+  -> contains_cycle G = false
+  -> is_assigned AZ z = true
   -> In anc (find_unblocked_ancestors G z Z) /\
      (exists (anc': node), In anc' (find_unblocked_ancestors G z Z) /\ In anc' S)
   -> In anc (find_unblocked_ancestors_in_Z G Z AZ S).
 Proof.
-  intros G Z S AZ anc z. intros Hz [Hanc [anc' Hanc']].
+  intros G Z S AZ anc z. intros Hwf Hcyc Hz [Hanc [anc' Hanc']].
   induction AZ as [| [h x] AZ' IH].
   - simpl in Hz. discriminate Hz.
   - simpl. destruct (overlap (find_unblocked_ancestors G h Z) S) as [|] eqn:HhS.
     + simpl in HhS. rewrite HhS. rewrite app_comm_cons. destruct (h =? z) as [|] eqn:Hhz.
       * apply membership_append.
-        apply unblocked_ancestors_have_unblocked_directed_path in Hanc. destruct Hanc as [Hanc | Hanc].
+        apply unblocked_ancestors_have_unblocked_directed_path in Hanc; eauto. destruct Hanc as [Hanc | Hanc].
         ++ left. rewrite Hanc. apply eqb_eq. apply Hhz.
-        ++ destruct Hanc as [l Hanc]. apply eqb_eq in Hhz. rewrite Hhz. apply unblocked_ancestors_have_unblocked_directed_path. right. exists l. apply Hanc.
+        ++ destruct Hanc as [l Hanc]. apply eqb_eq in Hhz. rewrite Hhz. apply unblocked_ancestors_have_unblocked_directed_path; eauto.
       * apply membership_append_r. apply IH. simpl in Hz. rewrite eqb_sym in Hhz. rewrite Hhz in Hz. simpl in Hz. apply Hz.
     + simpl in Hz. destruct (z =? h) as [|] eqn:Hzh.
       * exfalso. apply no_overlap_non_member with (x := anc') in HhS.

@@ -156,23 +156,20 @@ Qed.
 
 
 Lemma sources_induction_into_start: forall (G: graph) (u h v: node) (t: nodes),
+  G_well_formed G = true ->
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
   -> path_into_start (u, v, h :: t) G = true -> get_sources_in_g_path G (u, v, h :: t) = get_sources_in_g_path G (h, v, t).
 Proof.
-  intros G u h v t [Hp Hcyc] Hin.
+  intros G u h v t Hwf [Hp Hcyc] Hin.
   unfold get_sources_in_g_path.
   destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     destruct (path_into_start (h, v, t) G) as [|] eqn:Houth.
     + destruct t as [| h' t'].
-      * simpl. simpl in Houth. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
+      * simpl. simpl in Houth. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth; eauto.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
-        -- admit.
-        -- apply Hcyc.
-      * simpl in Houth. simpl. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
+      * simpl in Houth. simpl. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth; eauto.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
-        -- admit.
-        -- apply Hcyc.
     + destruct t as [| h' t'].
       * simpl in Houth. simpl in Hout. inversion Hout. rewrite H0 in Houth. discriminate Houth.
       * simpl in Hin. simpl in Houth. simpl. unfold is_confounder_bool. rewrite Hin.
@@ -181,14 +178,10 @@ Proof.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     destruct (path_into_start (h, v, t) G) as [|] eqn:Houth.
     + destruct t as [| h' t'].
-      * simpl. simpl in Houth. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
+      * simpl. simpl in Houth. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth; eauto.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
-        -- admit.
-        -- apply Hcyc.
-      * simpl in Houth. simpl. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth.
+      * simpl in Houth. simpl. unfold is_confounder_bool. apply acyclic_no_two_cycle in Houth; eauto.
         -- rewrite Houth. rewrite andb_comm. simpl. reflexivity.
-        -- admit.
-        -- apply Hcyc.
     + destruct t as [| h' t'].
       * simpl in Houth. simpl. unfold is_confounder_bool. simpl in Hin. rewrite Hin. simpl in Hp. destruct G as [V E].
         apply split_and_true in Hp. destruct Hp as [_ Hp]. rewrite Houth in Hp. rewrite andb_comm in Hp. rewrite orb_comm in Hp. simpl in Hp.
@@ -197,7 +190,7 @@ Proof.
         simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply split_and_true in Hp. destruct Hp as [Hp _].
         rewrite Houth in Hp. rewrite orb_comm in Hp. simpl in Hp. simpl. rewrite Hp. reflexivity.
   - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Admitted.
+Qed.
 
 Lemma sources_induction_out_of_start_out_of_h: forall (G: graph) (u h v: node) (t: nodes),
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
@@ -407,14 +400,15 @@ Proof.
 Qed.
 
 Lemma subpath_preserves_sources: forall (G: graph) (u v: node) (l1 l2 l: nodes) (b: node) (A A': nodes),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> is_path_in_graph (u, v, l) G = true
   -> get_sources_in_g_path G (u, v, l) = A' ++ b :: A
   -> l1 ++ [b] ++ l2 = l
   -> acyclic_path_2 (u, v, l)
   -> get_sources_in_g_path G (b, v, l2) = b :: A.
 Proof.
-  intros G u v l1 l2 l b A A' HG Hp HA Hl Hcyc.
+  intros G u v l1 l2 l b A A' Hwf HG Hp HA Hl Hcyc.
 
   assert (Hb: In b (find_confounders_in_path (u, v, l) G)).
   { assert (Hb: In b (get_sources_in_g_path G (u, v, l))). { rewrite HA. apply membership_append_r. left. reflexivity. }
@@ -488,7 +482,7 @@ Proof.
            assert (Hp': is_path_in_graph (u, b, l1) G = true). { apply subpath_still_path_2 with (v := v) (l2 := []) (l3 := l). split. apply Hl'. apply Hp. }
            apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [_ [Hcyc' _]]]. apply Hcyc'. apply Hp'. right. left. apply Hb.
         -- simpl in Hb. apply Hb.
-    + admit.
+    + auto.
   - assert (Hzv: z = h2).
     { apply two_sublists_the_same with (l := u :: l1 ++ [b] ++ h2 :: t2 ++ [v]) (a := b).
       - apply end_of_sublist_still_sublist_2 in Hsub. rewrite <- app_assoc in Hsub. rewrite <- app_assoc in Hsub. apply Hsub.
@@ -763,21 +757,21 @@ Proof.
 Admitted.
 
 Lemma sources_len: forall (G: graph) (u v: node) (l L: nodes),
-  is_path_in_graph (u, v, l) G = true
+  G_well_formed G = true
+  -> is_path_in_graph (u, v, l) G = true
   -> contains_cycle G = false
   -> get_sources_in_g_path G (u, v, l) = L
   -> length L <= path_length (u, v, l).
 Proof.
-  intros G u v l L Hp Hc HL.
+  intros G u v l L Hwf Hp Hc HL.
   generalize dependent u. generalize dependent L. induction l as [| h t IH].
   - intros L u Hp HL. simpl in HL. destruct (is_edge (v, u) G) as [|]. rewrite <- HL. simpl. unfold path_length. lia.
     rewrite <- HL. unfold path_length. simpl. lia.
   - intros L u Hp HL. destruct (path_into_start (u, v, h :: t) G) as [|] eqn:Hin.
-    + apply sources_induction_into_start in Hin.
+    + apply sources_induction_into_start in Hin; eauto.
       * assert (Hind: length L <= path_length (h, v, t)).
         { apply IH. apply is_path_in_graph_induction with (u := u). apply Hp. rewrite <- HL. symmetry. apply Hin. }
         unfold path_length. unfold path_length in Hind. simpl. simpl in Hind. lia.
-      * split. apply Hp. apply Hc.
     + destruct (path_out_of_h G u v h t) as [|] eqn:Hout.
       * assert (HA1: exists (A: nodes), get_sources_in_g_path G (u, v, h :: t) = u :: A /\
                                         get_sources_in_g_path G (h, v, t) = h :: A).
@@ -797,7 +791,8 @@ Proof.
 Qed.
 
 Lemma next_source_is_unblocked_ancestor: forall (x: node) (l4: nodes) (u v: node) (l: nodes) (G: graph) (Z: nodes),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> ~In v Z
   -> is_path_in_graph (u, v, l) G = true
   -> acyclic_path_2 (u, v, l)
@@ -806,10 +801,10 @@ Lemma next_source_is_unblocked_ancestor: forall (x: node) (l4: nodes) (u v: node
   -> d_connected_2 (u, v, l) G Z
   -> In x (find_unblocked_ancestors G u Z).
 Proof.
-  intros x l4 u v l G Z HG Huv Hp Hcyc H4 Hin Hconn.
+  intros x l4 u v l G Z Hwf HG Huv Hp Hcyc H4 Hin Hconn.
   generalize dependent u. induction l as [| h t IH].
   - intros u Hp Hcyc H4 Hin Hconn. simpl in H4. simpl in Hin. rewrite Hin in H4. inversion H4. rewrite <- H0.
-    apply unblocked_ancestors_have_unblocked_directed_path. right. exists []. split.
+    apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists []. split.
     + simpl. rewrite Hin. reflexivity.
     + split. apply reverse_path_still_acyclic with (l := []). apply Hcyc.
       intros w [Hw | Hw]. rewrite Hw. apply Huv. exfalso. apply Hw.
@@ -823,10 +818,10 @@ Proof.
         - rewrite <- Hin. apply H4.
         - apply Hinh.
         - apply subpath_still_d_connected with (u := u). apply Hconn. }
-      apply unblocked_ancestors_transitive with (ancu' := h).
-      apply single_edge_unblocked_ancestor. apply Hin_const. apply edge_out_not_in_Z with (u := u) (v := v) (t := t) (G := G). apply Hconn. left. apply Hin_const. apply Hp.
+      apply unblocked_ancestors_transitive with (ancu' := h); eauto.
+      apply single_edge_unblocked_ancestor; eauto. apply edge_out_not_in_Z with (u := u) (v := v) (t := t) (G := G). apply Hconn. left. apply Hin_const. apply Hp.
       destruct Hcyc as [_ [Hcyc _]]. intros F. apply Hcyc. left. apply F.
-      apply Hind. split. apply Hp. apply HG.
+      auto. split. apply Hp. apply HG.
     + (* u <- h -> ..., so h = x *)
       assert (Hhx: h = x).
       { unfold get_sources_in_g_path in H4. rewrite Hin in H4. simpl in H4.
@@ -845,22 +840,23 @@ Proof.
           -- simpl in Hout. rewrite Hout in H4. inversion H4. reflexivity.
           -- simpl in Hout. rewrite Hout in H4. inversion H4. reflexivity.
           -- apply path_out_of_end_Some in Hout. exfalso. apply Hout. }
-      rewrite <- Hhx. apply single_edge_unblocked_ancestor. apply Hin.
+      rewrite <- Hhx. apply single_edge_unblocked_ancestor; eauto.
       apply edge_out_not_in_Z with (u := u) (v := v) (t := t) (G := G). apply Hconn. left. apply Hin. apply Hp.
       destruct Hcyc as [_ [Hcyc _]]. intros F. apply Hcyc. left. apply F.
 Qed.
 
 Lemma next_source_is_unblocked_ancestor_2: forall (G: graph) (u v r: node) (l: nodes) (Z: nodes),
-  is_path_in_graph (u, v, l) G = true
+  G_well_formed G = true
+  -> is_path_in_graph (u, v, l) G = true
   -> contains_cycle G = false
   -> acyclic_path_2 (u, v, l)
   -> d_connected_2 (u, v, l) G Z
   -> ~In v Z
   -> In (hd r (get_sources_in_g_path G (u, v, l))) (find_unblocked_ancestors G u Z).
 Proof.
-  intros G u v r l Z Hp HG Hcyc Hconn HvZ.
+  intros G u v r l Z Hwf Hp HG Hcyc Hconn HvZ.
   generalize dependent u. induction l as [| h t IH].
-  - intros u Hp Hcyc Hconn. apply unblocked_ancestors_have_unblocked_directed_path. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
+  - intros u Hp Hcyc Hconn. apply unblocked_ancestors_have_unblocked_directed_path; eauto. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
     + right. exists [].
       assert (H4: hd r (get_sources_in_g_path G (u, v, [])) = v). { simpl. rewrite Hvu. simpl. reflexivity. }
       unfold nodes in *. rewrite H4. split. simpl. rewrite Hvu. reflexivity.
@@ -869,8 +865,7 @@ Proof.
   - intros u Hp Hcyc Hconn. destruct (path_into_start (u, v, h :: t) G) as [|] eqn:Hin.
     + destruct (get_sources_in_g_path G (u, v, h :: t)) as [| h4 t4] eqn:H4.
       * apply sources_nonempty in H4. exfalso. apply H4. apply Hp.
-      * unfold nodes in *. rewrite H4. simpl. apply next_source_is_unblocked_ancestor with (l4 := t4) (v := v) (l := h :: t). apply HG. apply HvZ. apply Hp.
-        apply Hcyc. apply H4. apply Hin. apply Hconn.
+      * unfold nodes in *. rewrite H4. simpl. apply next_source_is_unblocked_ancestor with (l4 := t4) (v := v) (l := h :: t); eauto.
     + unfold get_sources_in_g_path. left. destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
       * unfold nodes in *. rewrite Hout. rewrite Hin. simpl. reflexivity.
       * unfold nodes in *. rewrite Hout. rewrite Hin. simpl. reflexivity.
@@ -879,7 +874,8 @@ Qed.
 
 
 Lemma conditioned_node_between_sources: forall (x y: node) (l4: nodes) (p: path) (G: graph) (Z: nodes),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> ~In (path_start p) Z /\ ~In (path_end p) Z
   -> is_path_in_graph p G = true
   -> acyclic_path_2 p
@@ -887,7 +883,7 @@ Lemma conditioned_node_between_sources: forall (x y: node) (l4: nodes) (p: path)
   -> d_connected_2 p G Z
   -> exists (z: node), In z Z /\ In x (find_unblocked_ancestors G z Z) /\ In y (find_unblocked_ancestors G z Z).
 Proof.
-  intros x y l4 p G Z HG HZ HpG Hcyc HA1 Hp.
+  intros x y l4 p G Z Hwf HG HZ HpG Hcyc HA1 Hp.
   destruct p as [[u v] l]. simpl in HZ.
   generalize dependent u. generalize dependent x. induction l as [| h t IH].
   - intros x u HZ HpG Hcyc HA1 Hp. simpl in HA1. destruct (is_edge (v, u) G) as [|] eqn:Hvu.
@@ -899,8 +895,7 @@ Proof.
         -- destruct (is_confounder_bool u v h G) as [|] eqn:Hcon.
            ++ (* u <- h <- v, but confounder => u <- h -> v, so cycle *)
               apply acyclic_no_two_cycle in Hvh. unfold is_confounder_bool in Hcon. rewrite Hvh in Hcon. rewrite andb_comm in Hcon. discriminate Hcon.
-              admit.
-              apply HG.
+              auto. apply HG.
            ++ discriminate HA1.
         -- destruct (is_confounder_bool u v h G) as [|] eqn:Hcon.
            ++ unfold is_confounder_bool in Hcon. rewrite Hhu in Hcon. discriminate Hcon.
@@ -910,19 +905,19 @@ Proof.
               apply colliders_have_unblocked_path_to_descendant with (c := h) in Hp.
               ** destruct Hp as [Hp | Hp].
                  --- exists h. split. apply Hp. split.
-                     +++ apply single_edge_unblocked_ancestor_path with (v := v) (t := []). apply Huh. apply HZ. apply Hcyc.
-                     +++ apply single_edge_unblocked_ancestor_path with (v := u) (t := []). apply Hvh. apply HZ. apply reverse_path_still_acyclic with (l := [h]). apply Hcyc.
+                     +++ apply single_edge_unblocked_ancestor_path with (v := v) (t := []); eauto. apply HZ.
+                     +++ apply single_edge_unblocked_ancestor_path with (v := u) (t := []); eauto. apply HZ. apply reverse_path_still_acyclic with (l := [h]). apply Hcyc.
                  --- destruct Hp as [HhZ [z [dp Hp]]]. exists z. split. apply Hp. split.
-                     +++ apply unblocked_ancestors_transitive with (ancu' := h).
-                         { apply unblocked_ancestors_have_unblocked_directed_path. right. exists dp. split. apply Hp. split. apply Hp.
+                     +++ apply unblocked_ancestors_transitive with (ancu' := h); eauto.
+                         { apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists dp. split. apply Hp. split. apply Hp.
                            intros w [Hw | Hw]. rewrite Hw. apply HhZ. intros HwZ. destruct Hp as [_ [_ [Hp _]]]. apply no_overlap_non_member with (x := w) in Hp.
                            apply Hp. apply Hw. apply HwZ. }
-                         { apply single_edge_unblocked_ancestor_path with (v := v) (t := []). apply Huh. apply HZ. apply Hcyc. }
-                     +++ apply unblocked_ancestors_transitive with (ancu' := h).
-                         { apply unblocked_ancestors_have_unblocked_directed_path. right. exists dp. split. apply Hp. split. apply Hp.
+                         { apply single_edge_unblocked_ancestor_path with (v := v) (t := []); eauto. apply HZ. }
+                     +++ apply unblocked_ancestors_transitive with (ancu' := h); eauto.
+                         { apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists dp. split. apply Hp. split. apply Hp.
                            intros w [Hw | Hw]. rewrite Hw. apply HhZ. intros HwZ. destruct Hp as [_ [_ [Hp _]]]. apply no_overlap_non_member with (x := w) in Hp.
                            apply Hp. apply Hw. apply HwZ. }
-                         { apply single_edge_unblocked_ancestor_path with (v := u) (t := []). apply Hvh. apply HZ. apply reverse_path_still_acyclic with (l := [h]). apply Hcyc. }
+                         { apply single_edge_unblocked_ancestor_path with (v := u) (t := []); eauto. apply HZ. apply reverse_path_still_acyclic with (l := [h]). apply Hcyc. }
               ** simpl. unfold is_collider_bool. rewrite Hvh. rewrite Huh. simpl. left. reflexivity.
       * destruct (is_edge (h, u) G) as [|] eqn:Hhu. destruct (is_confounder_bool u v h G) as [|] eqn:Hcon. discriminate HA1. discriminate HA1.
         destruct (is_confounder_bool u v h G) as [|] eqn:Hcon.
@@ -940,8 +935,7 @@ Proof.
            ++ apply is_path_in_graph_induction with (u := u). apply HpG.
            ++ apply acyclic_path_cat with (u := u). apply Hcyc.
            ++ simpl. unfold is_confounder_bool in Hcon. apply split_and_true in Hcon. destruct Hcon as [_ Hcon]. apply acyclic_no_two_cycle in Hcon.
-              rewrite Hcon. rewrite Hcon in HA1. apply HA1.
-              admit. apply HG.
+              rewrite Hcon. rewrite Hcon in HA1. apply HA1. auto. apply HG.
            ++ apply subpath_still_d_connected with (u := u). apply Hp.
         -- unfold is_confounder_bool in Hcon. simpl in Hin. rewrite Hin in Hcon. simpl in Hcon.
            assert (Hhh': is_edge (h', h) G = true). { simpl in HpG. rewrite Hcon in HpG. simpl in HpG. destruct G as [V E]. rewrite andb_comm in HpG.
@@ -979,9 +973,9 @@ Proof.
 
               specialize IH with (u := h) (x := h). apply IH in HA1'.
               ** destruct HA1' as [z [HzZ [HhZ HyZ]]]. exists z. split. apply HzZ. rewrite and_comm. split. apply HyZ.
-                 apply unblocked_ancestors_transitive with (ancu' := h). apply HhZ.
+                 apply unblocked_ancestors_transitive with (ancu' := h); eauto.
                  rewrite <- Hux.
-                 apply single_edge_unblocked_ancestor_path with (v := v) (t := h' :: t'). simpl in Hin. apply Huh. apply HZ. apply Hcyc.
+                 apply single_edge_unblocked_ancestor_path with (v := v) (t := h' :: t'); eauto. simpl in Hin. apply HZ.
               ** split.
                  apply edge_out_not_in_Z with (u := u) (v := v) (t := h' :: t') (G := G). apply Hp. right. simpl. apply Hhh'. apply HpG.
                  apply HZ.
@@ -994,35 +988,31 @@ Proof.
                 apply split_and_true in HpG. destruct HpG as [HpG _]. apply split_and_true in HpG. apply HpG. }
               pose proof Hp as Hconn. apply colliders_have_unblocked_path_to_descendant with (c := h) in Hp.
               ** assert (Hhy: In y (find_unblocked_ancestors G h Z)).
-                 { apply next_source_is_unblocked_ancestor with (l4 := l4) (v := v) (l := h' :: t'). apply HG. apply HZ.
+                 { apply next_source_is_unblocked_ancestor with (l4 := l4) (v := v) (l := h' :: t'); eauto. apply HZ.
                    *** apply is_path_in_graph_induction with (u := u). apply HpG.
                    *** apply acyclic_path_cat with (u := u). apply Hcyc.
                    *** assert (HA1': get_sources_in_g_path G (u, v, h :: h' :: t') = u :: get_sources_in_g_path G (h, v, h' :: t')).
                        { apply sources_induction_out_of_start_into_h. split. apply HpG. apply HG. split. apply Hin. simpl. apply Hhh'. }
                        rewrite HA1_const in HA1'. symmetry in HA1'. unfold nodes in *. unfold node in *. inversion HA1'. simpl. reflexivity.
-                   *** simpl. apply Hhh''.
                    *** apply subpath_still_d_connected with (u := u). apply Hconn. }
 
                  destruct Hp as [Hp | Hp].
                  --- exists h. split. apply Hp. split.
-                     +++ rewrite <- Hux. apply single_edge_unblocked_ancestor_path with (v := v) (t := h' :: t'). simpl in Hin. apply Huh. apply HZ.
-                         apply Hcyc.
+                     +++ rewrite <- Hux. apply single_edge_unblocked_ancestor_path with (v := v) (t := h' :: t'); eauto. simpl in Hin. apply HZ.
                      +++ apply Hhy.
                  --- destruct Hp as [HhZ [z [dp Hp]]]. exists z. split. apply Hp. split.
-                     +++ apply unblocked_ancestors_transitive with (ancu' := h).
-                         { apply unblocked_ancestors_have_unblocked_directed_path. right. exists dp. split. apply Hp. split. apply Hp.
+                     +++ apply unblocked_ancestors_transitive with (ancu' := h); eauto.
+                         { apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists dp. split. apply Hp. split. apply Hp.
                            intros w [Hw | Hw]. rewrite Hw. apply HhZ. intros HwZ. destruct Hp as [_ [_ [Hp _]]]. apply no_overlap_non_member with (x := w) in Hp.
                            apply Hp. apply Hw. apply HwZ. }
-                         { rewrite <- Hux. apply single_edge_unblocked_ancestor_path with (v := v) (t := h' :: t'). simpl in Hin. apply Huh. apply HZ.
-                           apply Hcyc. }
-                     +++ apply unblocked_ancestors_transitive with (ancu' := h).
-                         { apply unblocked_ancestors_have_unblocked_directed_path. right. exists dp. split. apply Hp. split. apply Hp.
+                         { rewrite <- Hux. apply single_edge_unblocked_ancestor_path with (v := v) (t := h' :: t'); eauto. simpl in Hin. apply HZ. }
+                     +++ apply unblocked_ancestors_transitive with (ancu' := h); eauto.
+                         { apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists dp. split. apply Hp. split. apply Hp.
                            intros w [Hw | Hw]. rewrite Hw. apply HhZ. intros HwZ. destruct Hp as [_ [_ [Hp _]]]. apply no_overlap_non_member with (x := w) in Hp.
                            apply Hp. apply Hw. apply HwZ. }
-                         { apply Hhy. }
               ** simpl. unfold is_collider_bool. unfold nodes in *. unfold node in *. rewrite Huh.
                  rewrite Hhh''. simpl. left. reflexivity.
-Admitted.
+Qed.
 
 Lemma sources_count_acyclic: forall (u v c: node) (l: nodes) (G: graph),
   In c (get_sources_in_g_path G (u, v, l))
