@@ -416,6 +416,23 @@ Proof.
         exists p. split; [right; exact Hp1 | exact Hp2].
 Qed.
 
+Lemma get_endpoints_complete :
+  forall ps p,
+    In p ps ->
+    In (path_end p) (get_endpoints ps).
+Proof.
+  intros ps p Hin. induction ps as [|h ps' IH].
+  - simpl in Hin. contradiction.
+  - simpl in Hin. destruct Hin as [Heq | Hin'].
+    + subst p. simpl. destruct h as [[h_u h_v] h_l]. simpl.
+      destruct (member h_v (get_endpoints ps')) eqn:Hmem.
+      * apply member_In_equiv. exact Hmem.
+      * simpl. left. reflexivity.
+    + simpl. destruct h as [[h_u h_v] h_l]. destruct (member h_v (get_endpoints ps')) eqn:Hmem.
+      * apply IH. exact Hin'.
+      * simpl. right. apply IH. exact Hin'.
+Qed.
+
 Lemma directed_path_subset_edges :
   forall V E' e p,
     is_directed_path_in_graph p (V, E') = true ->
@@ -436,9 +453,7 @@ Proof.
     rewrite !andb_true_iff in Hpath |- *.
     destruct Hpath as [[Hu Hedge] Hrest].
     split.
-    + split; auto.
-      (* Show member_edge (u, w) (e :: E') = true *)
-      simpl. apply orb_true_iff. right. auto.
+    + split; auto. simpl. apply orb_true_iff. right. auto.
     + apply IH. exact Hrest.
 Qed.
 
@@ -578,14 +593,145 @@ Proof. intros [V E] u v Hwf Hno_cycle Hin.
     + unfold path_start_and_end. rewrite Hstart_p, Hend_p. simpl. rewrite !Nat.eqb_refl. reflexivity.
 Qed.
 
+
+Lemma directed_edges_as_paths_from_start_complete :
+  forall u E a b,
+    In (u, b) E ->
+    a = u ->
+    In (a, b, []) (directed_edges_as_paths_from_start u E).
+Proof. intros u E a b Hin Hau. subst a.
+  induction E as [|[x y] E' IH].
+  - simpl in Hin. contradiction.
+  - simpl in Hin. destruct Hin as [Heq | Hin'].
+    + injection Heq as Heq1 Heq2. subst x y. simpl. rewrite Nat.eqb_refl. simpl. left. reflexivity.
+    + simpl. destruct (x =? u) eqn:Hxu.
+      * simpl. right. apply IH. exact Hin'.
+      * apply IH. exact Hin'.
+Qed.
+
+Lemma dfs_paths_from_start_appear :
+  forall G u v l k,
+    G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    length l = k ->
+    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths_from_start u (snd G)) k) = false ->
+    In (u, v, l) (snd (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths_from_start u (snd G)) k)).
+Proof. intros [V E] u v l k Hwf Hpath Hacyc Hlen Hcyc. simpl.
+  revert u v l Hpath Hacyc Hlen Hcyc.
+  induction k as [|k' IH]; intros u v l Hpath Hacyc Hlen Hcyc.
+  - assert (l = []) as Hl by (destruct l; simpl in Hlen; auto; lia).
+    subst l. simpl. pose proof directed_edges_as_paths_from_start_complete as Hcap.
+    apply Hcap. unfold is_directed_path_in_graph in Hpath.
+    simpl in Hpath. apply andb_true_iff in Hpath as [Hedge _].
+    assert (In (u,v) E) as HinE by (eapply is_edge_true_implies_In_edge; eauto). auto. reflexivity.
+  - erewrite dfs_extend_by_edges_iter_spec; eauto; cycle 1.
+    { simpl in Hcyc. destruct (fst (dfs_extend_by_edges E (directed_edges_as_paths_from_start u E))) eqn:Hedges.
+      - simpl in Hcyc. discriminate.
+      - assert (Hno_cycle_Sk' : fst (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) (S k')) = false).
+        { simpl. rewrite Hedges. simpl. exact Hcyc. }
+        destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) k')) eqn:Hcyc_k'.
+        exfalso. apply cycle_propagates in Hcyc_k'. rewrite Hcyc_k' in Hno_cycle_Sk'. discriminate. auto. }
+    { pose proof dfs_extend_by_edges_complete. destruct l as [|w l'] using rev_ind.
+      { simpl in Hlen. discriminate Hlen. }
+      clear IHl'. rewrite length_app in Hlen. simpl in Hlen. assert (length l' = k') by lia; clear Hlen.
+      specialize (H (V,E)). eapply H; eauto.
+      - eapply IH; auto.
+        * pose proof subpath_still_directed_2. specialize (H1 u w v l' [] (l' ++ [w]) (V,E)).
+          assert (l' ++ [w] ++ [] = l' ++ [w] /\ is_directed_path_in_graph (u, v, l' ++ [w]) (V, E) = true).
+          { constructor. simpl. auto. auto. } specialize (H1 H2); clear H2. auto.
+        * pose proof subpath_still_acyclic_2. specialize (H1 u w v l' [] (l' ++ [w])).
+          assert (l' ++ [w] ++ [] = l' ++ [w] /\ acyclic_path_2 (u, v, l' ++ [w])).
+          { constructor; simpl; auto. } specialize (H1 H2); clear H2. auto.
+        * pose proof cycle_propagates.
+          destruct (fst (dfs_extend_by_edges_iter (snd (V, E)) (directed_edges_as_paths_from_start u (snd (V, E))) k')) eqn:Hcyc_k'.
+          exfalso. apply (H1 (snd (V, E)) (directed_edges_as_paths_from_start u (snd (V, E))) k') in Hcyc_k'.
+          rewrite Hcyc_k' in Hcyc. discriminate. reflexivity.
+      - simpl. pose proof directed_path_has_directed_edge_end.
+        specialize (H1 u v (l' ++ [w]) _ Hpath). destruct H1. destruct l' as [|h l''].
+        * simpl in H1. discriminate.
+        * discriminate.
+        * destruct H1. destruct H1. destruct H1 as [Heq Hedge]. apply is_edge_true_implies_In_edge in Hedge.
+          apply app_inj_tail in Heq as [_ Heq]. rewrite Heq. exact Hedge.
+      - pose proof subpath_still_acyclic_2. specialize (H1 u w v l' [] (l' ++ [w])).
+          assert (l' ++ [w] ++ [] = l' ++ [w] /\ acyclic_path_2 (u, v, l' ++ [w])).
+          { constructor; simpl; auto. } specialize (H1 H2); clear H2. auto.
+      - intro Hin. simpl in Hin. destruct Hin as [Heq | [Heq | Hin]].
+        { subst v. unfold acyclic_path_2 in Hacyc. destruct Hacyc as [Hneq _]. contradiction. }
+        { subst v. unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [_ [Hnotin _]]].
+          assert (In w (l' ++ [w])) by (apply in_or_app; right; simpl; auto). contradiction. }
+        { unfold acyclic_path_2 in Hacyc. destruct Hacyc as [_ [_ [Hnotin _]]].
+            apply Hnotin. apply in_or_app. left. exact Hin. }
+      - rewrite <- dfs_extend_by_edges_iter_spec. eapply Hcyc; eauto.
+        pose proof cycle_propagates.
+        destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) k')) eqn:Hfst; [|reflexivity].
+        exfalso. apply H1 in Hfst. replace (snd (V,E)) with E in Hcyc by auto. rewrite Hcyc in Hfst. discriminate. }
+Qed.
+
+Lemma all_acyclic_directed_path_from_start_appear :
+  forall G u v l,
+    G_well_formed G = true ->
+    is_directed_path_in_graph (u, v, l) G = true ->
+    acyclic_path_2 (u, v, l) ->
+    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths_from_start u (snd G)) (length (fst G))) = false ->
+    In (u, v, l) (snd (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths_from_start u (snd G)) (length (fst G)))).
+Proof.
+  intros [V E] u v l Hwf Hpath Hacyc Hcycle. simpl.
+  set (k := length l).
+  assert (Hk_bound : k <= length V).
+  { unfold k. unfold acyclic_path_2 in Hacyc.
+  destruct Hacyc as [Hneq [Hnotinu [Hnotinl Hacycl]]].
+  assert (Hacyc2 : acyclic_path_2 (u, v, l)).
+  { unfold acyclic_path_2. split; [exact Hneq | split; [exact Hnotinu | split; [exact Hnotinl | exact Hacycl]]]. }
+    apply path_length_acyclic_graph with (G := (V, E)) in Hacyc2; auto.
+    unfold path_length in Hacyc2. unfold num_nodes in Hacyc2. simpl in Hacyc2. lia. eapply directed_paths_are_paths; eauto. }
+  eapply dfs_iter_monotone with (k1 := k); eauto.
+  pose proof dfs_paths_from_start_appear.
+  specialize (H (V,E) u v l k Hwf Hpath Hacyc). eapply H; eauto. simpl. simpl in Hcycle.
+  pose proof cycle_propagates. destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) k)) eqn:Hcyc_k.
+  - exfalso. assert (Hcyc_V : fst (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) (length V)) = true).
+    { remember (length V - k) as d eqn:Hd. assert (length V = k + d) by lia.
+      rewrite H1. clear H1 Hk_bound Hcycle Hd. induction d as [|d' IH].
+      - simpl. replace (k+0) with k. auto. lia.
+      - replace (k + S d') with (S (k + d')) by lia. apply H0. exact IH. }
+    rewrite Hcyc_V in Hcycle. discriminate.
+  - reflexivity.
+Qed.
+
 Lemma find_descendants_complete: forall G: graph, forall u v: node,
   G_well_formed G = true ->
   contains_cycle G = false ->
   (u = v \/ exists U: path, is_directed_path_in_graph U G = true /\ path_start_and_end U u v = true) ->
   In v (find_descendants u G).
-Proof.
-Admitted.
-
+Proof. intros [V E] u v Hwf Hno_cycle Hor.
+  unfold find_descendants. simpl. destruct Hor as [Heq | [U [Hvalid Hstart_end]]].
+  - left. exact Heq.
+  - right. unfold path_start_and_end in Hstart_end.
+    apply andb_prop in Hstart_end as [Hstart Hend].
+    apply Nat.eqb_eq in Hstart. apply Nat.eqb_eq in Hend.
+    destruct U as [[u_p v_p] l_p]. simpl in Hstart, Hend. subst u_p v_p.
+    assert (Hacyc : acyclic_path_2 (u, v, l_p)).
+    { eapply contains_cycle_false_correct; eauto. }
+    assert (Hlen : path_length (u, v, l_p) <= length V).
+    { unfold path_length. unfold acyclic_path_2 in Hacyc.
+      destruct Hacyc as [Hneq [Hnotinu [Hnotinl Hacycl]]].
+      assert (Hacyc2 : acyclic_path_2 (u, v, l_p)).
+      { unfold acyclic_path_2. split; [exact Hneq | split; [exact Hnotinu | split; [exact Hnotinl | exact Hacycl]]]. }
+      apply path_length_acyclic_graph with (G := (V, E)) in Hacyc2; auto. eapply directed_paths_are_paths; eauto. }
+      assert (Hno_cyc_iter : fst (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) (length V)) = false).
+    { assert (Hinit : directed_paths_in_graph (directed_edges_as_paths_from_start u E) (V, E)).
+      { apply directed_edges_as_paths_from_start_in_graph. exact Hwf. }
+    assert (Hall_acyc : forall p, is_directed_path_in_graph p (V, E) = true -> acyclic_path_2 p).
+      { intros p Hp. eapply contains_cycle_false_correct; eauto. }
+    assert (Hiter := dfs_iter_no_cycle (V, E) (length V) (directed_edges_as_paths_from_start u E) Hwf Hinit Hall_acyc).
+    destruct Hiter as [Hno_cyc _].
+    exact Hno_cyc.  }
+    assert (Hin_U : In (u, v, l_p) (snd (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) (length V)))).
+    { pose proof (all_acyclic_directed_path_from_start_appear (V,E) u v l_p Hwf Hvalid Hacyc). simpl in H. eapply H; eauto. }
+    unfold find_directed_paths_from_start. simpl.
+    pose proof (get_endpoints_complete (snd (dfs_extend_by_edges_iter E (directed_edges_as_paths_from_start u E) (length V)))
+        (u, v, l_p) Hin_U). eapply H; eauto.
+Qed.
 
 (* v is a descendant of u iff u = v or there is a directed path from u to v *)
 Theorem find_descendants_correct: forall G: graph, forall u v: node,
@@ -639,26 +785,29 @@ Qed.
 
 (* if x is descendant of y, and y is descendant of z, then x is descendant of z *)
 Theorem descendants_transitive: forall G: graph, forall x y z: node,
+  G_well_formed G = true ->
+  contains_cycle G = false ->
   In y (find_descendants z G) /\ In x (find_descendants y G) -> In x (find_descendants z G).
 Proof.
-  intros G x y z [Hy Hx].
+  intros G x y z Gwf Gc [Hy Hx].
   apply find_descendants_correct in Hy. destruct Hy as [Hy | Hy].
-  { apply find_descendants_correct in Hx. destruct Hx as [Hx | Hx].
+  { apply find_descendants_correct in Hx; eauto. destruct Hx as [Hx | Hx].
     - unfold find_descendants. left. rewrite <- Hx. apply Hy.
     - destruct Hx as [Uyx [dirUyx seUyx]]. destruct Uyx as [[vy vx] lyx].
-      apply find_descendants_correct. right. exists (vy, vx, lyx). split. apply dirUyx. rewrite Hy. apply seUyx. }
+      apply find_descendants_correct; eauto. right. exists (vy, vx, lyx). split. apply dirUyx. rewrite Hy. apply seUyx. }
   { destruct Hy as [Uzy [dirUzy seUzy]].
-    apply find_descendants_correct in Hx. destruct Hx as [Hx | Hx].
-    - apply find_descendants_correct. right. exists Uzy. split. apply dirUzy. rewrite <- Hx. apply seUzy.
+    apply find_descendants_correct in Hx; eauto. destruct Hx as [Hx | Hx].
+    - apply find_descendants_correct; eauto. right. exists Uzy. split. apply dirUzy. rewrite <- Hx. apply seUzy.
     - destruct Hx as [Uyx [dirUyx seUyx]].
       destruct Uzy as [[uz uy] lzy]. destruct Uyx as [[vy vx] lyx].
       apply path_start_end_equal in seUyx. destruct seUyx as [Hy Hx]. rewrite Hy in dirUyx. rewrite Hx in dirUyx.
       apply path_start_end_equal in seUzy. destruct seUzy as [Hz Hy2]. rewrite Hy2 in dirUzy. rewrite Hz in dirUzy.
-      apply find_descendants_correct. right. exists (concat z y x lzy lyx). split.
+      apply find_descendants_correct; eauto. right. exists (concat z y x lzy lyx). split.
       * apply concat_directed_paths. split.
         + apply dirUzy.
         + apply dirUyx.
       * unfold concat. unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl. }
+    auto. auto.
 Qed.
 
 
