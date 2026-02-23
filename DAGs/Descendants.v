@@ -382,21 +382,222 @@ Proof.
   intros s G. unfold find_descendants. simpl. left. reflexivity.
 Qed.
 
+
+Lemma directed_edges_as_paths_from_start_all_start_at_u :
+  forall u E p,
+    In p (directed_edges_as_paths_from_start u E) ->
+    path_start p = u.
+Proof.
+  intros u E p Hin.
+  induction E as [|[a b] E' IH].
+  - simpl in Hin. contradiction.
+  - simpl in Hin.
+    destruct (a =? u) eqn:Hau.
+    + simpl in Hin.
+      destruct Hin as [Heq | Hin']. unfold path_start. rewrite <- Heq. rewrite eqb_eq in Hau. auto. apply (IH Hin').
+    + apply IH. exact Hin.
+Qed.
+
+Lemma get_endpoints_extracts_path :
+  forall ps v,
+    In v (get_endpoints ps) ->
+    exists p, In p ps /\ path_end p = v.
+Proof.
+  intros ps v Hin.
+  induction ps as [|[[h_u h_v] h_l] ps' IH].
+  - simpl in Hin. contradiction.
+  - simpl in Hin.
+    destruct (member h_v (get_endpoints ps')) eqn:Hmem.
+    + apply IH in Hin. destruct Hin as [p [Hp1 Hp2]].
+      exists p. split; [right; exact Hp1 | exact Hp2].
+    + simpl in Hin. destruct Hin as [Heq | Hin'].
+      * subst v. exists (h_u, h_v, h_l). split; [left; reflexivity | simpl; reflexivity].
+      * apply IH in Hin'. destruct Hin' as [p [Hp1 Hp2]].
+        exists p. split; [right; exact Hp1 | exact Hp2].
+Qed.
+
+Lemma directed_path_subset_edges :
+  forall V E' e p,
+    is_directed_path_in_graph p (V, E') = true ->
+    is_directed_path_in_graph p (V, e :: E') = true.
+Proof.
+  intros V E' e p Hpath.
+  destruct p as [[u v] l].
+  simpl in Hpath |- *.
+  revert u v Hpath.
+  induction l as [|w l' IH]; intros u v Hpath.
+  - simpl in Hpath |- *.
+    rewrite andb_true_iff in Hpath |- *.
+    destruct Hpath as [Hu Hv].
+    split. rewrite andb_true_iff in Hu |- *.
+    destruct Hu as [Hmem Hedge]. split; simpl. auto.
+    apply orb_true_intro. right. exact Hedge. auto.
+  - simpl in Hpath |- *.
+    rewrite !andb_true_iff in Hpath |- *.
+    destruct Hpath as [[Hu Hedge] Hrest].
+    split.
+    + split; auto.
+      (* Show member_edge (u, w) (e :: E') = true *)
+      simpl. apply orb_true_iff. right. auto.
+    + apply IH. exact Hrest.
+Qed.
+
+Lemma directed_edges_as_paths_from_start_in_graph : forall V E u, G_well_formed (V,E) = true ->
+    directed_paths_in_graph (directed_edges_as_paths_from_start u E) (V,E).
+Proof. intros V E u Hwf. unfold directed_paths_in_graph.
+  rewrite Forall_forall. intros p Hin. simpl in Hin.
+  induction E as [|[a b] E' IH].
+  - simpl in Hin. contradiction.
+  - simpl in Hin. destruct (a =? u) eqn:Hau.
+    + simpl in Hin. destruct Hin as [Heq | Hin'].
+      * subst p. simpl. pose proof (G_well_formed_corollary V ((a, b) :: E') Hwf).
+        specialize (H a b).
+        assert (Hin_ab : In (a, b) ((a, b) :: E')). { left. reflexivity. }
+        specialize (H Hin_ab). destruct H as [Hin_a Hin_b].
+        simpl. repeat rewrite andb_true_iff. repeat split.
+        rewrite member_In_equiv. exact Hin_a.
+        rewrite member_In_equiv. exact Hin_b.
+        apply orb_true_iff. left. apply andb_true_iff. split.
+        apply eqb_refl. apply eqb_refl.
+      * eapply directed_path_subset_edges; eauto. eapply IH. eapply G_well_formed_induction in Hwf; eauto. auto.
+    + eapply directed_path_subset_edges; eauto. eapply IH. eapply G_well_formed_induction in Hwf; eauto. auto.
+Qed.
+
+Lemma dfs_extend_by_edge_preserves_start :
+  forall e ps u,
+    (forall p, In p ps -> path_start p = u) ->
+    fst (dfs_extend_by_edge e ps) = false ->
+    (forall p, In p (snd (dfs_extend_by_edge e ps)) -> path_start p = u).
+Proof.
+  intros [e_u e_v] ps u Hall Hno_cycle p Hin.
+  induction ps as [|h ps' IH].
+  - simpl in Hin. contradiction.
+  - destruct h as [[h_u h_v] h_l].
+    simpl in Hin. destruct (e_u =? e_v) eqn:Hself.
+    + simpl in Hno_cycle. rewrite Hself in Hno_cycle. discriminate.
+    + destruct ((e_u =? h_v) && (h_u =? e_v)) eqn:Hcyc1.
+      * simpl in Hno_cycle. rewrite Hself, Hcyc1 in Hno_cycle. discriminate.
+      * destruct ((e_u =? h_v) && (member e_v h_l)) eqn:Hcyc2.
+        { simpl in Hno_cycle. rewrite Hself, Hcyc1, Hcyc2 in Hno_cycle. discriminate. }
+        destruct (e_u =? h_v) eqn:Hext.
+        { remember (dfs_extend_by_edge (e_u, e_v) ps') as res eqn:Hres.
+          destruct res as [cyc pths].
+          simpl in Hno_cycle. rewrite andb_false_iff in Hcyc1, Hcyc2.
+          destruct Hcyc1. discriminate. destruct Hcyc2. discriminate.
+          rewrite Hself, Hext, H, H0 in Hno_cycle. simpl in Hno_cycle.
+          rewrite <- Hres in Hno_cycle. simpl in Hno_cycle.
+          destruct cyc; [discriminate | ].
+          simpl in Hin.
+          destruct Hin as [Heq | Hin'].
+          - subst p. eapply Hall; eauto. simpl. left. auto.
+          - unfold add_path_no_repeats in Hin'. destruct (member_path (h_u, e_v, h_l ++ [h_v])) eqn: Hmemp.
+            { simpl. eapply IH; eauto. intros. eapply Hall; eauto. simpl. right. apply H1. }
+            { apply in_app_or in Hin'.
+            destruct Hin' as [Hin_ext | Hin_rec].
+              { simpl. eapply IH; eauto. intros. eapply Hall; eauto. simpl. right. apply H1. }
+              assert (path_start (h_u, h_v, h_l) = u). eapply Hall; eauto. simpl. left. reflexivity.
+              simpl in Hin_rec. destruct Hin_rec. subst p. simpl. simpl in H1. auto. exfalso. auto.
+        } }
+        { simpl in Hin. destruct Hin as [Heq | Hin'].
+          - subst p. simpl. assert (path_start (h_u, h_v, h_l) = u). eapply Hall; eauto. simpl. left. reflexivity.
+            simpl in H. auto.
+          - remember (dfs_extend_by_edge (e_u, e_v) ps') as res eqn:Hres.
+          destruct res as [cyc pths].
+          simpl in Hno_cycle.
+          rewrite Hself, Hext in Hno_cycle.
+          rewrite <- Hres in Hno_cycle. simpl in Hno_cycle.
+          destruct cyc; [discriminate | ].
+            apply IH.
+            + intros p' Hin_p'. apply Hall. right. exact Hin_p'.
+            + simpl. reflexivity.
+            + exact Hin'.
+        }
+Qed.
+
+Lemma dfs_extend_by_edges_preserves_start :
+  forall E ps u,
+    (forall p, In p ps -> path_start p = u) ->
+    fst (dfs_extend_by_edges E ps) = false ->
+    (forall p, In p (snd (dfs_extend_by_edges E ps)) -> path_start p = u).
+Proof. induction E as [|e E' IH].
+  - intros. simpl in H1. apply H. exact H1.
+  - intros ps u Hp Hfst. intros [[pu pv] pl] Hsnd. simpl in Hsnd. destruct  (fst (dfs_extend_by_edge e ps)).
+    simpl in Hsnd. exfalso. auto. specialize (IH (snd (dfs_extend_by_edge e ps)) u). eapply IH; eauto.
+    + intros. eapply dfs_extend_by_edge_preserves_start; eauto. simpl in Hfst. destruct  (fst (dfs_extend_by_edge e ps)).
+    simpl in Hfst. auto. reflexivity.
+    + simpl in Hfst. destruct (fst (dfs_extend_by_edge e ps)). simpl in Hfst. discriminate. auto.
+Qed.
+Lemma dfs_extend_by_edges_iter_preserves_start :
+  forall E ps k u,
+    (forall p, In p ps -> path_start p = u) ->
+    fst (dfs_extend_by_edges_iter E ps k) = false ->
+    (forall p, In p (snd (dfs_extend_by_edges_iter E ps k)) -> path_start p = u).
+Proof. intros E ps k. revert E ps. induction k.
+  - intros E ps u Hps Hfst p Hsnd. simpl in *. eapply Hps; eauto.
+  - intros E ps u Hps Hfst p Hsnd. simpl in *. destruct (fst (dfs_extend_by_edges E ps)) eqn:Hf.
+    simpl in Hfst. discriminate. eapply IHk with (ps:= (snd (dfs_extend_by_edges E ps))); eauto.
+    intros. eapply dfs_extend_by_edges_preserves_start; eauto.
+Qed.
+
+Lemma find_directed_paths_from_start_all_start_at_u :
+  forall G u p,
+    In p (find_directed_paths_from_start u G) ->
+    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths_from_start u (snd G)) (length (fst G))) = false ->
+    path_start p = u.
+Proof.
+  intros [V E] u p Hin Hno_cycle. unfold find_directed_paths_from_start in Hin.
+  simpl in *. eapply dfs_extend_by_edges_iter_preserves_start; eauto.
+  intros p' Hin'. eapply directed_edges_as_paths_from_start_all_start_at_u. exact Hin'.
+Qed.
+
+Lemma find_descendants_sound : forall G: graph, forall u v: node,
+  G_well_formed G = true ->
+  contains_cycle G = false ->
+  In v (find_descendants u G) ->
+  u = v \/ exists U: path, is_directed_path_in_graph U G = true /\ path_start_and_end U u v = true.
+Proof. intros [V E] u v Hwf Hno_cycle Hin.
+  unfold find_descendants in Hin. simpl in Hin.
+  destruct Hin as [Heq | Hin_endpoints].
+  - left. symmetry. eauto.
+  - right. apply get_endpoints_extracts_path in Hin_endpoints.
+    destruct Hin_endpoints as [p [Hin_p Hend_p]].
+    assert (Hinit_valid : directed_paths_in_graph (directed_edges_as_paths_from_start u E) (V, E)).
+    { eapply directed_edges_as_paths_from_start_in_graph; eauto. }
+    assert (Hall_acyclic : forall p', is_directed_path_in_graph p' (V, E) = true -> acyclic_path_2 p').
+    { intros p' Hp'. eapply contains_cycle_false_correct; eauto. }
+    assert (Hiter := dfs_iter_no_cycle (V, E) (length V) (directed_edges_as_paths_from_start u E)
+                                       Hwf Hinit_valid Hall_acyclic).
+    destruct Hiter as [Hno_cyc_iter Hdir_result].
+    assert (Hvalid_p : is_directed_path_in_graph p (V, E) = true).
+    { unfold directed_paths_in_graph in Hdir_result. rewrite Forall_forall in Hdir_result. apply Hdir_result. exact Hin_p. }
+    assert (Hstart_p : path_start p = u).
+    { eapply dfs_extend_by_edges_iter_preserves_start; eauto. intros.
+      eapply directed_edges_as_paths_from_start_all_start_at_u; eauto. }
+     exists p. split.
+    + exact Hvalid_p.
+    + unfold path_start_and_end. rewrite Hstart_p, Hend_p. simpl. rewrite !Nat.eqb_refl. reflexivity.
+Qed.
+
+Lemma find_descendants_complete: forall G: graph, forall u v: node,
+  G_well_formed G = true ->
+  contains_cycle G = false ->
+  (u = v \/ exists U: path, is_directed_path_in_graph U G = true /\ path_start_and_end U u v = true) ->
+  In v (find_descendants u G).
+Proof.
+Admitted.
+
+
 (* v is a descendant of u iff u = v or there is a directed path from u to v *)
 Theorem find_descendants_correct: forall G: graph, forall u v: node,
-  (* contains_cycle G = false -> *)
+  G_well_formed G = true ->
+  contains_cycle G = false ->
   In v (find_descendants u G) <->
   u = v \/ exists U: path, is_directed_path_in_graph U G = true /\ path_start_and_end U u v = true.
 Proof.
-  intros G u v. split.
-  - intros Hv. unfold find_descendants in Hv. destruct Hv as [Hv | Hv].
-    + left. apply Hv.
-    + right. induction (find_directed_paths_from_start u G) as [| h t IH].
-      * simpl in Hv. exfalso. apply Hv.
-      * simpl in Hv. destruct h as [[uh vh] lh]. destruct (member vh (get_endpoints t)) as [|] eqn:Hmem.
-        -- apply IH. apply Hv.
-        -- destruct Hv as [Hv | Hv].
-Admitted.
+  intros. split; intros.
+  - eapply find_descendants_sound; eauto.
+  - eapply find_descendants_complete; eauto.
+Qed.
 
 
 (* find ancestors of a node by finding all nodes in G of which the given
