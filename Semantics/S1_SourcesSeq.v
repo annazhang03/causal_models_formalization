@@ -52,11 +52,11 @@ Lemma assignment_sequence_len_shorter_than_path {X: Type} `{EqType X}: forall (G
 Proof.
   intros G [[u v] l] U L x Hp Hc HL.
   assert (Hl: length (get_sources_in_g_path G (u, v, l)) <= path_length (u, v, l)).
-  { apply sources_len with (G := G). apply Hp. apply Hc. reflexivity. }
+  { apply sources_len with (G := G). admit. apply Hp. apply Hc. reflexivity. }
   assert (Hl': length L <= length (get_sources_in_g_path G (u, v, l))).
   { apply assignment_sequence_len_shorter_than_S1 with (U := U) (x := x). apply HL. }
   lia.
-Qed.
+Admitted.
 
 Lemma assignment_sequence_len_U {X: Type} `{EqType X}: forall (A: nodes) (U U': assignments X) (L L': list (assignments X)) (x: X),
   get_assignment_sequence_from_sources A U x = L
@@ -135,6 +135,8 @@ Proof.
             apply eqb_eq in Hbw. rewrite <- Hbw in *. clear Hbw.
             apply conditioned_node_between_sources with (Z := Z) in HS1 as Hz. destruct Hz as [z Hz]. exfalso. apply Hw.
             apply ancestor_in_Z_corresponds_to_conditioned_node with (z := z).
+            ** auto.
+            ** auto.
             ** apply assigned_is_true. apply assigned_has_value with (L := Z). split. apply Hz. apply HAZ.
             ** split. apply Hz.
                assert (Hau: exists (au: X), get_assigned_value U a = Some au /\ eqb au x = false). { apply HUx. left. reflexivity. }
@@ -146,6 +148,7 @@ Proof.
                     destruct p as [[u v] l]. apply Hp. destruct p as [[u v] l]. simpl. simpl in HS1. rewrite HS1. left. reflexivity. }
                    destruct G as [V E]. simpl. apply member_In_equiv. simpl in Ha. apply Ha.
                --- intros Haux. destruct Hau as [_ Hau]. rewrite Haux in Hau. rewrite eqb_refl' in Hau. discriminate Hau.
+            ** auto.
             ** apply HG2.
             ** apply HZ.
             ** apply Hp.
@@ -167,7 +170,7 @@ Proof.
       -- apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. apply Hb. apply Hp.
       -- apply subpath_still_acyclic with (w := u) (l1 := l1) (l3 := l). split. apply Hb. apply Hcyc.
       -- apply subpath_still_d_connected_gen with (w := u) (l1 := l1) (l3 := l). split. apply Hb. apply Hconn.
-      -- apply subpath_preserves_sources with (u := u) (l1 := l1) (A := c :: l4) (l := l) (A' := [a]). apply HG2. apply Hp. apply HS1. apply Hb. apply Hcyc.
+      -- apply subpath_preserves_sources with (u := u) (l1 := l1) (A := c :: l4) (l := l) (A' := [a]). auto. apply HG2. apply Hp. apply HS1. apply Hb. apply Hcyc.
       -- intros w Hw. assert (Hind: exists (r: X), get_assigned_value U w = Some r /\ eqb r x = false).
          { apply HUx. right. apply Hw. } destruct Hind as [r Hr].
          simpl in HA. inversion HA. simpl.

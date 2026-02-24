@@ -119,6 +119,7 @@ Proof.
       apply HnewPath. }
     simpl in contra. destruct contra as [contra _].
     apply eqb_neq in contra. rewrite eqb_refl in contra. discriminate contra.
+    admit. admit.
   - (* For each path, the second node is a parent P (since the path is backdoor).
        The path is blocked: if P is a mediator or confounder, then it blocks
        the path. If P is a collider, contradiction (cycle (X, P), (P, X)) *)

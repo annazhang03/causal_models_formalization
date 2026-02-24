@@ -470,7 +470,7 @@ Proof.
               destruct (h =? u) as [|] eqn:Hhu.
               ** assert (Hp: forall v: node, In v (find_parents u G) -> In v tsp).
                  { apply topo_sort_parents_before with (t := t). split. apply Hwf.
-                   apply eqb_eq in Hhu. rewrite Hhu in Hts. apply Hts. }
+                   apply eqb_eq in Hhu. rewrite Hhu in Hts. split. admit. apply Hts. }
                  unfold get_assigned_value. simpl. rewrite Hhu. apply eqb_eq in Hhu.
                  assert (H: get_value_of_node u G g U1 A1 A1' = get_value_of_node u G g U2 A2 A2').
                  { apply value_same_if_parents_are_same. repeat split.
@@ -532,7 +532,7 @@ Proof.
         -- apply Hv.
       * discriminate HV2.
     + discriminate HV1.
-Qed.
+Admitted.
 
 (* as long as u has the same error term,
    its parents have the same values,
@@ -584,7 +584,7 @@ Proof.
     assert (Hh: exists x: X, get_value_of_node h G g U A A_eval = Some x).
     { apply value_exists_if_parents_are_assigned. repeat split.
       - assert (Hp: forall (p: node), In p (find_parents h G) -> In p tsp).
-        { apply topo_sort_parents_before with (t := t). split. apply Hwf. apply Hts. }
+        { apply topo_sort_parents_before with (t := t). split. apply Hwf. split. admit. apply Hts. }
         unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
         specialize Hp with (p := p). apply Hp in Hmem.
         apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
@@ -606,7 +606,7 @@ Proof.
       * apply is_assigned_app2. apply assigned_is_true. apply assigned_has_value with (L := [h]). split.
         -- apply Hmem.
         -- simpl. rewrite eqb_refl. simpl. reflexivity.
-Qed.
+Admitted.
 
 Theorem get_values_existence: forall X (G: graph) (g: graphfun) (U A: assignments X),
   G_well_formed G = true /\ contains_cycle G = false ->

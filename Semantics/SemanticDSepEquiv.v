@@ -63,7 +63,7 @@ Proof.
 
   assert (Heq: generic_graph_and_type_properties_hold X G /\ In (u, v, l) (find_all_paths_from_start_to_end u v G)).
   { split. apply HG. apply paths_start_to_end_correct.
-    apply HG. admit.
+    apply HG. destruct HG as [_ [HG HG']]. eapply contains_cycle_no_self_loop; eauto.
     split. apply Huvl. split. apply path_start_end_refl. apply Huvl. }
 
   (* we can use any arbitrary assignment of nodes in Z; we choose to condition them all to equal y *)
@@ -178,7 +178,8 @@ Proof.
     - unfold sequence_of_ancestors_change_for_Z in HUseq. apply HUseq. }
 
   apply Hx'. rewrite Hva' in H_contra. rewrite Hvb' in H_contra. inversion H_contra. reflexivity.
-Admitted.
+  apply HG. destruct HG as [_ [HG HG']]. eapply contains_cycle_no_self_loop; eauto.
+Qed.
 
 
 
@@ -290,11 +291,15 @@ Proof.
         * unfold concat in HG. unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
         * apply Hwf.
         * apply Hcycle.
+        * apply HG.
+        * apply HG.
+        * apply HG.
+        * apply HG.
       + (* v -> ...l... -> u is d-connected path *) left. clear Hancu. clear Hancv.
         apply unblocked_ancestors_have_unblocked_directed_path in Heqancv. destruct Heqancv as [Hancu | Hancu]. exfalso. apply Huv. rewrite Hancu. reflexivity.
         destruct Hancu as [l [Hdir [Hcycu HlZ]]]. exists l.
         assert (Hconn: d_connected_2 (v, u, l) G Z). { apply H_conn_unb_anc. split. apply Hdir. apply HlZ. apply Hcycu. }
-        split. apply Hconn. split. apply Hdir. split. apply Hcycu. apply HlZ.
+        split. apply Hconn. split. apply Hdir. split. apply Hcycu. apply HlZ. apply HG. apply HG.
     - pose proof Hancv as Hancv'. apply unblocked_ancestors_have_unblocked_directed_path in Hancv. destruct Hancv as [Hancv | Hancv].
       (* v is not an unblocked ancestor of u *) rewrite Hancv in Hancu. apply member_In_equiv in Hancu. rewrite Hancu in Heqancv. discriminate Heqancv.
       destruct (member u (find_unblocked_ancestors G v Z)) as [|] eqn:Heqancu.
@@ -302,12 +307,14 @@ Proof.
         apply unblocked_ancestors_have_unblocked_directed_path in Heqancu. destruct Heqancu as [Hancv | Hancv]. exfalso. apply Huv. apply Hancv.
         destruct Hancv as [l [Hdir [Hcycv HlZ]]]. exists l.
         assert (Hconn: d_connected_2 (u, v, l) G Z). { apply H_conn_unb_anc. split. apply Hdir. apply HlZ. apply Hcycv. }
-        split. apply Hconn. split. apply Hdir. split. apply Hcycv. apply HlZ.
+        split. apply Hconn. split. apply Hdir. split. apply Hcycv. apply HlZ. apply HG. apply HG.
       + (* u <- ...lu... <- anc -> ...lv... -> v  is a d-connected path *) right. right.
         apply unblocked_ancestors_have_unblocked_directed_path in Hancu. destruct Hancu as [Hancu | Hancu]. rewrite Hancu in Hancv'. apply member_In_equiv in Hancv'. rewrite Hancv' in Heqancu. discriminate Heqancu.
         assert (Hanc': exists (anc': node) (lu lv: nodes), is_directed_path_in_graph (anc', u, lu) G = true /\ is_directed_path_in_graph (anc', v, lv) G = true
                        /\ (forall w : node, w = anc' \/ In w lu \/ In w lv -> ~ In w Z) /\ acyclic_path_2 (u, v, (rev lu) ++ (anc' :: lv))).
         { destruct Hancv as [lv' Hv']. destruct Hancu as [lu' Hu']. apply acyclic_path_if_common_ancestor with (anc := anc) (lu := lu') (lv := lv') (len := S (length lu')).
+          - apply HG.
+          - apply HG.
           - split. apply Huv. split. intros Hmem. apply member_In_equiv in Hmem. rewrite Hmem in Heqancu. discriminate Heqancu.
             intros Hmem. apply member_In_equiv in Hmem. rewrite Hmem in Heqancv. discriminate Heqancv.
           - lia.
@@ -324,7 +331,10 @@ Proof.
           - apply Hdirv.
           - intros w Hw. apply HlulvZ. destruct Hw as [Hw | Hw]. left. apply Hw. right. right. apply Hw.
           - split. apply Hpath. apply Hcycuv. }
-        split. apply Hconn. split. apply Hpath. split. apply Hdiru. split. apply Hdirv. split. apply Hcycuv. apply HlulvZ. }
+        split. apply Hconn. split. apply Hpath. split. apply Hdiru. split. apply Hdirv. split. apply Hcycuv. apply HlulvZ.
+        apply HG. apply HG.
+        + apply HG.
+        + apply HG. }
 
   assert (H_sep_shared_unb_anc: forall (anc: node) (u v: node), u <> v -> In anc (find_unblocked_ancestors G v Z) /\ In anc (find_unblocked_ancestors G u Z)
                   -> d_separated_bool u v G Z = true -> False).
@@ -641,12 +651,12 @@ Proof.
                       + right. right. split. apply Hmem'. unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common.
                         apply membership_append_or in Hmem. destruct Hmem as [Hmem | Hmem].
                         * exists z'. split. 2: { apply HzZ'. }
-                          apply find_descendants_correct. right. apply membership_splits_list in Hmem. destruct Hmem as [lz1' [lz2' Hlz']].
+                          apply find_descendants_correct. apply HG. apply HG. right. apply membership_splits_list in Hmem. destruct Hmem as [lz1' [lz2' Hlz']].
                           exists (x, z', rev lz1'). split. 2: { apply path_start_end_refl. } apply subpath_still_directed with (w := az') (l1 := rev lz2') (l3 := lz').
                           split. rewrite reverse_list_twice with (l := lz'). unfold nodes in *. unfold node in *. rewrite <- Hlz'. rewrite reverse_list_append. simpl. rewrite <- app_assoc. reflexivity.
                           apply Hlzlz'.
                         * exists z. split. 2: { apply HzZ. }
-                          apply find_descendants_correct. right. destruct Hmem as [Hmem | Hmem]. rewrite <- Hmem in *. exists (az', z, lz). split. apply Hlzlz'. apply path_start_end_refl.
+                          apply find_descendants_correct. apply HG. apply HG. right. destruct Hmem as [Hmem | Hmem]. rewrite <- Hmem in *. exists (az', z, lz). split. apply Hlzlz'. apply path_start_end_refl.
                           apply membership_splits_list in Hmem. destruct Hmem as [lz1' [lz2' Hlz']].
                           exists (x, z, lz2'). split. 2: { apply path_start_end_refl. } apply subpath_still_directed with (w := az') (l1 := lz1') (l3 := lz).
                           split. apply Hlz'. apply Hlzlz'. }
@@ -749,7 +759,7 @@ Proof.
                     + left. split. apply Hmem'. apply HxZ.
                     + right. left. split. apply Hmem'. apply HxZ.
                     + right. right. split. apply Hmem'. unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists z. split. 2: { apply HzZ. }
-                      apply find_descendants_correct. right. exists (x, z, lv2). split. 2: { apply path_start_end_refl. }
+                      apply find_descendants_correct. apply HG. apply HG. right. exists (x, z, lv2). split. 2: { apply path_start_end_refl. }
                       apply subpath_still_directed with (w := v') (l1 := tlv1) (l3 := lv). split. symmetry. apply H3. apply Hlv. }
 
         + exists (lu ++ [z] ++ rev lv).
@@ -890,7 +900,7 @@ Proof.
                       destruct Hmem as [Hmem | [Hmem | Hmem]].
                       * unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common.
                         exists z. split. 2: { apply HzZ. }
-                        apply find_descendants_correct. right. apply membership_rev in Hmem. rewrite <- reverse_list_twice in Hmem. apply membership_splits_list in Hmem. destruct Hmem as [lz1' [lz2' Hlz']].
+                        apply find_descendants_correct. apply HG. apply HG. right. apply membership_rev in Hmem. rewrite <- reverse_list_twice in Hmem. apply membership_splits_list in Hmem. destruct Hmem as [lz1' [lz2' Hlz']].
                         exists (x, z, lz2'). split. 2: { apply path_start_end_refl. } apply subpath_still_directed with (w := az) (l1 := lz1') (l3 := lz).
                         split. apply Hlz'. apply Haz.
                       * exfalso. rewrite <- Hmem in *.
@@ -988,7 +998,8 @@ Proof.
       { apply path_d_connected_then_not_semantically_separated with (p := (u, v, l)).
         - split. apply HG.
           apply paths_start_to_end_correct.
-          apply HG. admit. split.
+          apply HG. destruct HG as [_ [HG HG']]. eapply contains_cycle_no_self_loop; eauto.
+          split.
           + apply Hp.
           + split.
             * apply path_start_end_refl.
@@ -997,4 +1008,4 @@ Proof.
         - apply Hp. }
       exfalso. apply contra. apply Hcond. }
   { intros Hsep. apply path_d_separated_then_semantically_separated. easy. easy. easy. }
-Admitted.
+Qed.

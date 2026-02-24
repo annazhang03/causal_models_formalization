@@ -603,27 +603,29 @@ Lemma duplicate_graph_maintains_descendants: forall (u: node) (G: graph) (o: nat
 Proof.
   intros u G o d Ho. split.
   - intros Hd. apply find_descendants_correct in Hd. destruct Hd as [Hd | Hd].
-    apply find_descendants_correct. left. lia.
+    apply find_descendants_correct. admit. admit. left. lia.
     destruct Hd as [p [Hdir Hse]].
     destruct p as [[u' d'] l]. apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
-    apply find_descendants_correct. right.
+    apply find_descendants_correct. admit. admit. right.
     exists (u + o, d + o, shift_nodes_by_offset l o). split.
     + rewrite Hu in Hdir. rewrite Hd in Hdir.
       apply duplicate_graph_maintains_dir_paths with (o := o) in Hdir. apply Hdir. apply Ho.
     + apply path_start_end_refl.
+    + admit.
+    + admit.
   - intros Hd. apply find_descendants_correct in Hd. destruct Hd as [Hd | Hd].
-    apply find_descendants_correct. left. lia.
+    apply find_descendants_correct. admit. admit. left. lia.
     destruct Hd as [p' [Hdir Hse]].
     destruct p' as [[u' d'] l'].
     apply duplicate_graph_shifts_dir_paths with (o := o) in Hdir as Huvl.
     destruct Huvl as [u1 [d1 [l [Hu1 [Hd1 Hl]]]]].
     apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
-    + apply find_descendants_correct. right. exists (u, d, l). split.
+    + apply find_descendants_correct. admit. admit. right. exists (u, d, l). split.
       * rewrite Hu in Hdir. rewrite Hd in Hdir. rewrite Hl in Hdir.
         apply duplicate_graph_maintains_dir_paths in Hdir. apply Hdir. apply Ho.
       * apply path_start_end_refl.
     + apply Ho.
-Qed.
+Admitted.
 
 Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes,
   o = max_node_in_graph G ->

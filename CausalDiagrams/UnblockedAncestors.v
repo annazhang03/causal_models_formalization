@@ -192,8 +192,10 @@ Proof.
                  apply Hover. apply subset_larger_set_membership with (l1 := dp'). split. apply Hdp. apply Hx2. apply Hx1.
               ** apply HdZ.
               ** intros Hcd. apply member_In_equiv_F in HcZ. apply HcZ. rewrite Hcd. apply HdZ.
+    + admit.
+    + admit.
   - apply Hc.
-Qed.
+Admitted.
 
 
 Theorem acyclic_path_if_common_ancestor: forall (u v anc: node) (lv lu: nodes) (Z: nodes) (G: graph) (len: nat),

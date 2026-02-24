@@ -321,8 +321,8 @@ Proof.
                    - apply Hlhv.
                    - right. rewrite <- Hlhvc. apply membership_append. apply membership_append_r. left. reflexivity. }
                  rewrite Hz in Hcolc'. destruct Hcolc' as [_ Hcolc'].
-                 destruct HG as [_ HG]. apply contains_cycle_false_correct with (p := (hlc2, hlc2, [c])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-                 admit.
+                 destruct HG as [HG' HG]. apply contains_cycle_false_correct with (p := (hlc2, hlc2, [c])) in HG. exfalso. destruct HG as [HG HG'']. apply HG. reflexivity.
+                 auto.
                  simpl. simpl in Hcv. rewrite Hcv. simpl in Hcolc'. rewrite Hcolc'. reflexivity.
                * destruct lp1 as [| hlp1 tlp1].
                  ++ apply mediators_vs_edges_in_path. exists u. exists hlc2. split. simpl. repeat rewrite eqb_refl. reflexivity. right.
@@ -801,7 +801,7 @@ Proof.
 
                      destruct Houth as [[[dh [ph Houth]] | Houth] _].
                      unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists dh. split.
-                     apply find_descendants_correct. right. exists (h, dh, ph). split. apply Houth. apply path_start_end_refl. apply Houth.
+                     apply find_descendants_correct. apply HG. apply HG. right. exists (h, dh, ph). split. apply Houth. apply path_start_end_refl. apply Houth.
                      exfalso. apply HhZ. apply Houth.
 
                  + simpl in Hconn. destruct (is_collider_bool u ht h G) as [|] eqn:Hcolht.
@@ -835,7 +835,7 @@ Proof.
 
                      destruct Houth as [[[dh [ph Houth]] | Houth] _].
                      unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists dh. split.
-                     apply find_descendants_correct. right. exists (h, dh, ph). split. apply Houth. apply path_start_end_refl. apply Houth.
+                     apply find_descendants_correct. apply HG. apply HG. right. exists (h, dh, ph). split. apply Houth. apply path_start_end_refl. apply Houth.
                      exfalso. apply HhZ. apply Houth. }
 
                assert (Hh': In h Z \/ (~In h Z /\ exists (z: node) (dp: nodes), is_directed_path_in_graph (h, z, dp) G = true /\ acyclic_path_2 (h, z, dp) /\ overlap dp Z = false /\ In z Z)).
@@ -1002,9 +1002,9 @@ Proof.
                    destruct (member u (ph ++ [zh])) as [|] eqn:Hu.
                    - apply member_In_equiv in Hu.
                      (* cycle u -> h ->...ph..-> u *) apply membership_splits_list in Hu. destruct Hu as [lphu1 [lphu2 Hlphu]].
-                     destruct HG as [_ HG]. apply contains_cycle_false_correct with (p := (u, u, h :: lphu1)) in HG.
-                     + exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-                     + admit.
+                     destruct HG as [HG' HG]. apply contains_cycle_false_correct with (p := (u, u, h :: lphu1)) in HG.
+                     + exfalso. destruct HG as [HG HG'']. apply HG. reflexivity.
+                     + auto.
                      + destruct (rev lphu2) as [| hlphu2 tlphu2] eqn:Hlphu2.
                        -- assert (Huv: rev lphu2 = [] -> u = zh /\ lphu1 = ph). { apply Hl2. apply Hlphu. } apply Huv in Hlphu2. destruct Hlphu2 as [Hlphu2 Hlphu2'].
                           simpl. apply split_and_true. split. apply Huh. rewrite Hlphu2. rewrite Hlphu2'. apply Hh'.
@@ -1391,9 +1391,9 @@ Proof.
                               * apply Hcychv.
                             + right. right. rewrite and_comm. split.
                               * unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists dy. rewrite and_comm. split. apply Hpdy''.
-                                apply find_descendants_correct. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. destruct (rev lyd2) as [| hlyd2 tlyd2] eqn:Hlyd2.
-                                -- apply Hl2 in Hy'. left. apply Hy'. apply Hlyd2.
-                                -- apply Hl2 in Hy'. right. exists (y, dy, rev tlyd2). split. apply subpath_still_directed with (w := cy) (l1 := lyd1) (l3 := py). split. symmetry. apply Hy' with (hl2 := hlyd2) (tl2 := tlyd2). apply Hlyd2. apply Hpdy''.
+                                apply find_descendants_correct; try apply HG. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. destruct (rev lyd2) as [| hlyd2 tlyd2] eqn:Hlyd2.
+                                eapply Hl2 in Hy'. left. apply Hy'. apply Hlyd2.
+                                apply Hl2 in Hy'. right. exists (y, dy, rev tlyd2). split. apply subpath_still_directed with (w := cy) (l1 := lyd1) (l3 := py). split. symmetry. apply Hy' with (hl2 := hlyd2) (tl2 := tlyd2). apply Hlyd2. apply Hpdy''.
                                    apply path_start_end_refl.
                               * apply Hycol.
                           - left. apply and_comm. split.
@@ -1911,7 +1911,7 @@ Proof.
                                -- apply subpath_still_acyclic with (w := h) (l1 := ph1) (l3 := ph1 ++ [x]  ++lxy1 ++ [y] ++ rev lcyd1 ++ [cy] ++ lcyv2). split. reflexivity. apply Hcychv.
                              * right. right. rewrite and_comm. split.
                                ++ unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists dy. rewrite and_comm. split. apply Hpdy''.
-                                  apply find_descendants_correct. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. destruct (rev lcyd2) as [| hlyd2 tlyd2] eqn:Hlyd2.
+                                  apply find_descendants_correct; try apply HG. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. destruct (rev lcyd2) as [| hlyd2 tlyd2] eqn:Hlyd2.
                                   -- apply Hl2 in Hy'. left. apply Hy'. apply Hlyd2.
                                   -- apply Hl2 in Hy'. right. exists (y, dy, rev tlyd2). split. apply subpath_still_directed with (w := cy) (l1 := lcyd1) (l3 := py). split. symmetry. apply Hy' with (hl2 := hlyd2) (tl2 := tlyd2). apply Hlyd2. apply Hpdy''.
                                      apply path_start_end_refl.
@@ -2391,7 +2391,7 @@ Proof.
                              * apply overlap_has_member_in_common. exists zh. symmetry in Hx. apply Hl2 in Hx. destruct (rev ph2) as [| hph2 tph2] eqn:Hph2.
                                -- assert (Hxzh: x = zh /\ ph1 = ph). { apply Hx. apply Hph2. } destruct Hxzh as [Hxzh _]. split. rewrite Hxzh. unfold find_descendants. left. reflexivity.
                                   apply Hh'.
-                               -- assert (Hxzh: zh = hph2 /\ ph = ph1 ++ [x] ++ rev tph2). { apply Hx. apply Hph2. } destruct Hxzh as [_ Hxzh]. split. apply find_descendants_correct.
+                               -- assert (Hxzh: zh = hph2 /\ ph = ph1 ++ [x] ++ rev tph2). { apply Hx. apply Hph2. } destruct Hxzh as [_ Hxzh]. split. apply find_descendants_correct; try apply HG.
                                   right. exists (x, zh, rev tph2). split. apply subpath_still_directed with (w := h) (l1 := ph1) (l3 := ph). split. symmetry. apply Hxzh. apply Hh'. apply path_start_end_refl. apply Hh'.
                              * apply Hxcol. reflexivity.
                          - left. apply and_comm. split.
@@ -2794,7 +2794,7 @@ Proof.
                          + apply Hcychv.
                        - right. right. rewrite and_comm. split.
                          ++ unfold some_descendant_in_Z_bool. apply overlap_has_member_in_common. exists dy. rewrite and_comm. split. apply Hpdy''.
-                            apply find_descendants_correct. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. destruct (rev lcy2) as [| hlyd2 tlyd2] eqn:Hlyd2.
+                            apply find_descendants_correct; try apply HG. destruct Hy' as [_ [Hy' _]]. symmetry in Hy'. destruct (rev lcy2) as [| hlyd2 tlyd2] eqn:Hlyd2.
                             -- apply Hl2 in Hy'. left. apply Hy'. apply Hlyd2.
                             -- apply Hl2 in Hy'. right. exists (y, dy, rev tlyd2). split. apply subpath_still_directed with (w := cy) (l1 := lcy1) (l3 := py). split. symmetry. apply Hy' with (hl2 := hlyd2) (tl2 := tlyd2). apply Hlyd2. apply Hpdy''.
                                apply path_start_end_refl.
@@ -3220,4 +3220,4 @@ Proof.
                            -- apply Hc. apply Hc'. } }
     + apply subpath_still_d_connected with (u := u). apply Hconn.
     + simpl in Hpath. destruct G as [V E]. apply split_and_true in Hpath. apply Hpath.
-Admitted.
+Qed.

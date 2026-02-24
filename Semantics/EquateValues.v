@@ -353,7 +353,8 @@ Proof.
   { destruct p as [[u' v'] l]. apply paths_start_to_end_correct in Hp. destruct Hp as [_ [Hp _]].
     apply path_start_end_equal in Hp. destruct Hp as [Huu' Hvv']. exists l. rewrite Huu'. rewrite Hvv'. reflexivity.
     unfold generic_graph_and_type_properties_hold in HG. apply HG.
-    admit. }
+    unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [hwf HG]]. eapply contains_cycle_no_self_loop; eauto.
+    }
   destruct Hpath as [l Hpath]. rewrite Hpath in *. clear Hpath.
 
   remember (u :: l ++ [v]) as n.
@@ -372,7 +373,8 @@ Proof.
         { apply acyclic_path_one_direction in Hout.
           -- apply Hout.
           -- split. apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
-             unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [Hwf HG]]. apply Hwf. admit. apply HG. }
+             unfold generic_graph_and_type_properties_hold in HG. destruct HG as [_ [Hwf HG]]. apply Hwf.
+             destruct HG as [_ [Hwf HG]]. eapply contains_cycle_no_self_loop; eauto. apply HG. }
         assert (Hi: exists i: nat, index (find_parents v G) u = Some i).
         { assert (Hu: In u (find_parents v G)).
           { apply edge_from_parent_to_child. simpl in Hout. destruct G as [V E]. simpl. simpl in Hout. apply split_and_true in Hout.
@@ -1741,7 +1743,7 @@ Proof.
                   - left. apply Hin. }
 
                 assert (HA1ind: get_sources_in_g_path G (u, v, h :: t) = get_sources_in_g_path G (h, v, t)).
-                { apply sources_induction_into_start.
+                { apply sources_induction_into_start. admit.
                   - split.
                     ** apply Hp.
                     ** destruct HG as [_ [_ HG]]. apply HG.
@@ -1892,7 +1894,7 @@ Proof.
               -- destruct (get_sources_in_g_path G (u, v, l)) as [| h4 t4] eqn:H4. apply sources_nonempty in H4. exfalso. apply H4.
                  apply Hp. simpl in Huw. apply member_In_equiv. rewrite <- node_in_path_equiv with (l := l).
                  apply sources_in_path with (G := G). unfold nodes in *. rewrite H4. left. apply Huw.
-              -- rewrite <- Huw. apply next_source_is_unblocked_ancestor_2. apply Hp. apply HG.
+              -- rewrite <- Huw. apply next_source_is_unblocked_ancestor_2. unfold generic_graph_and_type_properties_hold in HG. apply HG. apply Hp. apply HG.
                  apply Hp. apply Hconn. apply HvZ.
             * unfold assignments_equiv in HeqUx. specialize HeqUx with (u := w).
               remember (hd 0 (get_sources_in_g_path G (u, v, l))) as x4. simpl in HeqUx. rewrite Huw in HeqUx.

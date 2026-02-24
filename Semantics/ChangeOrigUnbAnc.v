@@ -92,7 +92,7 @@ Proof.
         { destruct ts as [| h t].
           - simpl in Hi. discriminate Hi.
           - simpl in Hi. destruct (h =? u) as [|] eqn:Hhu.
-            + apply topo_sort_first_node_no_parents with (ts := t). split. easy. apply eqb_eq in Hhu. rewrite Hhu in Hts. apply Hts.
+            + apply topo_sort_first_node_no_parents with (ts := t). split. easy. apply eqb_eq in Hhu. rewrite Hhu in Hts. split. apply HG. apply Hts.
             + destruct (index t u) as [j|]. inversion Hi. discriminate Hi. }
         rewrite Hpar in *. simpl in Hpa1. inversion Hpa1. rewrite H1 in *.
         simpl in Hpa2. inversion Hpa2. rewrite H2 in *.
@@ -129,7 +129,7 @@ Proof.
       destruct Hppa2 as [P2p [HP2p [pa2p [Hpa2p [unobs2p [Hunobs2p Hg2p]]]]]].
 
       assert (Hpu: In p (find_unblocked_ancestors G u Z)).
-      { apply unblocked_ancestors_have_unblocked_directed_path. right. exists []. repeat split.
+      { apply unblocked_ancestors_have_unblocked_directed_path. apply HG. apply HG. right. exists []. repeat split.
          ++ simpl. unfold is_edge. destruct G as [V E]. simpl in HuG. rewrite HuG. simpl in HpG. rewrite HpG.
             apply edge_from_parent_to_child in Hmemp. simpl in Hmemp. rewrite Hmemp. reflexivity.
          ++ repeat split. intros F.
@@ -170,6 +170,8 @@ Proof.
           - easy. }
         destruct Hind as [a Ha]. exists a. repeat split.
         -- apply unblocked_ancestors_transitive with (ancu' := p).
+           ++ apply HG.
+           ++ apply HG.
            ++ apply Hpu.
            ++ apply Ha.
         -- apply Ha.
@@ -334,7 +336,8 @@ Proof.
     destruct Hav as [l [Hl _]]. apply directed_path_is_path in Hl. apply node_in_path_has_edge with (w := a) in Hl. destruct Hl as [x [_ Hx]].
     assert (node_in_graph a G = true).
     { apply is_edge_then_node_in_graph with (v := x). apply or_comm. apply Hx. }
-    destruct G as [V E]. simpl. apply member_In_equiv. apply H0. rewrite node_in_path_equiv. simpl. rewrite eqb_refl. reflexivity. }
+    destruct G as [V E]. simpl. apply member_In_equiv. apply H0. rewrite node_in_path_equiv. simpl. rewrite eqb_refl. reflexivity.
+    apply HG. apply HG. }
 
   destruct (member a (find_unblocked_ancestors G u Z)) as [|] eqn:Hmem.
   - left. apply member_In_equiv in Hmem. apply Hmem.
