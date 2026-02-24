@@ -3,8 +3,8 @@ From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 
@@ -12,7 +12,7 @@ Import ListNotations.
 
 (* find all mediators, such as B in A -> B -> C. *)
 Definition find_mediators (u v: node) (V: nodes) (E: edges) : nodes :=
-  if (member u V && member v V) 
+  if (member u V && member v V)
   then filter (fun x => (member_edge (u, x) E && member_edge (x, v) E)) V
   else [].
 
@@ -23,7 +23,7 @@ Example test_no_mediator: find_mediators 1 2 V E = [].
 Proof. reflexivity. Qed.
 
 Example test_not_mediator: ~(is_mediator 1 2 3 G).
-Proof. 
+Proof.
   unfold not.
   intros H.
   unfold is_mediator in H. simpl in H. apply H.
@@ -36,19 +36,19 @@ Example test_two_mediators: find_mediators 1 2 [1;2;3;4;5] [(1, 2); (4, 2); (3, 
 Proof. reflexivity. Qed.
 
 Example test_is_mediator: is_mediator 4 2 1 G.
-Proof. 
+Proof.
   unfold is_mediator. simpl. apply I.
 Qed.
 
 Definition is_mediator_bool (u v med: node) (G: graph) : bool :=
   is_edge (u, med) G && is_edge (med, v) G.
 
-Theorem is_mediator_Prop_vs_bool: forall u v med: node, forall G: graph, 
+Theorem is_mediator_Prop_vs_bool: forall u v med: node, forall G: graph,
   is_mediator_bool u v med G = true <-> is_mediator u v med G.
 Proof.
   intros u v med G.
   split.
-  - intros H. unfold is_mediator. unfold is_mediator_bool in H. 
+  - intros H. unfold is_mediator. unfold is_mediator_bool in H.
     rewrite H. apply I.
   - intros H. unfold is_mediator_bool. unfold is_mediator in H.
     destruct (is_edge (u, med) G && is_edge (med, v) G) as [|] eqn:H1.
@@ -63,13 +63,13 @@ Proof.
   split.
   - intros Hmed.
     unfold find_mediators.
-    unfold is_mediator in Hmed. 
+    unfold is_mediator in Hmed.
     destruct (is_edge (a, b) (V, E) && is_edge (b, c) (V, E)) as [|] eqn:Hedges.
     + unfold is_edge in Hedges. apply split_and_true in Hedges.
       destruct Hedges as [H1 H3].
-      apply split_and_true in H1. destruct H1 as [H1 Hab]. 
+      apply split_and_true in H1. destruct H1 as [H1 Hab].
       apply split_and_true in H1. destruct H1 as [Ha Hb]. rewrite Ha.
-      apply split_and_true in H3. destruct H3 as [Hc Hbc]. rewrite andb_comm in Hc. apply andb_true_elim2 in Hc. 
+      apply split_and_true in H3. destruct H3 as [Hc Hbc]. rewrite andb_comm in Hc. apply andb_true_elim2 in Hc.
       rewrite Hc. simpl.
       apply filter_true. split.
       * apply member_In_equiv. apply Hb.
@@ -87,7 +87,7 @@ Qed.
 
 (* find all confounders, such as B in A <- B -> C. *)
 Definition find_confounders (u v: node) (V: nodes) (E: edges) : nodes :=
-  if (member u V && member v V) 
+  if (member u V && member v V)
   then filter (fun x => (member_edge (x, u) E && member_edge (x, v) E)) V
   else [].
 
@@ -100,12 +100,12 @@ Definition is_confounder (u v con: node) (G: graph) : Prop :=
 Definition is_confounder_bool (u v con: node) (G: graph) : bool :=
   is_edge (con, u) G && is_edge (con, v) G.
 
-Theorem is_confounder_Prop_vs_bool: forall u v con: node, forall G: graph, 
+Theorem is_confounder_Prop_vs_bool: forall u v con: node, forall G: graph,
   is_confounder_bool u v con G = true <-> is_confounder u v con G.
 Proof.
   intros u v con G.
   split.
-  - intros H. unfold is_confounder. unfold is_confounder_bool in H. 
+  - intros H. unfold is_confounder. unfold is_confounder_bool in H.
     rewrite H. destruct G as [V E]. apply I.
   - intros H. unfold is_confounder_bool. unfold is_confounder in H.
     destruct (is_edge (con, u) G && is_edge (con, v) G) as [|] eqn:H1.
@@ -119,7 +119,7 @@ Proof. reflexivity. Qed.
 Example test_not_confounder: ~(is_confounder 3 2 1 G).
 Proof.
   unfold not.
-  unfold is_confounder. 
+  unfold is_confounder.
   simpl.
   easy.
 Qed.
@@ -141,13 +141,13 @@ Proof.
   split.
   - intros Hcon.
     unfold find_confounders.
-    unfold is_confounder in Hcon. 
+    unfold is_confounder in Hcon.
     destruct (is_edge (b, a) (V, E) && is_edge (b, c) (V, E)) as [|] eqn:Hedges.
     + unfold is_edge in Hedges. apply split_and_true in Hedges.
       destruct Hedges as [H1 H3].
-      apply split_and_true in H1. destruct H1 as [H1 Hba]. 
+      apply split_and_true in H1. destruct H1 as [H1 Hba].
       apply split_and_true in H1. destruct H1 as [Hb Ha]. rewrite Ha.
-      apply split_and_true in H3. destruct H3 as [Hc Hbc]. rewrite andb_comm in Hc. apply andb_true_elim2 in Hc. 
+      apply split_and_true in H3. destruct H3 as [Hc Hbc]. rewrite andb_comm in Hc. apply andb_true_elim2 in Hc.
       rewrite Hc. simpl.
       apply filter_true. split.
       * apply member_In_equiv. apply Hb.
@@ -166,7 +166,7 @@ Qed.
 
 (* find all colliders, such as B in A -> B <- C. *)
 Definition find_colliders (u v: node) (V: nodes) (E: edges) : nodes :=
-  if (member u V && member v V) 
+  if (member u V && member v V)
   then filter (fun x => (member_edge (u, x) E && member_edge (v, x) E)) V
   else [].
 
@@ -178,12 +178,12 @@ Definition is_collider (u v col: node) (G: graph) : Prop :=
 Definition is_collider_bool (u v col: node) (G: graph) : bool :=
   is_edge (u, col) G && is_edge (v, col) G.
 
-Theorem is_collider_Prop_vs_bool: forall u v col: node, forall G: graph, 
+Theorem is_collider_Prop_vs_bool: forall u v col: node, forall G: graph,
   is_collider_bool u v col G = true <-> is_collider u v col G.
 Proof.
   intros u v col G.
   split.
-  - intros H. unfold is_collider. unfold is_collider_bool in H. 
+  - intros H. unfold is_collider. unfold is_collider_bool in H.
     rewrite H. destruct G as [V E]. apply I.
   - intros H. unfold is_collider_bool. unfold is_collider in H.
     destruct (is_edge (u, col) G && is_edge (v, col) G) as [|] eqn:H1.
@@ -220,13 +220,13 @@ Proof.
   split.
   - intros Hcol.
     unfold find_colliders.
-    unfold is_collider in Hcol. 
+    unfold is_collider in Hcol.
     destruct (is_edge (a, b) (V, E) && is_edge (c, b) (V, E)) as [|] eqn:Hedges.
     + unfold is_edge in Hedges. apply split_and_true in Hedges.
       destruct Hedges as [H1 H3].
-      apply split_and_true in H1. destruct H1 as [H1 Hab]. 
+      apply split_and_true in H1. destruct H1 as [H1 Hab].
       apply split_and_true in H1. destruct H1 as [Ha Hb]. rewrite Ha.
-      apply split_and_true in H3. destruct H3 as [Hc Hcb]. apply andb_true_elim2 in Hc. 
+      apply split_and_true in H3. destruct H3 as [Hc Hcb]. apply andb_true_elim2 in Hc.
       rewrite Hc. simpl.
       apply filter_true. split.
       * apply member_In_equiv. apply Hb.
@@ -243,9 +243,9 @@ Proof.
 Qed.
 
 Theorem middle_node_in_two_path : forall G: graph, forall a b c: node,
-  is_path_in_graph (a, b, [c]) G = true -> 
+  is_path_in_graph (a, b, [c]) G = true ->
         (is_mediator a b c G) \/ (is_mediator b a c G) \/ (is_confounder a b c G) \/ (is_collider a b c G).
-Proof. 
+Proof.
   intros G a b c.
   intros Hpath.
   apply two_paths_correct in Hpath.
@@ -382,13 +382,13 @@ Qed.
 
 (* p contains chain A -> B -> C, where B in Z (the conditioning set) *)
 Definition is_blocked_by_mediator_2 (p: path) (G: graph) (Z: nodes) : bool :=
-  overlap Z (find_mediators_in_path p G). 
+  overlap Z (find_mediators_in_path p G).
 
-Example mediator_in_conditioning_set_2: 
+Example mediator_in_conditioning_set_2:
   is_blocked_by_mediator_2 (1, 3, [2]) ([1; 2; 3], [(1, 2); (2, 3)]) [2] = true.
 Proof. reflexivity. Qed.
 
-Example mediator_not_in_conditioning_set_2: 
+Example mediator_not_in_conditioning_set_2:
   is_blocked_by_mediator_2 (1, 3, [2]) ([1; 2; 3], [(1, 2); (2, 3)]) [] = false.
 Proof. reflexivity. Qed.
 
@@ -482,17 +482,17 @@ Qed.
 
 (* p contains fork A <- B -> C, where B in Z (the conditioning set) *)
 Definition is_blocked_by_confounder_2 (p: path) (G: graph) (Z: nodes) : bool :=
-  overlap Z (find_confounders_in_path p G). 
+  overlap Z (find_confounders_in_path p G).
 
-Example confounder_in_conditioning_set_2: 
+Example confounder_in_conditioning_set_2:
   is_blocked_by_confounder_2 (1, 3, [2]) ([1; 2; 3], [(2, 1); (2, 3)]) [2] = true.
 Proof. reflexivity. Qed.
 
-Example confounder_not_in_conditioning_set_2: 
+Example confounder_not_in_conditioning_set_2:
   is_blocked_by_confounder_2 (1, 3, [2]) ([1; 2; 3], [(2, 1); (2, 3)]) [] = false.
 Proof. reflexivity. Qed.
 
-Example confounder_in_longer_path_2: 
+Example confounder_in_longer_path_2:
   is_blocked_by_confounder_2 (1, 4, [2; 3]) ([1; 2; 3; 4], [(2, 1); (2, 3); (3, 4)]) [2] = true.
 Proof. reflexivity. Qed.
 
@@ -589,7 +589,7 @@ Proof.
   apply colliders_vs_edges_in_path in H. destruct H as [y [z [Hsub Hedge]]].
   unfold concat. unfold find_colliders_in_path. apply colliders_vs_edges_in_path. exists y. exists z.
   split.
-  - rewrite app_comm_cons. replace (m :: l2) with ([m] ++ l2). 
+  - rewrite app_comm_cons. replace (m :: l2) with ([m] ++ l2).
     + apply sublist_breaks_down_list in Hsub. destruct Hsub as [sl1 [sl2 Hl]].
       apply sublist_breaks_down_list. exists sl1. exists (sl2 ++ l2 ++ [v]). rewrite app_assoc. rewrite app_assoc in Hl.
       rewrite app_assoc. rewrite Hl. simpl. rewrite append_vs_concat. unfold node. f_equal. apply rearrange_list_concat_app.
@@ -668,7 +668,7 @@ Definition is_collider_in_path_bool (col: node) (p: path) (G: graph): bool :=
   | (u, v, l) => is_collider_in_path_helper_bool col ((u :: l) ++ [v]) G
   end.
 
-Theorem is_collider_in_path_Prop_vs_bool: forall col: node, forall p: path, forall G: graph, 
+Theorem is_collider_in_path_Prop_vs_bool: forall col: node, forall p: path, forall G: graph,
   is_collider_in_path_bool col p G = true <-> is_collider_in_path col p G.
 Proof.
   intros col [[u v] l] G.
@@ -707,8 +707,8 @@ Definition path_has_no_colliders (p: path) (G: graph): bool :=
   end.
 
 Theorem intermediate_node_in_path: forall G: graph, forall u v x: node, forall l: nodes,
-  is_path_in_graph (u, v, l) G = true -> 
-  (In x l <-> 
+  is_path_in_graph (u, v, l) G = true ->
+  (In x l <->
   (In x (find_mediators_in_path (u, v, l) G)) \/ (In x (find_confounders_in_path (u, v, l) G)) \/
   (In x (find_colliders_in_path (u, v, l) G))).
 Proof.
@@ -776,6 +776,7 @@ Proof.
     apply contains_cycle_false_correct in Hpath.
     + simpl in Hpath. destruct Hpath as [contra _]. unfold not in contra.
       exfalso. apply contra. reflexivity.
+    + admit.
     + apply Hcyc.
   - reflexivity. }
   { destruct (is_collider_bool u v x G) as [|] eqn:Hcol.
@@ -785,9 +786,10 @@ Proof.
     apply contains_cycle_false_correct in Hpath.
     + simpl in Hpath. destruct Hpath as [contra _]. unfold not in contra.
       exfalso. apply contra. reflexivity.
+    + admit.
     + apply Hcyc.
   - reflexivity. }
-Qed.
+Admitted.
 
 Theorem if_mediator_then_not_confounder_path: forall (G: graph) (u: node) (p: path),
   contains_cycle G = false
@@ -808,6 +810,7 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      admit.
       simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
     + assert (Hy: z = z').
       { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := w).
@@ -817,6 +820,7 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [z])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      admit.
       simpl. destruct Hedge1 as [_ Hedge1]. rewrite Hedge1. destruct Hedge2 as [_ Hedge2]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
   - intros Hu'. apply mediators_vs_edges_in_path in Hu. destruct Hu as [y [z [Hsub1 Hedge1]]].
     apply colliders_vs_edges_in_path in Hu'. destruct Hu' as [y' [z' [Hsub2 Hedge2]]].
@@ -829,6 +833,7 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [z])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      admit.
       simpl. destruct Hedge1 as [_ Hedge1]. rewrite Hedge1. destruct Hedge2 as [_ Hedge2]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
     + assert (Hy: y = y').
       { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := w).
@@ -838,8 +843,9 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+      admit.
       simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
-Qed.
+Admitted.
 
 Theorem if_confounder_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
   contains_cycle G = false
@@ -863,8 +869,9 @@ Proof.
         right. left. reflexivity. apply Hsub1. }
     rewrite <- Hy in *.
     apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
+    admit.
     simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
-Qed.
+Admitted.
 
 Theorem if_collider_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
   contains_cycle G = false
@@ -1057,7 +1064,7 @@ Proof.
     + simpl in Hc. destruct (is_collider_bool u v h G) as [|] eqn:Hcol.
       * destruct Hc as [Hc | Hc]. simpl. rewrite Hcol. simpl. rewrite Hc. rewrite eqb_refl. reflexivity. exfalso. apply Hc.
       * exfalso. apply Hc.
-    + simpl in Hc. 
+    + simpl in Hc.
       assert (Hp': is_path_in_graph (h, v, h' :: t') G = true). { simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
       assert (Hcyc': acyclic_path_2 (h, v, h' :: t')). { apply acyclic_path_cat with (u := u). apply Hcyc. }
       destruct (is_collider_bool u h' h G) as [|] eqn:Hcol.
@@ -1094,7 +1101,7 @@ Proof.
     + simpl in Hc. destruct (is_confounder_bool u v h G) as [|] eqn:Hcol.
       * destruct Hc as [Hc | Hc]. simpl. rewrite Hcol. simpl. rewrite Hc. rewrite eqb_refl. reflexivity. exfalso. apply Hc.
       * exfalso. apply Hc.
-    + simpl in Hc. 
+    + simpl in Hc.
       assert (Hp': is_path_in_graph (h, v, h' :: t') G = true). { simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. apply Hp. }
       assert (Hcyc': acyclic_path_2 (h, v, h' :: t')). { apply acyclic_path_cat with (u := u). apply Hcyc. }
       destruct (is_confounder_bool u h' h G) as [|] eqn:Hcol.

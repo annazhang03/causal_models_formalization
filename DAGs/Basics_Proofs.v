@@ -2,12 +2,12 @@ From DAGs Require Import Basics_Constr.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-From Coq Require Classical.
-Require Import Coq.Logic.FunctionalExtensionality.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+From Stdlib Require Classical.
+Require Import Stdlib.Logic.FunctionalExtensionality.
 
 
 (* this file proves theorems about the types and functions defined in DAG_Basic_Constr *)
@@ -355,18 +355,18 @@ Proof.
 Qed.
 
 
-Lemma two_paths_first_edge_correct : forall G: graph, forall a b c: node, 
+Lemma two_paths_first_edge_correct : forall G: graph, forall a b c: node,
   is_path_in_graph (a, b, [c]) G = true -> is_edge (a, c) G = true \/ is_edge (c, a) G = true.
 Proof.
   intros G a b c.
   intros Hpath.
   destruct (is_edge (a, c) G) as [|] eqn:Hac.
   - left. reflexivity.
-  - right. simpl in Hpath. rewrite Hac in Hpath. destruct G as [V E]. 
+  - right. simpl in Hpath. rewrite Hac in Hpath. destruct G as [V E].
     rewrite orb_false_l in Hpath. apply andb_true_elim2 in Hpath. apply Hpath.
 Qed.
 
-Lemma two_paths_second_edge_correct : forall G: graph, forall a b c: node, 
+Lemma two_paths_second_edge_correct : forall G: graph, forall a b c: node,
   is_path_in_graph (a, b, [c]) G = true -> is_edge (c, b) G = true \/ is_edge (b, c) G = true.
 Proof.
   intros G a b c.
@@ -374,7 +374,7 @@ Proof.
   destruct (is_edge (c, b) G) as [|] eqn:Hcb.
   - left. reflexivity.
   - right. simpl in Hpath. rewrite Hcb in Hpath. destruct G as [V E].
-    rewrite andb_comm in Hpath. 
+    rewrite andb_comm in Hpath.
     apply andb_true_elim2 in Hpath.
     apply andb_true_elim2 in Hpath.
     rewrite orb_false_l in Hpath. apply Hpath.
@@ -1219,7 +1219,7 @@ Proof.
            ++ simpl. apply split_and_true. split. simpl in Hdir. apply split_and_true in Hdir. apply Hdir. apply Hdir'.
            ++ split.
               ** apply acyclic_path_cat_2. apply Hdir'. intros Hu. destruct Hu as [Hu | Hu]. simpl in Hut. rewrite Hu in Hut. rewrite eqb_refl in Hut. discriminate Hut.
-                 apply membership_append_or in Hu. destruct Hu as [Hu | Hu]. 
+                 apply membership_append_or in Hu. destruct Hu as [Hu | Hu].
                  { apply member_In_equiv_F in Hul. apply Hul. apply Hu. }
                  { destruct Hu as [Hu | Hu]. apply Huv. symmetry. apply Hu. apply Hu. }
               ** simpl. rewrite eqb_refl. simpl. apply forallb_true_iff_mem. intros x Hx. apply member_In_equiv. right. destruct Hdir' as [_ [_ Hdir']]. apply forallb_true_iff_mem with (x := x) in Hdir'.

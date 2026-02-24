@@ -7,17 +7,17 @@ From DAGs Require Import PathFinding.
 From DAGs Require Import Basics.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-Require Import Coq.Lists.List.
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Lists.List.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
-From Coq Require Import Bool.Bool.
-From Coq Require Import Init.Nat.
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-From Coq Require Import Lists.List. Import ListNotations.
-Require Import Coq.Program.Wf.
-Require Import Coq.Arith.PeanoNat.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Init.Nat.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+From Stdlib Require Import Lists.List. Import ListNotations.
+Require Import Stdlib.Program.Wf.
+Require Import Stdlib.Arith.PeanoNat.
 Require Import Classical.
 
 
@@ -36,7 +36,7 @@ Definition all_colliders_are_ancestors (p: path) (G: graph): Prop :=
 
 (* return True iff all nodes in O on U are colliders in U *)
 Definition observed_nodes_are_colliders (U: path) (O: nodes) (G: graph) : Prop :=
-  match U with 
+  match U with
   | (u, v, l) => forall (x: node), In x O /\ In x l -> is_collider_in_path x U G
   end.
 
@@ -44,13 +44,13 @@ Definition observed_nodes_are_colliders (U: path) (O: nodes) (G: graph) : Prop :
    According to Spirtes, this is true iff every non-endpoint member of O on U is a collider on U,
    and every collider on U is an ancestor of either A or B. *)
 Definition inducing_path (U: path) (G: graph) (O: nodes) : Prop :=
-  is_path_in_graph U G = true /\ all_colliders_are_ancestors U G 
+  is_path_in_graph U G = true /\ all_colliders_are_ancestors U G
                               /\ observed_nodes_are_colliders U O G.
 
 Lemma inducing_path_out_of_A: forall G: graph, forall O: nodes, forall A B: node,
   contains_cycle G = false ->
   (exists U: path, path_start_and_end U A B = true /\ path_out_of_start U G = true /\ inducing_path U G O) ->
-  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true -> 
+  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true ->
    exists p: path, is_path_in_graph p G = true /\ path_start_and_end p A B = true
                                                  /\ path_out_of_start p G = true
                                                  /\ d_connected_2 p G Z).
@@ -88,7 +88,7 @@ Proof.
         assert (contra: is_collider_in_path x (u, v, l) G).
         { apply HobsCol. split. apply HxO. apply Hxl. }
         unfold path_has_no_colliders in HUcol. apply forallb_forall with (x:=x) in HUcol.
-        apply is_collider_in_path_Prop_vs_bool in contra. rewrite contra in HUcol. 
+        apply is_collider_in_path_Prop_vs_bool in contra. rewrite contra in HUcol.
         simpl in HUcol. discriminate HUcol. apply Hxl. }
       split.
       * (* since O contains only colliders on U, there are no mediators in Z *)
@@ -119,7 +119,7 @@ Proof.
             apply intermediate_node_in_path with (x:=C) in Hpath. apply Hpath. right. right.
             rewrite HallCol. simpl. left. reflexivity. }
         rewrite H. simpl. reflexivity. }
-  - 
+  -
 Admitted.
 
 
@@ -127,7 +127,7 @@ Admitted.
 Lemma inducing_path_into_A: forall G: graph, forall O: nodes, forall A B: node,
   contains_cycle G = false ->
   (exists U: path, path_start_and_end U A B = true /\ path_into_start U G = true /\ inducing_path U G O) ->
-  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true -> 
+  (forall Z: nodes, subset Z (set_subtract O [A; B]) = true ->
    exists p: path, is_path_in_graph p G = true /\ path_start_and_end p A B = true
                                                  /\ path_into_start p G = true
                                                  /\ d_connected_2 p G Z).
@@ -137,14 +137,14 @@ Admitted.
 (* for an undirected path U in G from A to B, any node on U is an ancestor of A, B, or some collider on U *)
 Theorem path_nodes_ancestors: forall U: path, forall G: graph, forall A B X: node,
   is_path_in_graph U G = true /\ path_start_and_end U A B = true /\ node_in_path X U = true
-  -> In X (find_ancestors A G) \/ In X (find_ancestors B G) 
+  -> In X (find_ancestors A G) \/ In X (find_ancestors B G)
      \/ (exists C, In C (find_colliders_in_path U G) /\ In X (find_ancestors C G)).
 Proof. (* TODO do this by induction on distance from A or distance to B? *)
 Admitted.
 
 
 (* Lemma 3 from Spirtes
-   If G is a DAG, and A and B are not d-separated by any subset Z of O\{A,B}, then 
+   If G is a DAG, and A and B are not d-separated by any subset Z of O\{A,B}, then
    there is an inducing path over O between A and B.
 *)
 Lemma not_d_separated: forall G: graph, forall O: nodes, forall A B: node,
@@ -162,7 +162,7 @@ Proof.
       * simpl. rewrite edgeAB. destruct G as [V E]. reflexivity.
       * split.
         (* no colliders, so trivially all colliders are ancestors of A or B *)
-        -- cbn. unfold all_given_nodes_are_ancestors. intros c contra. 
+        -- cbn. unfold all_given_nodes_are_ancestors. intros c contra.
            simpl in contra. exfalso. apply contra.
         (* no observed nodes that are also non-endpoints on U, so trivially all are colliders *)
         -- induction O as [| h t IH].
@@ -189,7 +189,7 @@ Proof.
       assert (Hsubset: subset O' (set_subtract O [A; B]) = true).
       { rewrite HeqO'. apply intersect_correct. }
       apply d_sep in Hsubset.
-      unfold d_separated_bool in Hsubset. 
+      unfold d_separated_bool in Hsubset.
       (* there is a path U between A and B, that is not blocked over O' *)
       apply demorgan_many_bool in Hsubset. destruct Hsubset as [U [HUpath HUblocked]].
       apply paths_start_to_end_correct in HUpath. destruct HUpath as [HUpath [HUse HUacyc]].
@@ -198,10 +198,10 @@ Proof.
       * apply HUse.
       * unfold inducing_path. split.
         -- apply HUpath.
-        -- assert (HcolAnc: all_colliders_are_ancestors U G). 
+        -- assert (HcolAnc: all_colliders_are_ancestors U G).
            (* assert first statement to use it in proof of second statement *)
            {(* show that for all colliders C in U, C is an ancestor of some member of O' *)
-              assert (HcolInO': forall C: node, is_collider_in_path C U G 
+              assert (HcolInO': forall C: node, is_collider_in_path C U G
                                 -> exists d: node, In d O' /\ In d (find_descendants C G)).
               { intros C Hcol. unfold path_is_blocked_bool in HUblocked.
                 rewrite orb_comm in HUblocked. apply orb_true_elim2 in HUblocked.
@@ -212,12 +212,12 @@ Proof.
                 destruct (demorgan_many_bool_2 node P ls) as [Hf _].
                 assert (Hfa: forall x : node, In x ls -> P x = false).
                 { apply Hf. apply HUblocked. }
-                specialize (Hfa C). 
+                specialize (Hfa C).
                 apply colliders_in_path in Hcol. rewrite <- Heqls in Hcol. apply Hfa in Hcol.
                 rewrite HeqP in Hcol.
                 unfold descendants_not_in_Z_bool in Hcol. (* exists a desc of C that is in O' *)
                 apply demorgan_many_bool in Hcol. destruct Hcol as [desc [Hdesc HdescO]].
-                exists desc. split. 
+                exists desc. split.
                 - apply member_In_equiv. apply negb_both_sides in HdescO. simpl in HdescO. apply HdescO.
                 - apply Hdesc. }
               (* since colliders are all ancestors of a member of O', then they must also be
@@ -227,7 +227,7 @@ Proof.
               rewrite HuA. rewrite HvB.
               unfold all_given_nodes_are_ancestors. intros C Hcol. apply colliders_in_path in Hcol.
               rewrite HuA in HcolInO'. rewrite HvB in HcolInO'.
-              assert (Hd: exists d : node, In d O' /\ In d (find_descendants C G)). 
+              assert (Hd: exists d : node, In d O' /\ In d (find_descendants C G)).
               { apply HcolInO' in Hcol. apply Hcol. }
               destruct Hd as [d [HdO' Hdesc]].
               (* C is an ancestor of d, which is a member of O'
@@ -237,13 +237,13 @@ Proof.
                 rewrite HeqallAnc in HdO'. apply union_correct in HdO'. apply HdO'. }
               destruct HdIsAnc as [HdA | HdB].
               ** left. assert (HAdescOfC: In d (find_descendants C G) /\ In A (find_descendants d G)).
-                 { split. 
-                   - apply Hdesc. 
+                 { split.
+                   - apply Hdesc.
                    - apply descendants_ancestors_correct. apply HdA. }
                  apply descendants_transitive in HAdescOfC. apply HAdescOfC.
               ** right. assert (HBdescOfC: In d (find_descendants C G) /\ In B (find_descendants d G)).
-                 { split. 
-                   - apply Hdesc. 
+                 { split.
+                   - apply Hdesc.
                    - apply descendants_ancestors_correct. apply HdB. }
                  apply descendants_transitive in HBdescOfC. apply HBdescOfC. }
             split.
@@ -279,8 +279,8 @@ Proof.
                (* show that all nodes on U are ancestors of A or B *)
                assert (HallAnc: all_given_nodes_are_ancestors l A B G).
                { unfold all_given_nodes_are_ancestors. intros x Hmem.
-                 assert (H: is_path_in_graph (u, v, l) G = true /\ 
-                            path_start_and_end (u, v, l) A B = true /\ 
+                 assert (H: is_path_in_graph (u, v, l) G = true /\
+                            path_start_and_end (u, v, l) A B = true /\
                             node_in_path x (u, v, l) = true).
                  { split. apply HUpath. split. apply HUse. unfold node_in_path.
                    simpl. apply member_In_equiv in Hmem. rewrite Hmem. apply orb_comm. }
@@ -321,7 +321,7 @@ Proof.
                --- rewrite HeqO'. apply intersect_in_both_lists. split. apply HxOAB. apply HxAnc.
 Qed.
 
-(* 
+(*
 Steps:
 1. functions: list union and intersection
 2. proof: subset A (intersect A B) = true
@@ -332,7 +332,7 @@ Steps:
 *)
 
 (* Theorem 1 from Spirtes
-   If G is a DAG over variables V, and O \subseteq V, then A and B are not d-separated 
+   If G is a DAG over variables V, and O \subseteq V, then A and B are not d-separated
    by any subset of O\{A, B} <=> there is an inducing path over O between A and B.
    TODO didn't use assumption that vertex_subset O G = true.
 *)
@@ -347,7 +347,7 @@ Proof.
   (* forward direction: G acyclic and A and B are not d-separated by any Z => exists an inducing path *)
   - apply not_d_separated. apply acyclic.
   (* backward direction: G acyclic and exists an inducing path between A and B => A and B not d-separated by any Z *)
-  - intros [U HU]. intros Z subsetZ. apply d_separated_vs_connected. 
+  - intros [U HU]. intros Z subsetZ. apply d_separated_vs_connected.
     destruct (path_into_start U G) as [|] eqn:Udir.
     (* inducing path goes into A, apply Lemma 2 *)
     + pose proof inducing_path_into_A as lemma.
@@ -362,7 +362,7 @@ Proof.
       destruct lemma as [p [p_in_graph [p_A_to_B [p_into_A p_d_conn]]]]. destruct p as [[u v] l].
       apply path_start_end_equal in p_A_to_B. destruct p_A_to_B as [HuA HvB].
       rewrite <- HuA. rewrite <- HvB. exists l.
-      split. 
+      split.
       * apply contains_cycle_false_correct with (G:=G). apply acyclic. apply p_in_graph.
       * split. apply p_in_graph. apply p_d_conn.
     (* inducing path goes out of A, apply Lemma 1 *)
@@ -380,7 +380,7 @@ Proof.
       destruct lemma as [p [p_in_graph [p_A_to_B [p_out_of_A p_d_conn]]]]. destruct p as [[u v] l].
       apply path_start_end_equal in p_A_to_B. destruct p_A_to_B as [HuA HvB].
       rewrite <- HuA. rewrite <- HvB. exists l.
-      split. 
+      split.
       * apply contains_cycle_false_correct with (G:=G). apply acyclic. apply p_in_graph.
       * split. apply p_in_graph. apply p_d_conn.
 Qed.

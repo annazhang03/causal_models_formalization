@@ -10,8 +10,8 @@ From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 
@@ -61,7 +61,7 @@ Proof.
       - assert (exists (x: X), In (z, x) t). { apply is_assigned_membership. apply Ha. }
         destruct H3 as [x Hx].
         assert (In (z, x) (filter (fun x : node * X => fst x =? z1) t)).
-        { apply filter_In. split. 
+        { apply filter_In. split.
           - apply Hx.
           - simpl. rewrite eqb_sym. apply Hz1z. }
         rewrite H1 in H3. exfalso. apply H3.
@@ -187,7 +187,7 @@ Proof.
       - assert (exists (x: X), In (z, x) t). { apply is_assigned_membership. apply Ha. }
         destruct H3 as [x Hx].
         assert (In (z, x) (filter (fun x : node * X => fst x =? z1) t)).
-        { apply filter_In. split. 
+        { apply filter_In. split.
           - apply Hx.
           - simpl. rewrite eqb_sym. apply Hz1z. }
         rewrite H1 in H3. exfalso. apply H3.
@@ -313,7 +313,7 @@ Proof.
             ** simpl in HUG. apply split_and_true in HUG. apply HUG.
          ++ clear IH. clear HU. induction t as [| h' t' IH].
             ** simpl in Hw. apply Hw.
-            ** simpl in Hw. 
+            ** simpl in Hw.
                assert (HhU': exists (hu: X), get_assigned_value U h' = Some hu). { apply assigned_has_value with (L := u :: h' :: t'). split. right. left. reflexivity. apply HUG. }
                destruct HhU' as [hu Hhu].
                destruct (u =? h') as [|] eqn:Huh'. simpl in Hut. rewrite eqb_sym in Hut. rewrite Huh' in Hut. discriminate Hut.
@@ -713,7 +713,7 @@ Proof.
               split.
               * apply find_descendants_correct. right. exists (x, z, l). split.
                 -- apply subpath_still_directed with (w := u) (l1 := lu'') (l3 := lu'). split. symmetry. apply Hlu'. apply Hdiru.
-                -- apply path_start_end_refl.  
+                -- apply path_start_end_refl.
               * apply HzZ.
           - split. apply Hpath. apply Hcat. }
 
@@ -747,7 +747,7 @@ Proof.
             In a (find_unblocked_ancestors G v' Z) /\
             get_assigned_value Ua a <> get_assigned_value Ub' a /\
             find_value G g a Ua [] <> find_value G g a Ub' []).
-        { apply nodefun_value_only_affected_by_unblocked_ancestors with (Z := Z) (AZ := AZ). 
+        { apply nodefun_value_only_affected_by_unblocked_ancestors with (Z := Z) (AZ := AZ).
           - apply HG.
           - apply Hfvavb'.
           - split. apply HUa. apply HUb'.
@@ -892,7 +892,7 @@ Proof.
                         split.
                         + intros Hvlu2. apply Hvlu. apply membership_append_r with (l1 := lu1 ++ [x]) in Hvlu2. rewrite <- Hxlu. rewrite app_assoc. apply Hvlu2.
                         + intros Hulv1. apply Hulv. apply membership_append with (l2 := [x] ++ lv2) in Hulv1. rewrite <- Hx. apply Hulv1.
-                        + (* if there were overlap, then there would be a cycle with x *) 
+                        + (* if there were overlap, then there would be a cycle with x *)
                           destruct (overlap lv1 lu2) as [|] eqn:F.
                           * apply overlap_has_member_in_common in F. destruct F as [x' [Hxlv1' Hxlu2']]. apply membership_splits_list in Hxlv1'. destruct Hxlv1' as [lv1' [lv1'' Hlv1]].
                             apply membership_splits_list in Hxlu2'. destruct Hxlu2' as [lu2' [lu2'' Hlu2]].
@@ -987,7 +987,7 @@ Proof.
                       - split. apply Hpath. apply Hcyc. }
                      split. unfold concat in Hconn. unfold concat. rewrite <- app_assoc. apply Hconn.
                      left. easy.
-                 ++ (* z is a descendant of the collider (overlapping point of lu and lv) *) 
+                 ++ (* z is a descendant of the collider (overlapping point of lu and lv) *)
                     destruct Hcol as [luz1 [luz2 [lv' [lv1 [lv2 [x [Hdirvz' [Hcycvz' [HlvZ' [Hluz [Hlv [Hlv' [Hlu1lv1 [Hconnx [Hpathx Hcycx]]]]]]]]]]]]]]].
                     exists x. exists luz1. exists lv1.
                     assert (Hconn: d_connected_2 (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G Z /\ is_path_in_graph (concat u ancu' v (rev lu) (luz1 ++ x :: (rev lv1))) G = true
@@ -1036,7 +1036,7 @@ Proof.
                                            *** apply HluZ. left. symmetry. apply Hw.
                                            *** apply HluZ. right. left. apply Hw.
                                    --- unfold find_unblocked_ancestors. left. reflexivity.
-                                ** intros Hvluz1. 
+                                ** intros Hvluz1.
                                    (* contradicts Hcycx, which passes through both v and luz1 *)
                                    unfold acyclic_path_2 in Hcycx. destruct Hcycx as [_ [_ [Hcycx _]]]. apply Hcycx. apply membership_append. apply Hvluz1.
                              ++ apply overlap_rev. apply Hlu1lv1.
@@ -1336,4 +1336,3 @@ Proof.
               * split. apply Hancuz. apply Hancu.
             + split. apply Hancv. apply Hancvz. }
 Qed.
-

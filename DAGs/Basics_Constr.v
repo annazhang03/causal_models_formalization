@@ -1,11 +1,11 @@
 From Utils Require Import Lists.
 From Utils Require Import Logic.
 
-From Coq Require Export Init.Nat.
-From Coq Require Export Lists.List.
-From Coq Require Export Bool.Bool.
-From Coq Require Export Arith.PeanoNat.
-Require Import Coq.Program.Wf.
+From Stdlib Require Export Init.Nat.
+From Stdlib Require Export Lists.List.
+From Stdlib Require Export Bool.Bool.
+From Stdlib Require Export Arith.PeanoNat.
+Require Import Stdlib.Program.Wf.
 
 Import ListNotations.
 

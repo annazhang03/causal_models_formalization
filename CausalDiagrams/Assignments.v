@@ -4,8 +4,8 @@ From DAGs Require Import Descendants.
 From DAGs Require Import PathFinding.
 From Utils Require Import Lists.
 From Utils Require Import Logic.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
 
 Import ListNotations.
 From Utils Require Import EqType.
@@ -560,7 +560,7 @@ Proof.
   - destruct Hi as [Hi | Hi].
     + destruct Hj as [Hj | Hj].
       * rewrite Hi in Hj. inversion Hj. reflexivity.
-      * unfold each_node_assigned_once in HA. specialize HA with (u := u). 
+      * unfold each_node_assigned_once in HA. specialize HA with (u := u).
         assert (Hc: length (filter (fun x : node * X => fst x =? u) (h :: t)) = 1).
         { apply HA. simpl. rewrite Hi. simpl. rewrite eqb_refl. reflexivity. }
         simpl in Hc. rewrite Hi in Hc. simpl in Hc. rewrite eqb_refl in Hc. simpl in Hc. inversion Hc.
@@ -568,7 +568,7 @@ Proof.
         { apply filter_true. split. apply Hj. simpl. apply eqb_refl. }
         destruct (filter (fun x : node * X => fst x =? u) t) as [| h' t']. exfalso. apply Hf. discriminate H0.
     + destruct Hj as [Hj | Hj].
-      * unfold each_node_assigned_once in HA. specialize HA with (u := u). 
+      * unfold each_node_assigned_once in HA. specialize HA with (u := u).
         assert (Hc: length (filter (fun x : node * X => fst x =? u) (h :: t)) = 1).
         { apply HA. simpl. rewrite Hj. simpl. rewrite eqb_refl. reflexivity. }
         simpl in Hc. rewrite Hj in Hc. simpl in Hc. rewrite eqb_refl in Hc. simpl in Hc. inversion Hc.
@@ -663,7 +663,7 @@ Proof.
   intros V u x i. intros [Hi Hl].
   generalize dependent i. induction V as [| h t IH].
   - intros i Hi. destruct i as [| i']. simpl in Hi. discriminate Hi. simpl in Hi. discriminate Hi.
-  - intros i Hi. destruct i as [| i']. 
+  - intros i Hi. destruct i as [| i'].
     + simpl in Hi. inversion Hi. simpl. rewrite eqb_refl. reflexivity.
     + simpl in Hi. simpl in Hl. destruct (fst h =? u) as [|] eqn:Hhu.
       * unfold node in *. rewrite Hhu in Hl. simpl in Hl. inversion Hl.

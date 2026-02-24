@@ -1,13 +1,13 @@
-Require Import Coq.Lists.List.
-Require Import Coq.Structures.Equalities.
+Require Import Stdlib.Lists.List.
+Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
-From Coq Require Import Bool.Bool.
-From Coq Require Import Init.Nat.
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
-From Coq Require Import Lia.
-From Coq Require Import Lists.List. Import ListNotations.
-Require Import Classical.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Init.Nat.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Lia.
+From Stdlib Require Import Lists.List. Import ListNotations.
+From Stdlib Require Import Classical.
 
 
 (* this file proves logic-related lemmas, often relating boolean functions
@@ -27,7 +27,7 @@ Qed.
 Theorem andb_true_elim2 : forall b c : bool,
   andb b c = true -> b = true.
 Proof.
-  intros b c. 
+  intros b c.
   intros H.
   destruct b eqn:Eb.
   - reflexivity.
@@ -39,7 +39,7 @@ Qed.
 Theorem orb_true_elim2 : forall b c : bool,
   orb b c = false -> b = false.
 Proof.
-  intros b c. 
+  intros b c.
   intros H.
   destruct b eqn:Eb.
   - simpl in H. discriminate H.
@@ -137,10 +137,10 @@ Proof.
   { intros [H1 H2]. rewrite H1. simpl. apply H2. }
 Qed.
 
-Theorem demorgan_and_bool: forall (A B: bool), A && B = false 
+Theorem demorgan_and_bool: forall (A B: bool), A && B = false
   <-> A = false \/ B = false.
 Proof.
-  intros A B. split. 
+  intros A B. split.
   { intros H.
   destruct A as [|] eqn:HA.
   - simpl in H. right. apply H.
@@ -150,7 +150,7 @@ Proof.
   - rewrite andb_comm. rewrite H. reflexivity. }
 Qed.
 
-Theorem demorgan_many_bool: forall (T: Type) (P: T -> bool) (l : list T), forallb P l = false 
+Theorem demorgan_many_bool: forall (T: Type) (P: T -> bool) (l : list T), forallb P l = false
   <-> exists x: T, In x l /\ (P x = false).
 Proof.
   intros T P l. split.
@@ -165,7 +165,7 @@ Proof.
       exists x. split.
       * simpl. right. apply HIn.
       * apply HP. }
-  { intros [x [HIn HP]]. 
+  { intros [x [HIn HP]].
   induction l as [| h t IH].
   - simpl in HIn. exfalso. apply HIn.
   - simpl. simpl in HIn.

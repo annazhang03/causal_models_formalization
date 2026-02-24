@@ -831,13 +831,6 @@ Proof.
            ++ apply IH. right. exact Hin_t.
 Qed.
 
-
-Lemma neg_member_In_equiv : forall x l, member x l = false <-> ~In x l.
-Proof.
-  intros x l. rewrite <- member_In_equiv.
-  destruct (member x l); split; intro H; try discriminate; auto.
-  exfalso. apply H. reflexivity.
-Qed.
 Lemma eqblist_eq : forall l1 l2, eqblist l1 l2 = true <-> l1 = l2.
 Proof.
   intros l1. induction l1 as [|h1 t1 IH]; intro l2; split; intro H.
@@ -908,9 +901,9 @@ Proof.
         { apply Nat.eqb_neq. intro H; subst w. apply Hfresh. simpl; auto. }
         rewrite Hub, Huw; simpl.
         assert (Hmv : member v l = false).
-        { apply (proj2 (neg_member_In_equiv v l)); exact Hnotin_v. }
+        { apply (proj2 (member_In_equiv_F l v)); exact Hnotin_v. }
         assert (Hmw : member w l = false).
-        { apply (proj2 (neg_member_In_equiv w l)).
+        { apply (proj2 (member_In_equiv_F l w)).
           intro Hinw. apply Hfresh. simpl. right. right. exact Hinw. }
         rewrite (member_or_false v w l Hmv Hmw); simpl.
         rewrite Nat.eqb_refl; simpl.
@@ -921,10 +914,10 @@ Proof.
         assert (Hub : (u =? v) = false). { apply Nat.eqb_neq; exact Huv. }
         rewrite Huw, Hub; simpl.
         assert (Hmw : member w l = false).
-        { apply (proj2 (neg_member_In_equiv w l)).
+        { apply (proj2 (member_In_equiv_F l w)).
           intro Hinw. apply Hfresh. simpl. right. right. exact Hinw. }
         assert (Hmv : member v l = false).
-        { apply (proj2 (neg_member_In_equiv v l)); exact Hnotin_v. }
+        { apply (proj2 (member_In_equiv_F l v)); exact Hnotin_v. }
         rewrite (member_or_false w v l Hmw Hmv); simpl.
         rewrite Nat.eqb_refl; simpl.
         assert (Hvw : (v =? w) = false).
