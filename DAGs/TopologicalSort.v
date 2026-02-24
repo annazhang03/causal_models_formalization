@@ -1,4 +1,5 @@
 From DAGs Require Import Basics.
+From DAGs Require Import PathFinding.
 From DAGs Require Import CycleDetection.
 From DAGs Require Import Descendants.
 From Utils Require Import Lists.
@@ -444,46 +445,194 @@ Proof.
   simpl in H. simpl. apply member_In_equiv. apply H.
 Qed.
 
-Theorem topo_sort_correct: forall (G: graph) (u v: node) (sorted: nodes),
-  G_well_formed G = true /\ topological_sort G = Some sorted /\ edge_in_graph (u, v) G = true
-  -> exists (i j: nat), Some i = index sorted u /\ Some j = index sorted v /\ i < j.
+
+Lemma index_head :
+  forall l h,
+    index (h :: l) h = Some 0.
 Proof.
-Admitted.
+  intros l h. simpl. rewrite Nat.eqb_refl. reflexivity.
+Qed.
+Lemma index_tail :
+  forall l h n i,
+    h <> n ->
+    index l n = Some i ->
+    index (h :: l) n = Some (S i).
+Proof.
+  intros l h n i Hneq Hidx. simpl. destruct (h =? n) eqn:Heq.
+  - apply Nat.eqb_eq in Heq. contradiction.
+  - rewrite Hidx. auto.
+Qed.
+Lemma indegree_zero_no_incoming :
+  forall G u v,
+    G_well_formed G = true ->
+    get_indegree u G = 0 ->
+    edge_in_graph (v, u) G = false.
+Proof.
+  intros [V E] u v Hwf Hindeg.
+  unfold get_indegree in Hindeg.
+  destruct (edge_in_graph (v, u) (V,E)) eqn:Hedge.
+  - exfalso. rewrite <- edge_from_parent_to_child in Hedge.
+    rewrite length_zero_iff_nil in Hindeg; eauto. rewrite Hindeg in Hedge. simpl in Hedge. auto.
+  - reflexivity.
+Qed.
+
+Lemma member_edge_filter_preserved :
+  forall e E P,
+    member_edge e E = true ->
+    P e = true ->
+    member_edge e (filter P E) = true.
+Proof.
+  intros e E P Hmem HP. induction E as [|h E' IH].
+  - simpl in Hmem. discriminate.
+  - simpl in Hmem. destruct (eqbedge h e) eqn:Heqe.
+    + simpl. apply eqbedge_true_eq in Heqe. subst. rewrite HP.
+      simpl. rewrite <- eqbedge_refl. simpl. reflexivity.
+    + simpl. destruct (P h) eqn:HPh.
+      * simpl. destruct (eqbedge h e) eqn:Heqe2.
+        { rewrite Heqe in Heqe2. discriminate. }
+        { apply IH. exact Hmem. }
+      * apply IH. exact Hmem.
+Qed.
+Lemma edge_preserved_after_removing_non_endpoint :
+  forall G h u v,
+    edge_in_graph (u, v) G = true ->
+    u <> h ->
+    v <> h ->
+    edge_in_graph (u, v) (remove_node_from_graph G h) = true.
+Proof.
+  intros [V E] h u v Hedge Hneq_u Hneq_v. unfold edge_in_graph in *.
+  simpl in *. unfold remove_associated_edges. eapply member_edge_filter_preserved.
+  auto. apply andb_true_iff. split. simpl. apply negb_true_iff.
+  apply Nat.eqb_neq. exact Hneq_v. simpl. apply negb_true_iff.
+  apply Nat.eqb_neq. exact Hneq_u.
+Qed.
+
+Lemma topo_sort_helper_first_indegree_zero :
+  forall G n h rest,
+    topological_sort_helper G n = Some (h :: rest) ->
+    get_indegree h G = 0.
+Proof. intros G n h rest Hhelper. destruct n as [|n'].
+  - simpl in Hhelper. discriminate.
+  - simpl in Hhelper. remember (get_indegree_zero G) as ind_zero eqn:Hind.
+    destruct ind_zero as [|h' ind_tail].
+    + discriminate.
+    + remember (topological_sort_helper (remove_node_from_graph G h') n') as rec eqn:Hrec.
+      destruct rec as [r |].
+      * injection Hhelper as Heq_h Heq_rest. subst h' r.
+        destruct G as [V E]. unfold get_indegree_zero in Hind. simpl in Hind.
+        assert (Hin_filter : In h (filter (fun v => get_indegree v (V, E) =? 0) V)).
+        { rewrite <- Hind. left. reflexivity. }
+        apply filter_In in Hin_filter as [_ Hindeg]. apply Nat.eqb_eq in Hindeg. exact Hindeg.
+      * discriminate.
+Qed.
+
+
+Theorem topo_sort_correct: forall (G: graph) (u v: node) (sorted: nodes),
+  G_well_formed G = true /\ contains_cycle G = false /\ topological_sort G = Some sorted /\ edge_in_graph (u, v) G = true
+  -> exists (i j: nat), Some i = index sorted u /\ Some j = index sorted v /\ i < j.
+Proof. intros G u v sorted. revert G u v. induction sorted as [|h sorted']; intros [V E] u v [Hwf [Hc [Htopo Hedge]]].
+  - exfalso. assert (Hin_u : node_in_graph u (V,E) = true).
+    { unfold edge_in_graph in Hedge. pose proof G_well_formed_corollary.
+      pose proof is_edge_then_node_in_graph. eapply H0 with (v:=v). left. unfold is_edge.
+      rewrite andb_true_iff. rewrite andb_true_iff. split. do 2 rewrite member_In_equiv.
+      eapply H; eauto. rewrite member_edge_In_equiv  in Hedge. auto. auto. }
+    assert (Hin_sorted : In u []).
+    { apply topo_sort_contains_nodes with (G := (V,E)).
+      - symmetry. rewrite Htopo. auto.
+      - exact Hin_u. }
+    simpl in Hin_sorted. contradiction.
+  - destruct (Nat.eq_dec u h) as [Heq_u | Hneq_u].
+    + subst h. assert (Hin_v : In v sorted').
+      { assert (Hv_in_G : node_in_graph v (V,E) = true).
+        { unfold edge_in_graph in Hedge. pose proof G_well_formed_corollary.
+          pose proof is_edge_then_node_in_graph. eapply H0 with (v:=u). right. unfold is_edge.
+          rewrite andb_true_iff. rewrite andb_true_iff. split. do 2 rewrite member_In_equiv.
+          eapply H; eauto. rewrite member_edge_In_equiv  in Hedge. auto. auto. }
+        assert (Hin_full : In v (u :: sorted')).
+        { apply topo_sort_contains_nodes with (G := (V,E)).
+          -  auto.
+          - exact Hv_in_G. }
+        simpl in Hin_full. destruct Hin_full as [Heq_v | Hin_v'].
+        * subst v. exfalso. pose proof contains_cycle_no_self_loop. pose proof no_self_loops.
+          specialize (H _ Hwf Hc). simpl in H. unfold edge_in_graph in Hedge. specialize (H0 _ _ _ Hedge H). auto.
+        * exact Hin_v'. }
+      assert (Hidx_u : index (u :: sorted') u = Some 0).
+      { apply index_head. }
+      assert (Hidx_v : exists j, index sorted' v = Some j).
+      { pose proof index_exists. apply H in Hin_v. destruct Hin_v. exists x. auto.  }
+      destruct Hidx_v as [j Hidx_v].
+      exists 0, (S j).
+      split. auto. split.
+      * symmetry. apply index_tail.
+        { intro Hcontra. subst v. pose proof contains_cycle_no_self_loop. pose proof no_self_loops.
+          specialize (H _ Hwf Hc). simpl in H. unfold edge_in_graph in Hedge. specialize (H0 _ _ _ Hedge H). auto. }
+        { exact Hidx_v. }
+      * lia.
+    + assert (Hsub : topological_sort (remove_node_from_graph (V,E) h) = Some sorted').
+      { eapply topo_sort_subgraph; eauto. split; [exact Hwf | ].
+        assert (Hin_h : In h (h :: sorted')). { left. reflexivity. }
+        apply topo_sort_contains_nodes with (G := (V,E)) in Hin_h.
+        - exact Hin_h.
+        - exact Htopo. }
+      assert (Hedge_sub : edge_in_graph (u, v) (remove_node_from_graph (V,E) h) = true).
+      { apply edge_preserved_after_removing_non_endpoint.
+        - exact Hedge.
+        - exact Hneq_u.
+        - intro Hcontra. subst v. assert (Hindeg_h : get_indegree h (V,E) = 0).
+          { unfold topological_sort in Htopo. eapply topo_sort_helper_first_indegree_zero; eauto. }
+          assert (Hno_edge : edge_in_graph (u, h) (V,E)= false).
+          { eapply indegree_zero_no_incoming; eauto. }
+          rewrite Hedge in Hno_edge. discriminate. }
+      assert (Hwf_sub : G_well_formed (remove_node_from_graph (V,E) h) = true).
+      { eapply remove_node_preserves_well_formed; eauto. }
+      assert (IH : exists i' j', Some i' = index sorted' u /\
+                                 Some j' = index sorted' v /\
+                                 i' < j').
+      { eapply IHsorted' with (G:=(remove_node_from_graph (V,E) h)).
+        split. exact Hwf_sub. split. eapply remove_node_preserves_acyclic; eauto.
+         split. auto. exact Hedge_sub. }
+      destruct IH as [i' [j' [Hidx_u' [Hidx_v' Hlt]]]]. exists (S i'), (S j').
+      split.
+      * symmetry. apply index_tail; [symmetry; exact Hneq_u | symmetry; exact Hidx_u'].
+      * split.
+        { symmetry. apply index_tail.
+          - intro Hcontra. subst v. eapply topo_sort_helper_first_indegree_zero in Htopo.
+            eapply indegree_zero_no_incoming with (v:= u) in Htopo. rewrite Hedge in Htopo. discriminate. exact Hwf.
+          - symmetry. exact Hidx_v'.
+        }
+        { lia. }
+Qed.
 
 Corollary topo_sort_parents: forall (G: graph) (c p: node) (sorted: nodes),
-  G_well_formed G = true /\ topological_sort G = Some sorted
+  G_well_formed G = true /\ contains_cycle G = false /\ topological_sort G = Some sorted
   -> In p (find_parents c G)
   -> exists (i j: nat), Some i = index sorted p /\ Some j = index sorted c /\ i < j.
 Proof.
-  intros G c p sorted. intros [Hwf Hts].
+  intros G c p sorted. intros [Hwf [Hc Hts]].
   intros Hmem. apply edge_from_parent_to_child in Hmem.
   apply topo_sort_correct with (G := G) (u := p) (v := c) (sorted := sorted).
-  repeat split.
-  - apply Hwf.
-  - apply Hts.
-  - apply Hmem.
+  repeat split; eauto.
 Qed.
 
 Lemma topo_sort_first_node_no_parents: forall (G: graph) (u: node) (ts: nodes),
-  G_well_formed G = true /\ topological_sort G = Some (u :: ts) -> find_parents u G = [].
+  G_well_formed G = true /\ contains_cycle G = false /\ topological_sort G = Some (u :: ts) -> find_parents u G = [].
 Proof.
-  intros G u ts [Hwf Hts].
+  intros G u ts [Hwf [Hc Hts]].
   destruct (find_parents u G) as [| h t] eqn:HP.
   - reflexivity.
   - (* contradiction: u is first in topological sort *)
     assert (Hcontra: exists (i j: nat), Some i = index (u :: ts) h /\ Some j = index (u :: ts) u /\ i < j).
-    { apply topo_sort_parents with (G := G).
-      - split. apply Hwf. apply Hts.
+    { apply topo_sort_parents with (G := G); eauto.
       - rewrite HP. simpl. left. reflexivity. }
     destruct Hcontra as [i [j [Hi [Hj Hij]]]].
     simpl in Hj. rewrite eqb_refl in Hj. inversion Hj. rewrite H0 in Hij. lia.
 Qed.
 
 Lemma topo_sort_parents_before: forall (G: graph) (h: node) (tsp t: nodes),
-  G_well_formed G = true /\ topological_sort G = Some (tsp ++ h :: t)
+  G_well_formed G = true /\ contains_cycle G = false /\ topological_sort G = Some (tsp ++ h :: t)
   -> forall (v: node), In v (find_parents h G) -> In v tsp.
 Proof.
-  intros G h tsp t [Hwf Hts] p Hp.
+  intros G h tsp t [Hwf [Hcyc Hts]] p Hp.
   apply topo_sort_parents with (sorted := (tsp ++ h :: t)) in Hp.
   - (* i < j, so p must appear in tsp *)
     destruct Hp as [i [j [Hi [Hj Hij]]]].
@@ -494,8 +643,7 @@ Proof.
       { apply member_count_at_least_1 in Hhtsp.
         rewrite count_app. simpl. rewrite eqb_refl. lia. }
       assert (Hc2: count h (tsp ++ h :: t) = 1).
-      { apply topo_sort_contains_nodes_exactly_once with (G := G).
-        - split. apply Hwf. apply Hts.
+      { apply topo_sort_contains_nodes_exactly_once with (G := G); eauto.
         - apply topo_sort_contains_nodes with (u := h) in Hts. apply Hts.
           apply membership_append_r. simpl. left. reflexivity. }
       lia. }
@@ -509,7 +657,5 @@ Proof.
       - symmetry. apply Hi.
       - apply Hij. }
     apply index_exists. exists i. symmetry. apply Hptsp.
-  - split.
-    + apply Hwf.
-    + apply Hts.
+  - split; eauto.
 Qed.
