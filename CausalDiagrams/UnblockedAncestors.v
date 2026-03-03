@@ -144,6 +144,7 @@ Proof.
 Qed.
 
 Lemma colliders_have_unblocked_path_to_descendant: forall (G: graph) (Z: nodes) (c: node) (p: path),
+  G_well_formed G = true /\ contains_cycle G = false ->
   In c (find_colliders_in_path p G)
   -> d_connected_2 p G Z
   -> In c Z \/
@@ -151,11 +152,11 @@ Lemma colliders_have_unblocked_path_to_descendant: forall (G: graph) (Z: nodes) 
        /\ exists (z: node) (dp: nodes), is_directed_path_in_graph (c, z, dp) G = true /\ acyclic_path_2 (c, z, dp)
                                         /\ overlap dp Z = false /\ In z Z).
 Proof.
-  intros G Z c p Hc Hp.
+  intros G Z c p [Hwf Hcyc] Hc Hp.
   unfold d_connected_2 in Hp. destruct Hp as [_ [_ Hp]]. unfold all_colliders_have_descendant_conditioned_on in Hp.
   apply forallb_true_iff_mem with (x := c) in Hp.
   - unfold some_descendant_in_Z_bool in Hp. apply overlap_has_member_in_common in Hp. destruct Hp as [d [Hd HdZ]].
-    apply find_descendants_correct in Hd. destruct Hd as [Hcd | Hd].
+    apply find_descendants_correct in Hd; auto. destruct Hd as [Hcd | Hd].
     + left. rewrite Hcd. apply HdZ.
     + destruct Hd as [dp [Hdp Hcd]]. destruct dp as [[c' d'] dp]. apply path_start_end_equal in Hcd. destruct Hcd as [Hc' Hd'].
       rewrite Hc' in *. rewrite Hd' in *. clear Hc'. clear Hd'.
@@ -192,10 +193,8 @@ Proof.
                  apply Hover. apply subset_larger_set_membership with (l1 := dp'). split. apply Hdp. apply Hx2. apply Hx1.
               ** apply HdZ.
               ** intros Hcd. apply member_In_equiv_F in HcZ. apply HcZ. rewrite Hcd. apply HdZ.
-    + admit.
-    + admit.
   - apply Hc.
-Admitted.
+Qed.
 
 
 Theorem acyclic_path_if_common_ancestor: forall (u v anc: node) (lv lu: nodes) (Z: nodes) (G: graph) (len: nat),
@@ -274,7 +273,7 @@ Qed.
 
 
 Theorem acyclic_paths_intersect_if_common_endpoint: forall (anc1 anc2 z: node) (l1 l2: nodes) (Z: nodes) (G: graph),
-  contains_cycle G = false
+  G_well_formed G = true /\ contains_cycle G = false
   -> is_directed_path_in_graph (anc1, z, l1) G = true /\ acyclic_path_2 (anc1, z, l1) /\ (forall w : node, w = anc1 \/ In w l1 -> ~ In w Z)
   -> is_directed_path_in_graph (anc2, z, l2) G = true /\ acyclic_path_2 (anc2, z, l2) /\ (forall w : node, w = anc2 \/ In w l2 -> ~ In w Z)
   -> overlap l1 l2 = false \/
@@ -282,7 +281,7 @@ Theorem acyclic_paths_intersect_if_common_endpoint: forall (anc1 anc2 z: node) (
       /\ (forall w : node, (w = anc2 \/ In w l2') -> ~ In w Z)
       /\ exists (l1'' l2'': nodes) (l3 l3': nodes) (x: node), l1 = l1'' ++ [x] ++ l3 /\ l2' = l2'' ++ [x] ++ l3 /\ l2 = l2'' ++ [x] ++ l3' /\ overlap l1'' l2'' = false.
 Proof.
-  intros anc1 anc2 z l1 l2 Z G. intros HG [Hdir1 [Hcyc1 HZ1]] [Hdir2 [Hcyc2 HZ2]].
+  intros anc1 anc2 z l1 l2 Z G. intros [Hwf HG] [Hdir1 [Hcyc1 HZ1]] [Hdir2 [Hcyc2 HZ2]].
   destruct (overlap l1 l2) as [|] eqn:Hover.
   - right.
     assert (H: exists (l1' l1'' l2' l2'': list nat) (x: nat), l1 = l1' ++ [x] ++ l1'' /\ l2 = l2' ++ [x] ++ l2'' /\ overlap l1' l2' = false).
@@ -309,7 +308,7 @@ Proof.
                      apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
                  apply contains_cycle_false_correct with (p := (anc2, anc2, l2' ++ [x] ++ c1)) in HG.
                  +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. apply HG. reflexivity.
-                 +++ admit.
+                 +++ auto.
                  +++ apply Hcyc.
              --- intros H. unfold acyclic_path_2 in Hcyc2. destruct Hcyc2 as [_ [_ [Hcyc2 _]]]. apply Hcyc2. apply membership_append with (l2 := [x] ++ l2'') in H.
                  rewrite Hl2. apply H.
@@ -324,7 +323,7 @@ Proof.
                  apply subpath_still_directed with (w := anc1) (l1 := l1') (l3 := l1). split. symmetry. apply Hl1. apply Hdir1. }
              apply contains_cycle_false_correct with (p := (x', x', s2 ++ [x] ++ t1)) in HG.
              +++ unfold acyclic_path_2 in HG. destruct HG as [HG _]. exfalso. apply HG. reflexivity.
-             +++ admit.
+             +++ auto.
              +++ apply Hcyc.
              +++ reflexivity.
        ++ split.
@@ -338,7 +337,7 @@ Proof.
              --- apply Hl2.
              --- apply Hover'.
   - left. reflexivity.
-Admitted.
+Qed.
 
 
 Lemma unblocked_ancestor_if_in_unblocked_directed_path: forall (anc u v: node) (l Z: nodes) (G: graph),
