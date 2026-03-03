@@ -67,38 +67,38 @@ Proof.
 Qed.
 
 Theorem acyclic_path_one_direction: forall (p: path) (G: graph),
-  is_path_in_graph p G = true /\ contains_cycle G = false
+  G_well_formed G = true /\ is_path_in_graph p G = true /\ contains_cycle G = false
   -> path_into_start p G = false <-> path_out_of_start p G = true.
 Proof.
-  intros p G [HpG Hcyc]. split.
+  intros p G [Hwf [HpG Hcyc]]. split.
   - apply path_must_have_direction. apply HpG.
   - destruct p as [[u v] l]. destruct l as [| h t].
     + simpl. intros Hout. apply acyclic_no_two_cycle.
-      * admit.
+      * auto.
       * apply Hcyc.
       * apply Hout.
     + simpl. intros Hout. apply acyclic_no_two_cycle.
-      * admit.
+      * auto.
       * apply Hcyc.
       * apply Hout.
-Admitted.
+Qed.
 
 Theorem acyclic_path_one_direction_2: forall (p: path) (G: graph),
-  is_path_in_graph p G = true /\ contains_cycle G = false
+  G_well_formed G = true /\ is_path_in_graph p G = true /\ contains_cycle G = false
   -> path_into_start p G = true <-> path_out_of_start p G = false.
 Proof.
-  intros p G [HpG Hcyc]. split.
+  intros p G [Hwf [HpG Hcyc]]. split.
   - destruct p as [[u v] l]. destruct l as [| h t].
     + simpl. intros Hin. apply acyclic_no_two_cycle.
-      * admit.
+      * auto.
       * apply Hcyc.
       * apply Hin.
     + simpl. intros Hin. apply acyclic_no_two_cycle.
-      * admit.
+      * auto.
       * apply Hcyc.
       * apply Hin.
   - apply path_must_have_direction_2. apply HpG.
-Admitted.
+Qed.
 
 Fixpoint path_into_end_nodes (p: nodes) (G: graph): option bool :=
   match p with
@@ -411,16 +411,16 @@ Qed.
 
 
 Lemma directed_path_into_end: forall (u v: node) (l: nodes) (G: graph),
-  contains_cycle G = false
+  (G_well_formed G = true /\ contains_cycle G = false)
   -> is_directed_path_in_graph (u, v, l) G = true
   -> path_out_of_end (u, v, l) G = Some false.
 Proof.
-  intros u v l G HG Hdir.
+  intros u v l G [Hwf HG] Hdir.
   generalize dependent u. induction l as [| h t IH].
   - intros u Hdir. simpl. simpl in Hdir. rewrite andb_comm in Hdir. simpl in Hdir. apply acyclic_no_two_cycle in Hdir. f_equal. apply Hdir.
-    admit. apply HG.
+    auto. apply HG.
   - intros u Hdir. rewrite path_out_of_end_same. apply IH. simpl in Hdir. apply split_and_true in Hdir. apply Hdir.
-Admitted.
+Qed.
 
 Lemma path_out_of_end_edge: forall (u v: node) (l: nodes) (G: graph),
   contains_cycle G = false
