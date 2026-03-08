@@ -16,11 +16,9 @@ Import ListNotations.
 
 (* nodes are simply lists of natural numbers, and edges are lists of pairs of two nodes *)
 Definition node : Type := nat.
-Check 1 : node.
 Definition nodes := list node.
 
 Definition edge : Type := node * node.
-Check (1, 2) : edge.
 Definition edges := list edge.
 
 Definition graph : Type := nodes * edges.
@@ -186,7 +184,6 @@ Definition remove_node_from_graph (G: graph) (u: node) : graph :=
    this representation allows for easy access to the endpoints of a path, as well as the
    guarantee that all paths have at least two nodes *)
 Definition path : Type := node * node * nodes.
-Check (4, 5, [1;2;3]) : path.
 Definition paths := list path.
 
 Definition path_start (p: path) : node :=

@@ -22,7 +22,7 @@ Fixpoint directed_edges_as_paths (E: edges) : paths :=
               end
   end.
 
-Compute directed_edges_as_paths [(1, 2); (4, 3); (3, 2); (3, 4)].
+(* Compute directed_edges_as_paths [(1, 2); (4, 3); (3, 2); (3, 4)]. *)
 
 
 (* return a tuple (bool, paths). the first element represents whether a cycle was encountered.
@@ -44,7 +44,7 @@ Fixpoint dfs_extend_by_edge (e : edge) (l: paths) : bool * paths :=
                end
 end.
 
-Compute dfs_extend_by_edge (4, 3) (directed_edges_as_paths [(1, 2); (4, 3); (3, 2); (3, 4)]).
+(* Compute dfs_extend_by_edge (4, 3) (directed_edges_as_paths [(1, 2); (4, 3); (3, 2); (3, 4)]). *)
 
 (* for each edge, see if extending by this edge would create a cycle.
    return (bool, paths) representing whether a cycle was encountered for any edge
