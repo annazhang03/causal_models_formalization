@@ -254,6 +254,7 @@ Proof.
 Qed.
 
 Theorem concat_d_connected_paths: forall (u v mid: node) (l1 l2: nodes) (G: graph) (Z: nodes),
+  G_well_formed G = true ->
   contains_cycle G = false -> is_path_in_graph (concat u mid v l1 l2) G = true
   -> d_connected_2 (u, mid, l1) G Z /\ d_connected_2 (mid, v, l2) G Z /\ acyclic_path_2 (concat u mid v l1 l2)
   -> (In mid (find_mediators_in_path (concat u mid v l1 l2) G) /\ ~ In mid Z)
@@ -261,7 +262,7 @@ Theorem concat_d_connected_paths: forall (u v mid: node) (l1 l2: nodes) (G: grap
      \/ (In mid (find_colliders_in_path (concat u mid v l1 l2) G) /\ (some_descendant_in_Z_bool (find_descendants mid G) Z = true))
   -> d_connected_2 (concat u mid v l1 l2) G Z.
 Proof.
-  intros u v mid l1 l2 G Z. intros HGcyc Hpath [H1 [H2 Hcyc]]. intros H.
+  intros u v mid l1 l2 G Z. intros Hwf HGcyc Hpath [H1 [H2 Hcyc]]. intros H.
   unfold d_connected_2 in *. repeat split.
   + destruct (overlap Z (find_mediators_in_path (concat u mid v l1 l2) G)) as [|] eqn:Hmeds.
     * apply overlap_has_member_in_common in Hmeds. destruct Hmeds as [m [HmZ Hmedm]].
@@ -301,6 +302,7 @@ Proof.
             ** destruct Hmidcon as [Hmid HmidZ]. exfalso. apply HmidZ. rewrite Hmmid. apply HmZ.
             ** destruct Hmidcol as [Hmid HmidZ]. apply if_mediator_then_not_confounder_path in Hmedm.
                --- destruct Hmedm as [_ Hmedm]. exfalso. apply Hmedm. rewrite <- Hmmid. apply Hmid.
+               --- auto.
                --- apply HGcyc.
                --- apply Hcyc.
          ++ (* m must be a mediator of l2 *)
@@ -371,6 +373,7 @@ Proof.
             ** destruct Hmidcon as [Hmid HmidZ]. exfalso. apply HmidZ. rewrite Hmmid. apply HmZ.
             ** destruct Hmidcol as [Hmid HmidZ]. apply if_confounder_then_not_mediator_path in Hconm.
                --- destruct Hconm as [_ Hconm]. exfalso. apply Hconm. rewrite <- Hmmid. apply Hmid.
+               --- auto.
                --- apply HGcyc.
                --- apply Hcyc.
          ++ (* m must be a confounder of l2 *)
@@ -435,10 +438,12 @@ Proof.
       - destruct H as [Hmidmed | [Hmidcon | Hmidcol]].
         ** destruct Hmidmed as [Hmid HmidZ]. apply if_mediator_then_not_confounder_path in Hmid.
            --- destruct Hmid as [_ Hmid]. exfalso. apply Hmid. rewrite Hmmid in *. apply Hcolm.
+           --- auto.
            --- apply HGcyc.
            --- apply Hcyc.
         ** destruct Hmidcon as [Hmid HmidZ]. apply if_confounder_then_not_mediator_path in Hmid.
            --- destruct Hmid as [_ Hmid]. exfalso. apply Hmid. rewrite Hmmid in *. apply Hcolm.
+           --- auto.
            --- apply HGcyc.
            --- apply Hcyc.
         ** destruct Hmidcol as [Hmid HmidZ]. rewrite <- Hmmid. apply HmidZ.
@@ -471,6 +476,7 @@ Proof.
 Qed.
 
 Theorem d_connected_cat: forall (u v h: node) (t: nodes) (G: graph) (Z: nodes),
+  G_well_formed G = true ->
   contains_cycle G = false
   -> acyclic_path_2 (u, v, h :: t)
   -> d_connected_2 (h, v, t) G Z
@@ -479,13 +485,13 @@ Theorem d_connected_cat: forall (u v h: node) (t: nodes) (G: graph) (Z: nodes),
      \/ (In h (find_colliders_in_path (u, v, h :: t) G) /\ (some_descendant_in_Z_bool (find_descendants h G) Z = true))
   -> d_connected_2 (u, v, h :: t) G Z.
 Proof.
-  intros u v h t G Z. intros HGcyc Hcyc H1. intros H.
+  intros u v h t G Z. intros Hwf HGcyc Hcyc H1. intros H.
   unfold d_connected_2 in *. repeat split.
   + apply no_overlap_non_member. intros m Hm Hm'.
     simpl in Hm. destruct t as [| h' t'].
     * simpl in Hm. destruct (is_mediator_bool u v h G || is_mediator_bool v u h G) as [|] eqn:Hmed.
       - assert (In h (find_mediators_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
+        apply if_mediator_then_not_confounder_path in H0. 2: { auto. } 2:{ apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct H as [_ H]. destruct Hm as [Hm | Hm]. apply H. rewrite Hm. apply Hm'. apply Hm.
         -- destruct H0 as [H0 _]. apply H0. apply H.
@@ -493,7 +499,7 @@ Proof.
       - apply Hm.
     * simpl in Hm. destruct (is_mediator_bool u h' h G || is_mediator_bool h' u h G) as [|] eqn:Hmed.
       - assert (In h (find_mediators_in_path (u, v, h :: h' :: t') G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_mediator_then_not_confounder_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
+        apply if_mediator_then_not_confounder_path in H0. 2: { auto. } 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct Hm as [Hm | Hm].
            ++ destruct H as [_ H]. apply H. rewrite Hm. apply Hm'.
@@ -509,7 +515,7 @@ Proof.
     simpl in Hm. destruct t as [| h' t'].
     * simpl in Hm. destruct (is_confounder_bool u v h G) as [|] eqn:Hmed.
       - assert (In h (find_confounders_in_path (u, v, [h]) G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
+        apply if_confounder_then_not_mediator_path in H0. 2: { auto. } 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct H0 as [H0 _]. apply H0. apply H.
         -- destruct H as [_ H]. destruct Hm as [Hm | Hm]. apply H. rewrite Hm. apply Hm'. apply Hm.
@@ -517,7 +523,7 @@ Proof.
       - apply Hm.
     * simpl in Hm. destruct (is_confounder_bool u h' h G) as [|] eqn:Hmed.
       - assert (In h (find_confounders_in_path (u, v, h :: h' :: t') G)). { simpl. rewrite Hmed. left. reflexivity. }
-        apply if_confounder_then_not_mediator_path in H0. 2: { apply HGcyc. } 2: { apply Hcyc. }
+        apply if_confounder_then_not_mediator_path in H0. 2: { auto. } 2: { apply HGcyc. } 2: { apply Hcyc. }
         destruct H as [H | [H | H]].
         -- destruct Hm as [Hm | Hm].
            ++ destruct H0 as [H0 _]. apply H0. apply H.
@@ -547,6 +553,7 @@ Proof.
            ++ destruct H as [_ H]. apply H.
         -- destruct H1 as [_ [_ H1]]. apply forallb_true with (x := m) in H1. apply H1. apply Hcolm.
       - destruct H1 as [_ [_ H1]]. apply forallb_true with (x := m) in H1. apply H1. apply Hcolm.
+    * auto.
     * apply HGcyc.
     * apply Hcyc.
 Qed.

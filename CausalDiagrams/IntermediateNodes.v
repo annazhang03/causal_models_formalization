@@ -763,10 +763,11 @@ Proof.
 Qed.
 
 Theorem if_mediator_then_not_confounder: forall (G: graph) (u v x: node),
+  G_well_formed G = true ->
   contains_cycle G = false -> is_mediator_bool u v x G = true
   -> is_confounder_bool u v x G = false /\ is_collider_bool u v x G = false.
 Proof.
-  intros G u v x Hcyc Hmed.
+  intros G u v x Hwf Hcyc Hmed.
   unfold is_mediator_bool in Hmed. apply split_and_true in Hmed. destruct Hmed as [H1 H2].
   split.
   { destruct (is_confounder_bool u v x G) as [|] eqn:Hcon.
@@ -776,7 +777,7 @@ Proof.
     apply contains_cycle_false_correct in Hpath.
     + simpl in Hpath. destruct Hpath as [contra _]. unfold not in contra.
       exfalso. apply contra. reflexivity.
-    + admit.
+    + auto.
     + apply Hcyc.
   - reflexivity. }
   { destruct (is_collider_bool u v x G) as [|] eqn:Hcol.
@@ -786,18 +787,19 @@ Proof.
     apply contains_cycle_false_correct in Hpath.
     + simpl in Hpath. destruct Hpath as [contra _]. unfold not in contra.
       exfalso. apply contra. reflexivity.
-    + admit.
+    + auto.
     + apply Hcyc.
   - reflexivity. }
-Admitted.
+Qed.
 
 Theorem if_mediator_then_not_confounder_path: forall (G: graph) (u: node) (p: path),
+  G_well_formed G = true ->
   contains_cycle G = false
   -> acyclic_path_2 p
   -> In u (find_mediators_in_path p G)
   -> ~(In u (find_confounders_in_path p G)) /\ ~(In u (find_colliders_in_path p G)).
 Proof.
-  intros G w [[u v] l] HG Hc Hu.
+  intros G w [[u v] l] Hwf HG Hc Hu.
   split.
   - intros Hu'. apply mediators_vs_edges_in_path in Hu. destruct Hu as [y [z [Hsub1 Hedge1]]].
     apply confounders_vs_edges_in_path in Hu'. destruct Hu' as [y' [z' [Hsub2 Hedge2]]].
@@ -810,7 +812,7 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-      admit.
+      auto.
       simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
     + assert (Hy: z = z').
       { apply two_sublists_the_same with (l := u :: l ++ [v]) (a := w).
@@ -820,7 +822,7 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [z])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-      admit.
+      auto.
       simpl. destruct Hedge1 as [_ Hedge1]. rewrite Hedge1. destruct Hedge2 as [_ Hedge2]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
   - intros Hu'. apply mediators_vs_edges_in_path in Hu. destruct Hu as [y [z [Hsub1 Hedge1]]].
     apply colliders_vs_edges_in_path in Hu'. destruct Hu' as [y' [z' [Hsub2 Hedge2]]].
@@ -833,7 +835,7 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [z])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-      admit.
+      auto.
       simpl. destruct Hedge1 as [_ Hedge1]. rewrite Hedge1. destruct Hedge2 as [_ Hedge2]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
     + assert (Hy: y = y').
       { apply two_sublists_the_same_2 with (l := u :: l ++ [v]) (a := w).
@@ -843,20 +845,22 @@ Proof.
           right. left. reflexivity. apply Hsub1. }
       rewrite <- Hy in *.
       apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-      admit.
+      auto.
       simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
-Admitted.
+Qed.
 
 Theorem if_confounder_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
+  G_well_formed G = true ->
   contains_cycle G = false
   -> acyclic_path_2 p
   -> In u (find_confounders_in_path p G)
   -> ~(In u (find_mediators_in_path p G)) /\ ~(In u (find_colliders_in_path p G)).
 Proof.
-  intros G w [[u v] l] HG Hc Hu.
+  intros G w [[u v] l] Hwf HG Hc Hu.
   split.
   - intros Hu'. apply if_mediator_then_not_confounder_path in Hu'.
     + destruct Hu' as [Hu' _]. apply Hu'. apply Hu.
+    + auto.
     + apply HG.
     + apply Hc.
   - intros Hu'. apply colliders_vs_edges_in_path in Hu'. destruct Hu' as [y [z [Hsub1 Hedge1]]].
@@ -869,24 +873,27 @@ Proof.
         right. left. reflexivity. apply Hsub1. }
     rewrite <- Hy in *.
     apply contains_cycle_false_correct with (p := (w, w, [y])) in HG. exfalso. destruct HG as [HG _]. apply HG. reflexivity.
-    admit.
+    auto.
     simpl. destruct Hedge1 as [Hedge1 _]. rewrite Hedge1. destruct Hedge2 as [Hedge2 _]. rewrite Hedge2. simpl. destruct G as [V E]. reflexivity.
-Admitted.
+Qed.
 
 Theorem if_collider_then_not_mediator_path: forall (G: graph) (u: node) (p: path),
+  G_well_formed G = true ->
   contains_cycle G = false
   -> acyclic_path_2 p
   -> In u (find_colliders_in_path p G)
   -> ~(In u (find_mediators_in_path p G)) /\ ~(In u (find_confounders_in_path p G)).
 Proof.
-  intros G w [[u v] l] HG Hc Hu.
+  intros G w [[u v] l] Hwf HG Hc Hu.
   split.
   - intros Hu'. apply if_mediator_then_not_confounder_path in Hu'.
     + destruct Hu' as [_ Hu']. apply Hu'. apply Hu.
+    + auto.
     + apply HG.
     + apply Hc.
   - intros Hu'. apply if_confounder_then_not_mediator_path in Hu'.
   + destruct Hu' as [_ Hu']. apply Hu'. apply Hu.
+    + auto.
     + apply HG.
     + apply Hc.
 Qed.
