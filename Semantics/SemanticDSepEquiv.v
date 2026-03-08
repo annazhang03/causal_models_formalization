@@ -344,15 +344,18 @@ Proof.
     - destruct Hvlu as [l [Hconn [Hdir [Hcyc HlZ]]]].
       apply d_connected_path_not_d_separated with (l := rev l) in Hsep.
       * apply Hsep.
+      * apply HG.
       * apply reverse_d_connected_paths. apply Hconn.
       * split. apply reverse_path_in_graph. apply directed_path_is_path. apply Hdir. apply reverse_path_still_acyclic. apply Hcyc.
     - destruct Hulv as [l [Hconn [Hdir [Hcyc HlZ]]]].
       apply d_connected_path_not_d_separated with (l := l) in Hsep.
       * apply Hsep.
+      * apply HG.
       * apply Hconn.
       * split. apply directed_path_is_path. apply Hdir. apply Hcyc.
     - destruct Hcon as [lu [lv [anc' [Hconn [Hpath [_ [_ [Hcyc HlZ]]]]]]]].
       apply d_connected_path_not_d_separated with (u := u) (v := v) (l := (rev lu) ++ (anc' :: lv)) (G := G) (Z := Z).
+      -- apply HG.
       -- apply Hconn.
       -- split. apply Hpath. apply Hcyc.
       -- apply Hsep.
@@ -977,6 +980,7 @@ Proof.
 
     destruct Hp as [l Hp]. apply d_connected_path_not_d_separated with (l := l) in Hdsep.
     + apply Hdsep.
+    + apply HG.
     + apply Hp.
     + split. apply Hp. apply Hp.
 Qed.
@@ -1006,6 +1010,6 @@ Proof.
             * apply Hp.
         - apply HZ.
         - apply Hp. }
-      exfalso. apply contra. apply Hcond. }
+      exfalso. apply contra. apply Hcond. apply HG. }
   { intros Hsep. apply path_d_separated_then_semantically_separated. easy. easy. easy. }
 Qed.

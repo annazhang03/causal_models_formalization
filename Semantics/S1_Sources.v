@@ -193,13 +193,14 @@ Proof.
 Qed.
 
 Lemma sources_induction_out_of_start_out_of_h: forall (G: graph) (u h v: node) (t: nodes),
+  G_well_formed G = true ->
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
   -> path_into_start (u, v, h :: t) G = false /\ path_out_of_h G u v h t = true
   -> exists (A: nodes),
      get_sources_in_g_path G (u, v, h :: t) = u :: A
      /\ get_sources_in_g_path G (h, v, t) = h :: A.
 Proof.
-  intros G u h v t [Hp Hcyc] [Hin Houth].
+  intros G u h v t Hwf [Hp Hcyc] [Hin Houth].
   unfold get_sources_in_g_path.
   destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
@@ -210,7 +211,7 @@ Proof.
       * simpl. assert (Hcon: is_confounder_bool u h' h G = false).
         { unfold is_confounder_bool. simpl in Houth. simpl in Hin. rewrite Hin. reflexivity. }
         rewrite Hcon. reflexivity.
-    + split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
+    + split. auto. split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     rewrite path_out_of_h_same in Houth. apply acyclic_path_one_direction in Houth.
     + rewrite Houth. exists (find_confounders_in_path (u, v, h :: t) G). split. reflexivity. f_equal.
@@ -219,16 +220,17 @@ Proof.
       * simpl. assert (Hcon: is_confounder_bool u h' h G = false).
         { unfold is_confounder_bool. simpl in Houth. simpl in Hin. rewrite Hin. reflexivity. }
         rewrite Hcon. reflexivity.
-    + split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
+    + split. auto. split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
   - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
 Qed.
 
 Lemma sources_induction_out_of_start_into_h: forall (G: graph) (u h v: node) (t: nodes),
+  G_well_formed G = true ->
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
   -> path_into_start (u, v, h :: t) G = false /\ path_out_of_h G u v h t = false
   -> get_sources_in_g_path G (u, v, h :: t) = u :: get_sources_in_g_path G (h, v, t).
 Proof.
-  intros G u h v t [Hp Hcyc] [Hin Hinh].
+  intros G u h v t Hwf [Hp Hcyc] [Hin Hinh].
   unfold get_sources_in_g_path.
   destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
@@ -239,7 +241,7 @@ Proof.
       * simpl. assert (Hcon: is_confounder_bool u h' h G = false).
         { unfold is_confounder_bool. simpl in Hin. rewrite Hin. reflexivity. }
         rewrite Hcon. reflexivity.
-    + split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
+    + split. auto. split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     rewrite path_out_of_h_same in Hinh. apply acyclic_path_one_direction_2 in Hinh.
     + rewrite Hinh. f_equal.
@@ -248,7 +250,7 @@ Proof.
       * simpl. assert (Hcon: is_confounder_bool u h' h G = false).
         { unfold is_confounder_bool. simpl in Hin. rewrite Hin. reflexivity. }
         rewrite Hcon. reflexivity.
-    + split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
+    + split. auto. split. apply is_path_in_graph_induction with (u := u). apply Hp. apply Hcyc.
   - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
 Qed.
 
@@ -775,7 +777,7 @@ Proof.
     + destruct (path_out_of_h G u v h t) as [|] eqn:Hout.
       * assert (HA1: exists (A: nodes), get_sources_in_g_path G (u, v, h :: t) = u :: A /\
                                         get_sources_in_g_path G (h, v, t) = h :: A).
-        { apply sources_induction_out_of_start_out_of_h. split. apply Hp. apply Hc. split. apply Hin. apply Hout. }
+        { apply sources_induction_out_of_start_out_of_h. auto. split. apply Hp. apply Hc. split. apply Hin. apply Hout. }
         destruct HA1 as [A HA1].
 
         assert (Hind: length (h :: A) <= path_length (h, v, t)).
@@ -783,7 +785,7 @@ Proof.
         unfold path_length. unfold path_length in Hind. destruct HA1 as [HA1 _]. rewrite <- HL. unfold nodes in *.
         rewrite HA1. simpl. simpl in Hind. lia.
       * assert (HA1: get_sources_in_g_path G (u, v, h :: t) = u :: get_sources_in_g_path G (h, v, t)).
-        { apply sources_induction_out_of_start_into_h. split. apply Hp. apply Hc. split. apply Hin. apply Hout. }
+        { apply sources_induction_out_of_start_into_h. auto. split. apply Hp. apply Hc. split. apply Hin. apply Hout. }
         assert (Hind: length (get_sources_in_g_path G (h, v, t)) <= path_length (h, v, t)).
         { apply IH. apply is_path_in_graph_induction with (u := u). apply Hp. reflexivity. }
         unfold path_length. unfold path_length in Hind. rewrite <- HL. unfold nodes in *.
@@ -918,6 +920,7 @@ Proof.
                            intros w [Hw | Hw]. rewrite Hw. apply HhZ. intros HwZ. destruct Hp as [_ [_ [Hp _]]]. apply no_overlap_non_member with (x := w) in Hp.
                            apply Hp. apply Hw. apply HwZ. }
                          { apply single_edge_unblocked_ancestor_path with (v := u) (t := []); eauto. apply HZ. apply reverse_path_still_acyclic with (l := [h]). apply Hcyc. }
+              ** auto.
               ** simpl. unfold is_collider_bool. rewrite Hvh. rewrite Huh. simpl. left. reflexivity.
       * destruct (is_edge (h, u) G) as [|] eqn:Hhu. destruct (is_confounder_bool u v h G) as [|] eqn:Hcon. discriminate HA1. discriminate HA1.
         destruct (is_confounder_bool u v h G) as [|] eqn:Hcon.
@@ -969,6 +972,7 @@ Proof.
                 apply H in Hdir.
                 - destruct Hdir as [A [HuA HhA]]. unfold nodes in *. unfold node in *. rewrite HA1_const in HuA. inversion HuA.
                   rewrite <- H2 in HhA. apply HhA.
+                - auto.
                 - split. apply HpG. apply HG. }
 
               specialize IH with (u := h) (x := h). apply IH in HA1'.
@@ -992,7 +996,7 @@ Proof.
                    *** apply is_path_in_graph_induction with (u := u). apply HpG.
                    *** apply acyclic_path_cat with (u := u). apply Hcyc.
                    *** assert (HA1': get_sources_in_g_path G (u, v, h :: h' :: t') = u :: get_sources_in_g_path G (h, v, h' :: t')).
-                       { apply sources_induction_out_of_start_into_h. split. apply HpG. apply HG. split. apply Hin. simpl. apply Hhh'. }
+                       { apply sources_induction_out_of_start_into_h. auto. split. apply HpG. apply HG. split. apply Hin. simpl. apply Hhh'. }
                        rewrite HA1_const in HA1'. symmetry in HA1'. unfold nodes in *. unfold node in *. inversion HA1'. simpl. reflexivity.
                    *** apply subpath_still_d_connected with (u := u). apply Hconn. }
 
@@ -1010,6 +1014,7 @@ Proof.
                          { apply unblocked_ancestors_have_unblocked_directed_path; eauto. right. exists dp. split. apply Hp. split. apply Hp.
                            intros w [Hw | Hw]. rewrite Hw. apply HhZ. intros HwZ. destruct Hp as [_ [_ [Hp _]]]. apply no_overlap_non_member with (x := w) in Hp.
                            apply Hp. apply Hw. apply HwZ. }
+              ** auto.
               ** simpl. unfold is_collider_bool. unfold nodes in *. unfold node in *. rewrite Huh.
                  rewrite Hhh''. simpl. left. reflexivity.
 Qed.
