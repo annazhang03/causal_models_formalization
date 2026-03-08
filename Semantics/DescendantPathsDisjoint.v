@@ -839,7 +839,7 @@ Proof.
                      exfalso. apply HhZ. apply Houth. }
 
                assert (Hh': In h Z \/ (~In h Z /\ exists (z: node) (dp: nodes), is_directed_path_in_graph (h, z, dp) G = true /\ acyclic_path_2 (h, z, dp) /\ overlap dp Z = false /\ In z Z)).
-               { apply colliders_have_unblocked_path_to_descendant with (p := (u, v, h :: lhv)). apply Hh. apply Hconn'. }
+               { apply colliders_have_unblocked_path_to_descendant with (p := (u, v, h :: lhv)). auto. apply Hh. apply Hconn'. }
 
                destruct Hh' as [Hh' | Hh'].
                { (* CASE 2C.1 *) exists (h :: lhv). split. repeat split.

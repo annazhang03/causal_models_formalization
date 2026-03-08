@@ -192,10 +192,11 @@ Proof.
 Qed.
 
 Lemma transmitters_induction_out_of_start_out_of_h: forall (G: graph) (u h v: node) (t: nodes),
+  G_well_formed G = true ->
   is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
   -> path_into_start (u, v, h :: t) G = false /\ path_out_of_h G u v h t = true -> get_transmitters_in_g_path G (u, v, h :: t) = h :: (get_transmitters_in_g_path G (h, v, t)).
 Proof.
-  intros G u h v t [Hp Hcyc] [Hin Houth].
+  intros G u h v t Hwf [Hp Hcyc] [Hin Houth].
   unfold get_transmitters_in_g_path.
   destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
@@ -207,7 +208,7 @@ Proof.
           rewrite Hin in Hp. rewrite orb_comm in Hp. simpl in Hp. simpl. rewrite Hp. simpl.
           apply split_and_true in Hp'. destruct Hp' as [Hp' _]. simpl in Houth. simpl in Hp'. rewrite Houth in Hp'. rewrite orb_comm in Hp'. simpl in Hp'. rewrite Hp'. reflexivity. }
         simpl. rewrite Hmed. reflexivity.
-    + split.
+    + split. auto. split.
       * simpl in Hp. destruct G as [V E]. apply split_and_true in Hp. destruct Hp as [_ Hp]. apply Hp.
       * apply Hcyc.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
@@ -222,7 +223,7 @@ Proof.
           rewrite Hin in Hp. rewrite orb_comm in Hp. simpl in Hp. simpl. rewrite Hp. simpl.
           apply split_and_true in Hp'. destruct Hp' as [Hp' _]. simpl in Houth. simpl in Hp'. rewrite Houth in Hp'. rewrite orb_comm in Hp'. simpl in Hp'. rewrite Hp'. reflexivity. }
         simpl. rewrite Hmed. reflexivity.
-    + split.
+    + split. auto. split.
       * apply is_path_in_graph_induction with (u := u). apply Hp.
       * apply Hcyc.
   - apply path_out_of_end_Some in Hout. exfalso. apply Hout.

@@ -128,17 +128,18 @@ Definition d_connected_2 (p: path) (G: graph) (Z: nodes) : Prop :=
 
 (* u and v are d-separated given Z in G iff no path d-connects u and v given Z *)
 Theorem d_separated_vs_connected: forall u v: node, forall G: graph, forall Z: nodes,
+  G_well_formed G = true /\ contains_cycle G = false ->
   d_separated_bool u v G Z = false <->
   exists l: nodes, (acyclic_path_2 (u, v, l)) /\ (is_path_in_graph (u, v, l) G = true)
                                               /\ d_connected_2 (u, v, l) G Z.
 Proof.
-  intros u v G Z.
+  intros u v G Z [Hwf Hcy].
   split.
   - intros d_sep.
     unfold d_separated_bool in d_sep.
     apply demorgan_many_bool in d_sep.
     destruct d_sep as [p [HIn Hblock]].
-    apply paths_start_to_end_correct in HIn. destruct HIn as [Hpath [Hse Hcyc]].
+    apply paths_start_to_end_correct in HIn; auto. destruct HIn as [Hpath [Hse Hcyc]].
     destruct p as [[s e] l].
     apply path_start_end_equal in Hse. destruct Hse as [Hsu Hev].
     rewrite <- Hsu. rewrite <- Hev.
@@ -165,14 +166,12 @@ Proof.
               ** discriminate Hcol.
               ** apply IH in Hcol. rewrite Hcol.
                  apply descendants_in_or_not_in in Hdesc. rewrite Hdesc. reflexivity.
-    + admit.
-    + admit.
+    + eapply contains_cycle_no_self_loop; eauto.
   - intros [l [cyc [path conn]]].
     unfold d_separated_bool. apply demorgan_many_bool.
     exists (u, v, l). split.
-    + apply paths_start_to_end_correct.
-      * admit.
-      * admit.
+    + apply paths_start_to_end_correct; auto.
+      * eapply contains_cycle_no_self_loop; eauto.
       * split. apply path.
         { split.
           - unfold path_start_and_end. simpl. rewrite eqb_refl. simpl. apply eqb_refl.
@@ -196,7 +195,7 @@ Proof.
                  apply descendants_in_or_not_in in desc. rewrite desc in Hdesc. discriminate Hdesc.
               ** apply split_and_true in col. destruct col as [desc col].
                  apply IH in col. apply col.
-Admitted.
+Qed.
 
 
 Theorem reverse_d_connected_paths: forall (u v: node) (l: nodes) (G: graph) (Z: nodes),
@@ -222,11 +221,12 @@ Proof.
 Qed.
 
 Lemma d_connected_path_not_d_separated: forall (u v: node) (l: nodes) (G: graph) (Z: nodes),
+  G_well_formed G = true /\ contains_cycle G = false ->
   d_connected_2 (u, v, l) G Z
   -> is_path_in_graph (u, v, l) G = true /\ acyclic_path_2 (u, v, l)
   -> d_separated_bool u v G Z = true -> False.
 Proof.
-  intros u v l G Z. intros Hconn [Hpath Hcyc] Hsep.
+  intros u v l G Z [Hwf Hc]. intros Hconn [Hpath Hcyc] Hsep.
   assert (Hconn': exists (l: nodes), (acyclic_path_2 (u, v, l)) /\ (is_path_in_graph (u, v, l) G = true)
                                       /\ d_connected_2 (u, v, l) G Z).
   { exists l. split.
@@ -234,22 +234,23 @@ Proof.
     - split.
       + apply Hpath.
       + apply Hconn. }
-  apply d_separated_vs_connected in Hconn'. rewrite Hconn' in Hsep. discriminate Hsep.
+  apply d_separated_vs_connected in Hconn'; eauto. rewrite Hconn' in Hsep. discriminate Hsep.
 Qed.
 
 Theorem d_separated_symmetry: forall (u v: node) (G: graph) (Z: nodes),
+  G_well_formed G = true /\ contains_cycle G = false ->
   d_separated_bool u v G Z = true -> d_separated_bool v u G Z = true.
 Proof.
-  intros u v G Z H.
+  intros u v G Z [Hwf Hcyc] H.
   destruct (d_separated_bool v u G Z) as [|] eqn:Hd.
   - reflexivity.
-  - apply d_separated_vs_connected in Hd. destruct Hd as [l Hl].
+  - apply d_separated_vs_connected in Hd; auto. destruct Hd as [l Hl].
     assert (Hl': exists l: nodes, (acyclic_path_2 (u, v, l)) /\ (is_path_in_graph (u, v, l) G = true)
                                               /\ d_connected_2 (u, v, l) G Z).
     { exists (rev l). split.
       - apply reverse_path_still_acyclic. apply Hl.
       - split. apply reverse_path_in_graph. apply Hl. apply reverse_d_connected_paths. apply Hl. }
-    apply d_separated_vs_connected in Hl'. rewrite Hl' in H. discriminate H.
+    apply d_separated_vs_connected in Hl'; auto. rewrite Hl' in H. discriminate H.
 Qed.
 
 Theorem concat_d_connected_paths: forall (u v mid: node) (l1 l2: nodes) (G: graph) (Z: nodes),
