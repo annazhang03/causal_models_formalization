@@ -4,7 +4,6 @@ From Utils Require Import Lists.
 From Utils Require Import Logic.
 
 From Stdlib Require Import Classical.
-From Stdlib Require Import Classical_Prop.
 Import ListNotations.
 Import Lia.
 
@@ -831,6 +830,7 @@ Proof. intros [V E] Hwf. unfold contains_cycle. split.
     + exfalso. apply Hp. intro. exfalso. discriminate H.
 Qed.
 
+
 Theorem contains_cycle_false_correct : forall G: graph, forall p: path,
   G_well_formed G = true ->
   contains_cycle G = false -> ((is_directed_path_in_graph p G = true) -> acyclic_path_2 p).
@@ -839,10 +839,11 @@ Proof.
   pose proof contains_cycle_true_correct as cycle_true.
   specialize (cycle_true G).
   intros Hwf Hcyc Hpath.
-  destruct (classic (acyclic_path_2 p)) as [HnC | HC].
-  - apply HnC.
+  apply acyclic_path_2_bool_equiv.
+  destruct (acyclic_path_2_bool p) as [|] eqn:Ha.
+  - reflexivity.
   - assert (H: (exists p' : path, is_directed_path_in_graph p' G = true /\ ~ acyclic_path_2 p')).
-    { exists p. split. apply Hpath. apply HC. }
+    { exists p. split. apply Hpath. intros contra. apply acyclic_path_2_bool_equiv in contra. rewrite contra in Ha. discriminate Ha. }
     apply cycle_true in H. rewrite H in Hcyc. discriminate Hcyc. assumption.
 Qed.
 

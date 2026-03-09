@@ -6,7 +6,7 @@ From Stdlib Require Export Lists.List.
 From Stdlib Require Export Bool.Bool.
 From Stdlib Require Export Arith.PeanoNat.
 Require Import Stdlib.Program.Wf.
-
+Import Nat.
 Import ListNotations.
 
 (* this file defines causal models, or DAGs, using the `graph` type.
@@ -269,6 +269,15 @@ Definition acyclic_path_2 (p: path) : Prop :=
                           | [] => True
                           | h :: t => acyclic_path (h :: t) = true
                          end
+  end.
+
+Definition acyclic_path_2_bool (p: path): bool :=
+  match p with
+  | (u, v, int) => negb (u =? v) && negb (member u int) && negb (member v int)
+                   && match int with
+                      | [] => true
+                      | h :: t => acyclic_path (h :: t)
+                      end
   end.
 
 
