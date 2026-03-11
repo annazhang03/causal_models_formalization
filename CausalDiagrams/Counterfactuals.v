@@ -606,9 +606,18 @@ Admitted.
 
 Lemma duplicate_graph_preserves_no_cycle :
   forall G : graph,
+  G_well_formed G = true ->
   contains_cycle G = false ->
   contains_cycle (duplicate_graph G) = false.
-Proof.
+Proof. pose proof duplicate_graph_maintains_dir_paths as Hdir.
+  pose proof duplicate_graph_shifts_dir_paths as Hsh. pose proof contains_cycle_false_complete as Hg.
+  pose proof contains_cycle_false_correct as Hp. Search acyclic_path_2. intros [V E] Hwf Hcyc. eapply Hg.
+  apply duplicate_graph_preserves_well_formed; eauto. intros p Hp'.
+  destruct p as [[u' v'] l'].
+  set (o := max_node_in_graph (V, E)).
+  assert (Ho : o = max_node_in_graph (V, E)) by reflexivity.
+  specialize (Hsh u' v' l' (V, E) o Ho Hp').
+  eapply Hp with (V, E); eauto. rewrite Hdir with (o:=o); [| exact Ho].
 Admitted.
 
 
