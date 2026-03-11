@@ -749,17 +749,6 @@ Proof.
   exact Hwitness.
 Qed.
 
-Lemma cyclic_path_eventually_detected :
-  forall G p k,
-    G_well_formed G = true ->
-    is_directed_path_in_graph p G = true ->
-    ~acyclic_path_2 p ->
-    k >= path_length p ->
-    let l := directed_edges_as_paths (snd G) in
-    fst (dfs_extend_by_edges_iter (snd G) l k) = true.
-Proof.
-Admitted.
-
 Lemma directed_edges_as_paths_complete :
   forall (E : edges) (u v : node),
     In (u,v) E <-> In (u,v,[]) (directed_edges_as_paths E).
@@ -774,14 +763,6 @@ Proof.
       * inversion H; subst. left. reflexivity.
       * right. apply IH. exact H.
 Qed.
-
-Lemma cyclic_path_length_bound :
-  forall G p,
-    G_well_formed G = true ->
-    is_directed_path_in_graph p G = true ->
-    ~acyclic_path_2 p ->
-    path_length p <= length (fst G).
-Admitted.
 (*helpers end*)
 
 (* Main completeness lemmas for contains_cycle_true_correct *)
@@ -806,13 +787,7 @@ Proof. intros G Hwf [p [Hdir Hcyc]]. unfold contains_cycle. destruct G as [V E];
   assert (Hinit : forall e, In e E -> exists u v, e = (u, v) /\ In (u, v, []) (directed_edges_as_paths E)).
   { intros e Hin. destruct e as [u v]. exists u, v.
     split. reflexivity. rewrite <- directed_edges_as_paths_complete. exact Hin. }
-  assert (Hbound : path_length p <= length V).
-  { pose proof cyclic_path_length_bound. specialize (H (V,E) p Hwf Hdir Hcyc). apply H. }
-  assert (Hdir_init : directed_paths_in_graph (directed_edges_as_paths E) (V, E)).
-  { apply directed_edges_as_paths_in_graph. exact Hwf. }
-  pose proof cyclic_path_eventually_detected. specialize (H (V,E) p (length V)
-    Hwf Hdir Hcyc). eapply H; eauto.
-Qed.
+Admitted.
 
 (* correctness proof for contains_cycle function and the contrapositive *)
 Theorem contains_cycle_true_correct : forall G: graph,
