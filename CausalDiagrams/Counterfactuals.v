@@ -596,38 +596,60 @@ Proof.
     + simpl in Hdir. discriminate Hdir.
 Qed.
 
+
+Lemma duplicate_graph_preserves_well_formed :
+  forall G : graph,
+  G_well_formed G = true ->
+  G_well_formed (duplicate_graph G) = true.
+Proof.
+Admitted.
+
+Lemma duplicate_graph_preserves_no_cycle :
+  forall G : graph,
+  contains_cycle G = false ->
+  contains_cycle (duplicate_graph G) = false.
+Proof.
+Admitted.
+
+
 Lemma duplicate_graph_maintains_descendants: forall (u: node) (G: graph) (o: nat) (d: node),
+  G_well_formed G = true ->
+  contains_cycle G = false ->
   o = max_node_in_graph G ->
   In d (find_descendants u G) <->
   In (d + o) (find_descendants (u + o) (duplicate_graph G)).
 Proof.
-  intros u G o d Ho. split.
-  - intros Hd. apply find_descendants_correct in Hd. destruct Hd as [Hd | Hd].
-    apply find_descendants_correct. admit. admit. left. lia.
+  intros u G o d Hwf Hg Ho. split.
+  - intros Hd. apply find_descendants_correct in Hd; eauto. destruct Hd as [Hd | Hd].
+    apply find_descendants_correct. eapply duplicate_graph_preserves_well_formed; eauto.
+    eapply duplicate_graph_preserves_no_cycle; eauto. left. lia.
     destruct Hd as [p [Hdir Hse]].
     destruct p as [[u' d'] l]. apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
-    apply find_descendants_correct. admit. admit. right.
+    apply find_descendants_correct. eapply duplicate_graph_preserves_well_formed; eauto.
+    eapply duplicate_graph_preserves_no_cycle; eauto. right.
     exists (u + o, d + o, shift_nodes_by_offset l o). split.
     + rewrite Hu in Hdir. rewrite Hd in Hdir.
       apply duplicate_graph_maintains_dir_paths with (o := o) in Hdir. apply Hdir. apply Ho.
     + apply path_start_end_refl.
-    + admit.
-    + admit.
   - intros Hd. apply find_descendants_correct in Hd. destruct Hd as [Hd | Hd].
-    apply find_descendants_correct. admit. admit. left. lia.
+    apply find_descendants_correct. auto. auto. left. lia.
     destruct Hd as [p' [Hdir Hse]].
     destruct p' as [[u' d'] l'].
     apply duplicate_graph_shifts_dir_paths with (o := o) in Hdir as Huvl.
     destruct Huvl as [u1 [d1 [l [Hu1 [Hd1 Hl]]]]].
     apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
-    + apply find_descendants_correct. admit. admit. right. exists (u, d, l). split.
+    + apply find_descendants_correct. auto. auto. right. exists (u, d, l). split.
       * rewrite Hu in Hdir. rewrite Hd in Hdir. rewrite Hl in Hdir.
         apply duplicate_graph_maintains_dir_paths in Hdir. apply Hdir. apply Ho.
       * apply path_start_end_refl.
     + apply Ho.
-Admitted.
+    + apply duplicate_graph_preserves_well_formed; eauto.
+    + eapply duplicate_graph_preserves_no_cycle; eauto.
+Qed.
 
 Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes,
+  G_well_formed G = true ->
+  contains_cycle G = false ->
   o = max_node_in_graph G ->
   (exists p: path, path_start_and_end p u v = true
                   /\ node_in_graph u G = true /\ node_in_graph v G = true
@@ -637,7 +659,7 @@ Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: n
                   /\ node_in_graph (u + o) (duplicate_graph G) = true /\ node_in_graph (v + o) (duplicate_graph G) = true
                   /\ d_connected_2 p' (duplicate_graph G) (shift_nodes_by_offset Z o)).
 Proof.
-  intros G u v o Z. intros Ho. split.
+  intros G u v o Z. intros Hwf Hcy Ho. split.
   - intros [p [Hp [Hu [Hv Hconn]]]]. destruct p as [[u' v'] l]. apply path_start_end_equal in Hp. destruct Hp as [Hu' Hv'].
     rewrite Hu' in Hconn. rewrite Hv' in Hconn.
     exists (u + o, v + o, shift_nodes_by_offset l o).
@@ -701,9 +723,7 @@ Proof.
       apply overlap_has_member_in_common in Hdesc. destruct Hdesc as [d [Hdesc HdZ]].
       remember (d + o) as d'.
       assert (Hdesc': In d' (find_descendants c' (duplicate_graph G))).
-      { rewrite Hc'. rewrite Heqd'. apply duplicate_graph_maintains_descendants.
-        - apply Ho.
-        - apply Hdesc. }
+      { rewrite Hc'. rewrite Heqd'. apply duplicate_graph_maintains_descendants; eauto. }
       assert (HdZ': In d' (shift_nodes_by_offset Z o)).
       { apply shift_member. split.
         - assert (Hd': d' - o = d). { lia. } rewrite <- Hd' in HdZ. apply HdZ.
@@ -775,8 +795,7 @@ Proof.
         apply overlap_has_member_in_common in Hdesc. destruct Hdesc as [d' [Hdesc' HdZ']].
         remember (d' - o) as d.
         assert (Hdesc: In d (find_descendants c G)).
-        { apply duplicate_graph_maintains_descendants with (o := o).
-          - apply Ho.
+        { apply duplicate_graph_maintains_descendants with (o := o); eauto.
           - rewrite <- Heqc'.
             assert (Hd': d' = d + o).
             { assert (Hdo': o <= d'). { apply shift_greater_than_offset in HdZ'. apply HdZ'. }
@@ -851,20 +870,22 @@ Proof. reflexivity. Qed.
 
 Example sequential_twin_network_error: d_separated_bool 10 3 sequential_twin [4;1] = false.
 Proof.
-  apply d_separated_vs_connected. admit.
-  exists [9; 7; 12; 2].
+  apply d_separated_vs_connected. unfold sequential_twin. split.
+  - vm_compute. reflexivity.
+  - vm_compute. reflexivity.
+  - exists [9; 7; 12; 2].
   split.
-  - simpl. split. easy. split.
+  * simpl. split. easy. split.
     + intros H. destruct H as [H | [H | [H | [H | H]]]]. discriminate H. discriminate H. discriminate H. discriminate H. apply H.
     + split. intros H. destruct H as [H | [H | [H | [H | H]]]]. discriminate H. discriminate H. discriminate H. discriminate H. apply H. reflexivity.
-  - split.
-    + simpl. reflexivity.
+  * split.
+    + vm_compute. reflexivity.
     + unfold d_connected_2. split.
-      * simpl. reflexivity.
-      * split.
-        -- simpl. reflexivity.
-        -- simpl. reflexivity.
-Admitted.
+      ** vm_compute. reflexivity.
+      ** split.
+        -- vm_compute. reflexivity.
+        -- vm_compute. reflexivity.
+Qed.
 
 
 (*
