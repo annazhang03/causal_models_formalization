@@ -431,7 +431,7 @@ Qed.
 Lemma get_values_only_dependent_on_parents_helper:
   forall X (G: graph) (ts_pre ts_suff: nodes) (u: node) (g: graphfun)
            (U1 U2 A1 A2 A1' A2' V1 V2: assignments X),
-  G_well_formed G = true /\ topological_sort G = Some (ts_pre ++ ts_suff) /\ node_in_graph u G = true ->
+  contains_cycle G = false /\ G_well_formed G = true /\ topological_sort G = Some (ts_pre ++ ts_suff) /\ node_in_graph u G = true ->
   get_values_from_topo_sort ts_suff G g U1 A1 A1' = Some V1
   /\ get_values_from_topo_sort ts_suff G g U2 A2 A2' = Some V2
   /\ is_assignment_for A1' ts_pre = true /\ is_assignment_for A2' ts_pre = true
@@ -444,7 +444,7 @@ Lemma get_values_only_dependent_on_parents_helper:
   get_assigned_value V1 u = get_assigned_value V2 u.
 Proof.
   intros X G tsp tss u g U1 U2 A1 A2 A1' A2' V1 V2.
-  intros [Hwf [Hts Hu]] [HV1 [HV2 [HA1' [HA2' [HA1u [HA2u [HU [HU1 [HU2 [HA HP]]]]]]]]]].
+  intros [Hcyc [Hwf [Hts Hu]]] [HV1 [HV2 [HA1' [HA2' [HA1u [HA2u [HU [HU1 [HU2 [HA HP]]]]]]]]]].
   generalize dependent V1. generalize dependent V2. generalize dependent tsp.
   generalize dependent A1'. generalize dependent A2'.
   induction tss as [| h t IH].
@@ -470,7 +470,7 @@ Proof.
               destruct (h =? u) as [|] eqn:Hhu.
               ** assert (Hp: forall v: node, In v (find_parents u G) -> In v tsp).
                  { apply topo_sort_parents_before with (t := t). split. apply Hwf.
-                   apply eqb_eq in Hhu. rewrite Hhu in Hts. split. admit. apply Hts. }
+                   apply eqb_eq in Hhu. rewrite Hhu in Hts. split. auto. apply Hts. }
                  unfold get_assigned_value. simpl. rewrite Hhu. apply eqb_eq in Hhu.
                  assert (H: get_value_of_node u G g U1 A1 A1' = get_value_of_node u G g U2 A2 A2').
                  { apply value_same_if_parents_are_same. repeat split.
@@ -532,7 +532,7 @@ Proof.
         -- apply Hv.
       * discriminate HV2.
     + discriminate HV1.
-Admitted.
+Qed.
 
 (* as long as u has the same error term,
    its parents have the same values,
@@ -540,7 +540,7 @@ Admitted.
    then it will have the same find_value *)
 Theorem get_values_only_dependent_on_parents:
   forall X (G: graph) (u: node) (g: graphfun) (U1 U2 A1 A2 V1 V2: assignments X),
-  G_well_formed G = true /\ node_in_graph u G = true ->
+  contains_cycle G = false /\ G_well_formed G = true /\ node_in_graph u G = true ->
   get_values G g U1 A1 = Some V1 /\ get_values G g U2 A2 = Some V2 ->
   (forall (v: node), In v (find_parents u G)
           -> get_assigned_value V1 v = get_assigned_value V2 v)
@@ -550,12 +550,13 @@ Theorem get_values_only_dependent_on_parents:
   get_assigned_value V1 u = get_assigned_value V2 u.
 Proof.
   intros X G u g U1 U2 A1 A2 V1 V2.
-  intros [Hwf Hu] [HV1 HV2] [Hp [HU [HU1 [HU2 HA]]]].
+  intros [Hcyc [Hwf Hu]] [HV1 HV2] [Hp [HU [HU1 [HU2 HA]]]].
   unfold get_values in HV1. destruct (topological_sort G) as [ts|] eqn:Hts.
   - unfold get_values in HV2. rewrite Hts in HV2.
     apply get_values_only_dependent_on_parents_helper with (G := G) (ts_pre := []) (ts_suff := ts)
                     (g := g) (U1 := U1) (U2 := U2) (A1 := A1) (A2 := A2) (A1' := []) (A2' := []).
     + repeat split.
+      * auto.
       * apply Hwf.
       * simpl. apply Hts.
       * apply Hu.
@@ -572,19 +573,20 @@ Qed.
 
 Lemma get_values_existence_helper: forall X (ts_pre ts_suff: nodes) (G: graph) (g: graphfun) (U A A_eval: assignments X),
   G_well_formed G = true ->
+  contains_cycle G = false ->
   topological_sort G = Some (ts_pre ++ ts_suff) /\ is_assignment_for A_eval ts_pre = true /\
   is_assignment_for U (nodes_in_graph G) = true
   -> exists (values: assignments X), get_values_from_topo_sort ts_suff G g U A A_eval = Some values.
 Proof.
   intros X tsp tss G g U A A_eval.
-  intros Hwf [Hts [Hsf HU]].
+  intros Hwf Hcyc [Hts [Hsf HU]].
   generalize dependent tsp. generalize dependent A_eval. induction tss as [| h t IH].
   - intros A_eval tsp Hts Hsf. simpl. exists A_eval. reflexivity.
   - intros A_eval tsp Hts Hsf. simpl.
     assert (Hh: exists x: X, get_value_of_node h G g U A A_eval = Some x).
     { apply value_exists_if_parents_are_assigned. repeat split.
       - assert (Hp: forall (p: node), In p (find_parents h G) -> In p tsp).
-        { apply topo_sort_parents_before with (t := t). split. apply Hwf. split. admit. apply Hts. }
+        { apply topo_sort_parents_before with (t := t). split. apply Hwf. split. auto. apply Hts. }
         unfold is_assignment_for. apply forallb_true_iff_mem. intros p Hmem.
         specialize Hp with (p := p). apply Hp in Hmem.
         apply assigned_is_true. apply assigned_has_value with (L := tsp). split.
@@ -606,7 +608,7 @@ Proof.
       * apply is_assigned_app2. apply assigned_is_true. apply assigned_has_value with (L := [h]). split.
         -- apply Hmem.
         -- simpl. rewrite eqb_refl. simpl. reflexivity.
-Admitted.
+Qed.
 
 Theorem get_values_existence: forall X (G: graph) (g: graphfun) (U A: assignments X),
   G_well_formed G = true /\ contains_cycle G = false ->
@@ -623,6 +625,7 @@ Proof.
   unfold get_values. rewrite HG in Hts. rewrite Hts.
   apply get_values_existence_helper with (ts_pre := []).
   - apply Hwf.
+  - auto.
   - repeat split.
     + rewrite Hts. simpl. reflexivity.
     + simpl. apply HU.

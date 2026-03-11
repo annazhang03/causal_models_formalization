@@ -22,29 +22,30 @@ Definition get_colliders_in_g_path (G: graph) (p: path): nodes :=
   find_colliders_in_path p G.
 
 Lemma colliders_induction_into_start_out_of_h: forall (G: graph) (u h v: node) (t: nodes),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> (path_into_start (u, v, h :: t) G = true \/ path_out_of_h G u v h t = true)
   -> get_colliders_in_g_path G (u, v, h :: t) = get_colliders_in_g_path G (h, v, t).
 Proof.
-  intros G u h v t Hcyc Hin.
+  intros G u h v t Hwf Hcyc Hin.
   unfold get_colliders_in_g_path.
   simpl. destruct t as [| h' t'].
   - simpl. unfold is_collider_bool. destruct Hin as [Hin | Hin].
     + simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. reflexivity.
-      admit. apply Hcyc.
+      auto. apply Hcyc.
     + rewrite path_out_of_h_same in Hin. simpl in Hin. apply acyclic_no_two_cycle in Hin.
       rewrite Hin. rewrite andb_comm. simpl. reflexivity.
-      admit. apply Hcyc.
+      auto. apply Hcyc.
   - simpl. assert (is_collider_bool u h' h G = false).
     { unfold is_collider_bool. destruct Hin as [Hin | Hin].
       - simpl in Hin. apply acyclic_no_two_cycle in Hin.
         + rewrite Hin. simpl. reflexivity.
-        + admit.
+        + auto.
         + apply Hcyc.
       - rewrite path_out_of_h_same in Hin. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. rewrite andb_comm. reflexivity.
-        admit. apply Hcyc. }
+        auto. apply Hcyc. }
     rewrite H. reflexivity.
-Admitted.
+Qed.
 
 Definition S3_nodes_colliders_in_graph {X: Type} (G: graph) (p: path) (A3: assignments (nat * nat * X * X)): Prop :=
   forall (c: node) (i j: nat) (x y: X), In (c, (i, j, x, y)) A3
