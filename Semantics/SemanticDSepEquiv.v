@@ -225,7 +225,7 @@ Proof.
            assert (Hmedh: In h (find_mediators_in_path (anc, u, l) G)).
            { apply directed_path_all_mediators with (m := h). split. apply Hdir. apply Hmemh. }
            apply if_mediator_then_not_confounder_path in Hmedh. destruct Hmedh as [_ Hhcol]. exfalso. apply Hhcol. rewrite Hcol'. left. reflexivity.
-           destruct HG as [_ [_ HG]]. apply HG. apply Hcyc.
+           destruct HG as [_ [Hwf HG]]. auto. apply HG. apply Hcyc.
       + unfold all_colliders_have_descendant_conditioned_on. unfold collider_descendants_not_conditioned in Hcol. apply forallb_true_iff_mem.
         intros col Hcol'. apply descendants_in_or_not_in. apply existsb_false with (x := col) in Hcol.
         ** apply Hcol.
@@ -241,8 +241,9 @@ Proof.
   { intros anc u v lu lv [Hdiru [HluZ [Hdirv HlvZ]]] [Hpath Hcyc].
     assert (Hconnu: d_connected_2 (anc, u, lu) G Z). { apply H_conn_unb_anc. split. apply Hdiru. apply HluZ. rewrite reverse_list_twice with (l := lu). apply reverse_path_still_acyclic. apply subpath_still_acyclic_2 with (v := v) (l2 := lv) (l3 := rev lu ++ anc :: lv). split. reflexivity. apply Hcyc. }
     assert (Hconnv: d_connected_2 (anc, v, lv) G Z). { apply H_conn_unb_anc. split. apply Hdirv. apply HlvZ. apply subpath_still_acyclic with (w := u) (l1 := rev lu) (l3 := rev lu ++ anc :: lv). split. reflexivity. apply Hcyc. }
-    apply concat_d_connected_paths.
-    - destruct HG as [_ [_ HG]]. apply HG.
+    destruct HG as [_ [Hwf HG]]. apply concat_d_connected_paths.
+    - auto.
+    - auto.
     - apply Hpath.
     - split. apply reverse_d_connected_paths. apply Hconnu. split. apply Hconnv. apply Hcyc.
     - right. left. split.
@@ -602,7 +603,7 @@ Proof.
                   split. apply Hpath.
                   assert (Hmem: In x (rev lz' ++ az' :: lz)). { rewrite <- H3'. apply membership_append_r. left. reflexivity. }
                   split.
-                  { apply concat_d_connected_paths. apply HG. apply Hpath.
+                  { apply concat_d_connected_paths. apply HG. apply HG. apply Hpath.
                     - split.
                       + apply subpath_still_d_connected_gen_2 with (v := z') (l2 := luz2) (l3 := luz'). split. symmetry. apply H2. apply Hluz'.
                       + split. apply subpath_still_d_connected_gen with (w := z') (l1 := rev lz2) (l3 := rev lz' ++ az' :: lz). split. apply H3'. apply Hlzlz'. apply Hcyc.
@@ -686,7 +687,7 @@ Proof.
                 - apply no_overlap_non_member. intros x Hx Hx'. apply no_overlap_non_member with (x := x) in Hover. apply Hover. right. apply Hx'. right.
                   apply membership_rev. rewrite reverse_list_append. simpl. rewrite <- reverse_list_twice. rewrite <- app_assoc. apply Hx. }
               split. apply Hpath. split.
-              { apply concat_d_connected_paths. apply HG. apply Hpath.
+              { apply concat_d_connected_paths. apply HG. apply HG. apply Hpath.
                 - split. apply Hluz'. split. apply Hlzlz'. apply Hcyc.
                 - right. right. split.
                   + apply colliders_vs_edges_in_path. destruct Hluz' as [Hpluz' [_ [_ Houtluz']]]. apply path_out_of_end_edge in Houtluz'. 2: { apply HG. } 2: { apply Hpluz'. }
@@ -747,7 +748,7 @@ Proof.
                     + intros F. apply no_overlap_non_member with (x := v') in Hover. apply Hover. right. apply F. left. reflexivity.
                   - apply no_overlap_non_member. intros y Hy Hy'. apply no_overlap_non_member with (x := y) in Hover. apply Hover. right. apply Hy'. right. apply membership_rev. apply Hy. }
                 split. apply Hpath. split. 2: { apply Hcyc. }
-                { apply concat_d_connected_paths. apply HG. apply Hpath.
+                { apply concat_d_connected_paths. apply HG. apply HG. apply Hpath.
                   - split.
                     + apply subpath_still_d_connected_gen_2 with (v := z) (l2 := lu2) (l3 := lu). split. symmetry. apply H2. apply Hlu.
                     + split. 2: { apply Hcyc. }
@@ -776,7 +777,7 @@ Proof.
             - intros F. apply no_overlap_non_member with (x := v') in Hover. apply Hover. right. apply F. left. reflexivity.
             - apply no_overlap_non_member. intros x Hx Hx'. apply no_overlap_non_member with (x := x) in Hover. apply Hover. right. apply Hx'. right. apply membership_rev. apply Hx. }
           split. 2: { apply Hcyc. }
-          apply concat_d_connected_paths. apply HG. apply Hpath. split. apply Hlu. split. apply reverse_d_connected_paths. apply Hlv. apply Hcyc.
+          apply concat_d_connected_paths. apply HG. apply HG. apply Hpath. split. apply Hlu. split. apply reverse_d_connected_paths. apply Hlv. apply Hcyc.
           right. right. split.
           * unfold concat. apply colliders_vs_edges_in_path. destruct Hlu as [Hplu [_ [_ Hlu]]]. apply path_out_of_end_edge in Hlu. 2: { apply HG. } 2: { apply Hplu. }
             destruct Hlu as [x [lu' Hlu]]. exists x. destruct Hlv as [_ [Hlv _]]. pose proof Hlv as Hlv'. apply directed_path_has_directed_edge_end in Hlv.
@@ -837,7 +838,7 @@ Proof.
                   - apply no_overlap_non_member. intros y Hy Hy'. apply no_overlap_non_member with (x := y) in Hover. apply Hover. right. apply Hy'. right. apply membership_rev. apply Hy. }
                 split. apply Hpath. split. 2: { apply Hcyc. }
                 assert (Hmem: In x (rev lz ++ az :: lv)). { rewrite <- H3'. apply membership_append_r. left. reflexivity. }
-                { apply concat_d_connected_paths. apply HG. apply Hpath.
+                { apply concat_d_connected_paths. apply HG. apply HG. apply Hpath.
                   - split.
                     + apply subpath_still_d_connected_gen_2 with (v := z) (l2 := lu2) (l3 := lu). split. symmetry. apply H2. apply Hlu.
                     + split. 2: { apply Hcyc. }
@@ -962,7 +963,7 @@ Proof.
             - apply no_overlap_non_member. intros x Hx Hx'. apply no_overlap_non_member with (x := x) in Hover. apply Hover. right. apply Hx'. right.
               apply membership_rev. rewrite reverse_list_append. rewrite <- reverse_list_twice. simpl. rewrite <- app_assoc. apply Hx. }
           split. 2: { apply Hcyc. }
-          apply concat_d_connected_paths. apply HG. apply Hpath. split. apply Hlu. split. apply Haz. apply Hcyc.
+          apply concat_d_connected_paths. apply HG. apply HG. apply Hpath. split. apply Hlu. split. apply Haz. apply Hcyc.
           right. right. split.
           * unfold concat. apply subpath_preserves_colliders with (u := az) (l1 := lu ++ z :: rev lz) (l2 := lv). split. rewrite <- app_assoc. reflexivity. right.
             apply colliders_vs_edges_in_path. destruct Hlu as [Hplu [_ [_ Hlu]]]. apply path_out_of_end_edge in Hlu. 2: { apply HG. } 2: { apply Hplu. }
