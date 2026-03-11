@@ -10,13 +10,16 @@ encompassing key concepts such as mediators, confounders, and colliders.
  that determines when the design of an experiment controls for an appropriate set of variables.
 
 ## Getting Started Guide
-1. <docker image/VM stuff>
-2. Inspect the definition of `semantically_separated` in `Semantics/SemanticSeparationDef.v`. Compare it to
-Definition 3.3.
-3. Notice the equivalence proof `semantic_and_d_separation_equivalent` in `Semantics/SemanticDSepEquiv.v`.
-This corresponds to Theorem 3.7.
-4. Uncomment the line `Print Assumptions semantic_and_d_separation_equivalent.` at the bottom of `Semantics/SemanticDSepEquiv.v`.
-There should be the assumptions of functional extensionality, as well as TODO.
+1. Build the Docker image using the provided `Dockerfile`: `docker build -t semantic-separation .`.
+This step installs dependencies and compiles the Rocq development.
+2. Run the container: `docker run -it semantic-separation`.
+3. Inspect the definition `semantically_separated` in `Semantics/SemanticSeparationDef.v`. This corresponds to
+Definition 3.3 in the paper.
+4. Inspect the theorem `semantic_and_d_separation_equivalent` in `Semantics/SemanticDSepEquiv.v`.
+This corresponds to Theorem 3.7, the main result of the paper.
+5. To verify that the proof does not rely on additional axioms, uncomment `Print Assumptions semantic_and_d_separation_equivalent.`
+at the bottom of `Semantics/SemanticDSepEquiv.v`, and run `make`.
+You should see the assumption of functional extensionality, as well as TODO.
 
 ## Step-by-Step Instructions
 
