@@ -665,6 +665,18 @@ Proof. revert l. induction E as [|e t IH]; simpl in *.
     + reflexivity.
     + simpl in *. eapply IH; eauto.
 Qed.
+Lemma dfs_true_implies_empty_2 E l k:
+  fst (dfs_extend_by_edges_iter E l k) = true ->
+  snd (dfs_extend_by_edges_iter E l k) = [].
+Proof. revert E l. induction k.
+  - intros E l Hb. discriminate Hb.
+  - intros E l hb. destruct (dfs_extend_by_edges_iter E (snd (dfs_extend_by_edges E l)) k) as [b1 ps1] eqn:Hedge.
+    destruct b1.
+    + simpl in *. destruct (fst (dfs_extend_by_edges E l)) eqn: Hb. simpl in *. eapply dfs_true_implies_empty; eauto.
+      eapply IHk; eauto.
+    + simpl in *. destruct (fst (dfs_extend_by_edges E l)) eqn: Hb. simpl in *. eapply dfs_true_implies_empty; eauto.
+      eapply IHk; eauto.
+Qed.
 Lemma dfs_extend_by_edges_iter_spec E l k :
   fst (dfs_extend_by_edges_iter E l k) = false ->
   dfs_extend_by_edges_iter E l (S k)
@@ -749,6 +761,80 @@ Proof.
   exact Hwitness.
 Qed.
 
+Lemma acyclic_path_NoDup (nodes : list node) :
+  acyclic_path nodes = true <-> NoDup nodes.
+Proof.
+  induction nodes as [| h t IH].
+  - simpl. split; intros; [constructor | reflexivity].
+  - simpl. rewrite andb_true_iff, negb_true_iff.
+    rewrite member_In_equiv_F.
+    rewrite IH.
+    split.
+    + intros [Hni Hnd]. constructor; assumption.
+    + intros Hnd. inversion Hnd; auto.
+Qed.
+Lemma acyclic_path_spec (p : path) :
+  acyclic_path_2 p <->
+  let '(u, v, int) := p in
+    u <> v
+    /\ ~In u int
+    /\ ~In v int
+    /\ NoDup int.
+Proof. split.
+  - unfold acyclic_path_2. destruct p as [[u v] l]. intros [huv [hu [hv hl]]]. repeat split; auto.
+    destruct l. apply NoDup_nil. apply acyclic_path_NoDup; eauto.
+  - destruct p as [[u v] l]. intros [huv [hu [hv hl]]]. unfold acyclic_path_2. repeat split; auto.
+    destruct l. auto. apply acyclic_path_NoDup; eauto.
+Qed.
+Lemma cyclic_path_spec (p : path) :
+  ~acyclic_path_2 p <->
+  let '(u, v, int) := p in
+    u = v
+    \/ In u int
+    \/ In v int
+    \/ ~ NoDup int.
+Proof. split.
+  - unfold acyclic_path_2. destruct p as [[u v] l].
+    intro h. apply demorgan_and in h. destruct h. apply Nat.eq_dne in H. left. auto.
+    apply demorgan_and in H. destruct H. rewrite <- member_In_equiv_F in H.
+    rewrite not_false_iff_true in H. rewrite member_In_equiv in H. right. left. auto.
+    apply demorgan_and in H. destruct H. rewrite <- member_In_equiv_F in H.
+    rewrite not_false_iff_true in H. rewrite member_In_equiv in H. right. right. auto.
+    destruct l. contradiction H. auto.
+    apply not_true_is_false in H. right. right. right. intro Hcontra. rewrite <- acyclic_path_NoDup in Hcontra.
+    rewrite H in Hcontra. discriminate.
+
+  - unfold acyclic_path_2. destruct p as [[u v] l].
+    intro h. destruct h.
+    { assert (u<>v <-> False). split. rewrite H. intro h. apply h. reflexivity. intro. auto. rewrite H0.
+      intro h. destruct h as [h _]. auto. }
+    destruct H.
+    { assert (~ In u l <-> False). split. intro H_not_in. apply H_not_in. apply H.
+      intro H_false. destruct H_false. rewrite H0. intro h. destruct h as [_ [h _]]. auto. }
+    destruct H.
+    { assert (~ In v l <-> False). split. intro H_not_in. apply H_not_in. apply H.
+      intro H_false. destruct H_false. rewrite H0. intro h. destruct h as [_ [_ [h' _]]]. auto. }
+    { assert (match l with
+              | [] => True
+              | h :: t => acyclic_path (h :: t) = true
+              end <-> False). destruct l.
+              - pose proof NoDup_nil. split. intro H_true. apply H. apply H0. intro H_false. destruct H_false.
+              - rewrite acyclic_path_NoDup. split. intro H_nodup. apply H. apply H_nodup.
+                intro H_false. destruct H_false.
+              - rewrite H0. intro hx. destruct hx as [_ [_ [_ h]]]. auto. }
+Qed.
+(*need proof*)
+Lemma cyclic_path_reduction :
+  forall (G : graph) (p : path),
+    G_well_formed G = true ->
+    is_directed_path_in_graph p G = true ->
+    ~ acyclic_path_2 p ->
+    exists p',
+      is_directed_path_in_graph p' G = true /\
+      ~ acyclic_path_2 p' /\
+      path_length p' <= length (fst G).
+Admitted.
+
 Lemma directed_edges_as_paths_complete :
   forall (E : edges) (u v : node),
     In (u,v) E <-> In (u,v,[]) (directed_edges_as_paths E).
@@ -783,10 +869,19 @@ Lemma contains_cycle_true_complete :
     G_well_formed G = true ->
     (exists p, is_directed_path_in_graph p G = true /\ ~acyclic_path_2 p) ->
     contains_cycle G = true.
-Proof. intros G Hwf [p [Hdir Hcyc]]. unfold contains_cycle. destruct G as [V E]; simpl.
-  assert (Hinit : forall e, In e E -> exists u v, e = (u, v) /\ In (u, v, []) (directed_edges_as_paths E)).
-  { intros e Hin. destruct e as [u v]. exists u, v.
-    split. reflexivity. rewrite <- directed_edges_as_paths_complete. exact Hin. }
+Proof. intros [V E] Hwf Hp. unfold contains_cycle. destruct Hp as [p [Pdir Pcyc]].
+  eapply dfs_extend_by_edges_iter_detects_cycle; eauto. eapply directed_edges_as_paths_in_graph; eauto.
+  pose proof (cyclic_path_reduction _ p Hwf Pdir Pcyc). destruct H as [p' [Pdir' [Pcyc' Plen']]]. simpl in Plen'.
+  set (i:=path_length p'-1). exists i. split. subst i. destruct (path_length p') as [| n] eqn:Hlen.
+  exfalso. unfold path_length in Hlen. lia. simpl. lia. eapply dfs_extend_by_edges_detects_cycle' with (G:=(V,E)) (p:=p'); eauto.
+  - destruct (fst (dfs_extend_by_edges_iter E (directed_edges_as_paths E) i)) eqn:Hb. induction i.
+    + simpl in *. discriminate Hb.
+    + pose proof dfs_true_implies_empty. simpl in *. destruct (fst (dfs_extend_by_edges E (directed_edges_as_paths E))) eqn: Hb'.
+      * simpl in *. eapply H in Hb'. rewrite Hb'. unfold directed_paths_in_graph. apply Forall_nil.
+      * eapply dfs_true_implies_empty_2 in Hb. rewrite Hb. unfold directed_paths_in_graph. apply Forall_nil.
+    + eapply dfs_extend_by_edges_iter_preserves_directed; eauto. eapply directed_edges_as_paths_in_graph; eauto.
+  - eapply cyclic_path_spec in Pcyc'. destruct p' as [[u v] l]. destruct Pcyc'.
+    +
 Admitted.
 
 (* correctness proof for contains_cycle function and the contrapositive *)
