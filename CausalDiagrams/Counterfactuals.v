@@ -275,6 +275,17 @@ Proof.
       reflexivity. }
 Qed.
 
+Lemma twin_edges_greater_than_offset: forall E: edges, forall o: nat, forall x: edge,
+  In x (get_twin_edges E o) -> o <= fst x /\ o <= snd x.
+Proof.
+  intros E o [u v].
+  induction E as [| [h1 h2] t IH].
+  - intros H. simpl in H. exfalso. apply H.
+  - simpl. intros H. destruct H as [H | H].
+    + inversion H. lia.
+    + apply IH. apply H.
+Qed.
+
 Definition duplicate_graph (G: graph) : graph :=
   match G with
   | (V, E) => (get_twin_nodes V (max_list V), get_twin_edges E (max_list V))
@@ -596,38 +607,157 @@ Proof.
     + simpl in Hdir. discriminate Hdir.
 Qed.
 
+
+Lemma twin_node_count_equal: forall u: node, forall V: nodes, forall o: nat,
+  count u V = count (u + o) (get_twin_nodes V o).
+Proof.
+  intros u V o. induction V as [| h t IH].
+  - simpl. lia.
+  - simpl. destruct (h =? u) as [|] eqn:Hhu.
+    + rewrite IH. apply eqb_eq in Hhu. rewrite Hhu. rewrite eqb_refl. reflexivity.
+    + destruct (h + o =? u + o) as [|] eqn:Ho.
+      * apply eqb_eq in Ho. apply eqb_neq in Hhu. lia.
+      * apply IH.
+Qed.
+
+Lemma twin_edge_count_equal: forall e: edge, forall E: edges, forall o: nat,
+  count_edge e E = count_edge (fst e + o, snd e + o) (get_twin_edges E o).
+Proof.
+  intros e E o. induction E as [| h t IH].
+  - reflexivity.
+  - simpl. destruct (eqbedge h e) as [|] eqn:He.
+    + rewrite IH. destruct h as [h1 h2]. destruct e as [e1 e2]. simpl. simpl in He.
+      apply split_and_true in He. destruct He as [H1 H2]. apply eqb_eq in H1. apply eqb_eq in H2.
+      rewrite H1. rewrite H2. rewrite eqb_refl. rewrite eqb_refl. reflexivity.
+    + destruct h as [h1 h2]. destruct e as [e1 e2]. simpl.
+      destruct (h1 + o =? e1 + o) as [|] eqn:Ho.
+      * destruct (h2 + o =? e2 + o) as [|] eqn:Ho'.
+        -- simpl in He. destruct (h1 =? e1) as [|] eqn:Hh1. simpl in He.
+           apply eqb_neq in He. apply eqb_eq in Ho'. lia.
+           apply eqb_neq in Hh1. apply eqb_eq in Ho. lia.
+        -- simpl. apply IH.
+      * simpl. apply IH.
+Qed.
+
+Lemma duplicate_graph_preserves_well_formed :
+  forall G : graph,
+  G_well_formed G = true ->
+  G_well_formed (duplicate_graph G) = true.
+Proof.
+  intros [V E] H. unfold duplicate_graph. simpl.
+  simpl in H. apply split_and_true in H. destruct H as [H Hcount]. apply split_and_true in H. destruct H as [He Hv].
+  apply split_and_true. split. apply split_and_true. split.
+  - apply forallb_true_iff_mem. intros e' He'. destruct e' as [u' v']. pose proof He' as He''.
+    apply twin_edges_greater_than_offset in He'. simpl in He'.
+    assert (Hu': u' - max_list V + max_list V = u'). { lia. }
+    assert (Hv': v' - max_list V + max_list V = v'). { lia. } 
+    apply forallb_true_iff_mem with (x := (u' - max_list V, v' - max_list V)) in He.
+    + apply split_and_true. split.
+      * apply split_and_true in He. destruct He as [He _]. 
+        apply twin_nodes_duplicated with (o := max_list V) in He. rewrite Hu' in He. apply He.
+      * apply split_and_true in He. destruct He as [_ He]. 
+        apply twin_nodes_duplicated with (o := max_list V) in He. rewrite Hv' in He. apply He.
+    + apply member_edge_In_equiv. apply twin_edges_duplicated with (o := max_list V). simpl.
+      rewrite Hu'. rewrite Hv'. apply member_edge_In_equiv. apply He''.
+  - apply forallb_true_iff_mem. intros u Hu.
+    assert (Heq: u = u - max_list V + max_list V). { apply twin_nodes_greater_than_offset in Hu. lia. }
+    assert (Hu': In (u - max_list V) V).
+    { apply member_In_equiv. apply twin_nodes_duplicated with (o := max_list V). rewrite <- Heq. apply member_In_equiv. apply Hu. }
+    rewrite Heq. rewrite <- twin_node_count_equal with (o := max_list V) (u := u - max_list V).
+    apply forallb_true_iff_mem with (x := (u - max_list V)) in Hv. apply Hv. apply Hu'.
+  - apply forallb_true_iff_mem. intros [u' v'] He'. pose proof He' as He''.
+    apply twin_edges_greater_than_offset in He'. simpl in He'.
+    assert (Hequ: u' = u' - max_list V + max_list V). { lia. }
+    assert (Heqv: v' = v' - max_list V + max_list V). { lia. }
+    assert (He''': In (u' - max_list V, v' - max_list V) E).
+    { apply member_edge_In_equiv. apply twin_edges_duplicated with (o := max_list V). simpl.
+      rewrite <- Hequ. rewrite <- Heqv. apply member_edge_In_equiv. apply He''. }
+    apply forallb_true_iff_mem with (x := (u' - max_list V, v' - max_list V)) in Hcount.
+    rewrite twin_edge_count_equal with (o := max_list V) in Hcount. simpl in Hcount.
+    rewrite <- Hequ in Hcount. rewrite <- Heqv in Hcount. apply Hcount. apply He'''.
+Qed.
+
+
+Lemma twin_preserves_acyclic: forall (u v: node) (l: nodes) (o: nat),
+  acyclic_path_2 (u, v, l) -> acyclic_path_2 (u + o, v + o, shift_nodes_by_offset l o).
+Proof.
+  intros u v l o H. unfold acyclic_path_2 in *. repeat split.
+  - lia.
+  - destruct H as [_ [H _]]. intros F.
+    apply shift_greater_than_offset in F as H'. apply H.
+    apply shift_member in F. assert (Hu: u + o - o = u). { lia. } rewrite <- Hu. apply F.
+  - destruct H as [_ [_ [H _]]]. intros F.
+    apply shift_greater_than_offset in F as H'. apply H.
+    apply shift_member in F. assert (Hv: v + o - o = v). { lia. } rewrite <- Hv. apply F.
+  - destruct H as [_ [_ [_ H]]]. induction l as [| h t IH].
+    + simpl. apply I.
+    + simpl. simpl in H. apply split_and_true. split.
+      * apply negb_true_iff. destruct (member (h + o) (shift_nodes_by_offset t o)) as [|] eqn:Hmem.
+        -- apply member_In_equiv in Hmem. apply shift_member in Hmem.
+           assert (Hmem': member h t = true). { apply member_In_equiv. assert (Hh: h + o - o = h). { lia. } rewrite <- Hh. apply Hmem. }
+           rewrite Hmem' in H. discriminate H.
+        -- easy.
+      * destruct t as [| h' t']. simpl. easy. simpl. simpl in IH. apply IH. simpl in H. apply split_and_true in H. apply H.
+Qed.
+
+Lemma duplicate_graph_preserves_no_cycle :
+  forall G : graph,
+  G_well_formed G = true ->
+  contains_cycle G = false ->
+  contains_cycle (duplicate_graph G) = false.
+Proof.
+  intros [V E] Hwf Hcyc.
+  apply contains_cycle_false_complete. apply duplicate_graph_preserves_well_formed; easy.
+  intros [[u' v'] l'] Hdir. pose proof Hdir as Hdir'.
+  apply duplicate_graph_shifts_dir_paths with (o := max_node_in_graph (V, E)) in Hdir.
+  2: { easy. }
+  destruct Hdir as [u [v [l [Hu' [Hv' Hl']]]]].
+  apply contains_cycle_false_correct with (p := (u, v, l)) in Hcyc.
+  2: { apply Hwf. }
+  2: { apply duplicate_graph_maintains_dir_paths with (o := max_node_in_graph (V, E)). easy.
+       rewrite <- Hu'. rewrite <- Hv'. rewrite <- Hl'. apply Hdir'. }
+  apply twin_preserves_acyclic with (o := max_node_in_graph (V, E)) in Hcyc.
+  rewrite Hu'. rewrite Hv'. rewrite Hl'. apply Hcyc.
+Qed.
+
 Lemma duplicate_graph_maintains_descendants: forall (u: node) (G: graph) (o: nat) (d: node),
+  G_well_formed G = true ->
+  contains_cycle G = false ->
   o = max_node_in_graph G ->
   In d (find_descendants u G) <->
   In (d + o) (find_descendants (u + o) (duplicate_graph G)).
 Proof.
-  intros u G o d Ho. split.
-  - intros Hd. apply find_descendants_correct in Hd. destruct Hd as [Hd | Hd].
-    apply find_descendants_correct. admit. admit. left. lia.
+  intros u G o d Hwf Hg Ho. split.
+  - intros Hd. apply find_descendants_correct in Hd; eauto. destruct Hd as [Hd | Hd].
+    apply find_descendants_correct. eapply duplicate_graph_preserves_well_formed; eauto.
+    eapply duplicate_graph_preserves_no_cycle; eauto. left. lia.
     destruct Hd as [p [Hdir Hse]].
     destruct p as [[u' d'] l]. apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
-    apply find_descendants_correct. admit. admit. right.
+    apply find_descendants_correct. eapply duplicate_graph_preserves_well_formed; eauto.
+    eapply duplicate_graph_preserves_no_cycle; eauto. right.
     exists (u + o, d + o, shift_nodes_by_offset l o). split.
     + rewrite Hu in Hdir. rewrite Hd in Hdir.
       apply duplicate_graph_maintains_dir_paths with (o := o) in Hdir. apply Hdir. apply Ho.
     + apply path_start_end_refl.
-    + admit.
-    + admit.
   - intros Hd. apply find_descendants_correct in Hd. destruct Hd as [Hd | Hd].
-    apply find_descendants_correct. admit. admit. left. lia.
+    apply find_descendants_correct. auto. auto. left. lia.
     destruct Hd as [p' [Hdir Hse]].
     destruct p' as [[u' d'] l'].
     apply duplicate_graph_shifts_dir_paths with (o := o) in Hdir as Huvl.
     destruct Huvl as [u1 [d1 [l [Hu1 [Hd1 Hl]]]]].
     apply path_start_end_equal in Hse. destruct Hse as [Hu Hd].
-    + apply find_descendants_correct. admit. admit. right. exists (u, d, l). split.
+    + apply find_descendants_correct. auto. auto. right. exists (u, d, l). split.
       * rewrite Hu in Hdir. rewrite Hd in Hdir. rewrite Hl in Hdir.
         apply duplicate_graph_maintains_dir_paths in Hdir. apply Hdir. apply Ho.
       * apply path_start_end_refl.
     + apply Ho.
-Admitted.
+    + apply duplicate_graph_preserves_well_formed; eauto.
+    + eapply duplicate_graph_preserves_no_cycle; eauto.
+Qed.
 
 Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: node, forall Z: nodes,
+  G_well_formed G = true ->
+  contains_cycle G = false ->
   o = max_node_in_graph G ->
   (exists p: path, path_start_and_end p u v = true
                   /\ node_in_graph u G = true /\ node_in_graph v G = true
@@ -637,7 +767,7 @@ Theorem duplicate_graph_maintains_independence: forall G: graph, forall u v o: n
                   /\ node_in_graph (u + o) (duplicate_graph G) = true /\ node_in_graph (v + o) (duplicate_graph G) = true
                   /\ d_connected_2 p' (duplicate_graph G) (shift_nodes_by_offset Z o)).
 Proof.
-  intros G u v o Z. intros Ho. split.
+  intros G u v o Z. intros Hwf Hcy Ho. split.
   - intros [p [Hp [Hu [Hv Hconn]]]]. destruct p as [[u' v'] l]. apply path_start_end_equal in Hp. destruct Hp as [Hu' Hv'].
     rewrite Hu' in Hconn. rewrite Hv' in Hconn.
     exists (u + o, v + o, shift_nodes_by_offset l o).
@@ -701,9 +831,7 @@ Proof.
       apply overlap_has_member_in_common in Hdesc. destruct Hdesc as [d [Hdesc HdZ]].
       remember (d + o) as d'.
       assert (Hdesc': In d' (find_descendants c' (duplicate_graph G))).
-      { rewrite Hc'. rewrite Heqd'. apply duplicate_graph_maintains_descendants.
-        - apply Ho.
-        - apply Hdesc. }
+      { rewrite Hc'. rewrite Heqd'. apply duplicate_graph_maintains_descendants; eauto. }
       assert (HdZ': In d' (shift_nodes_by_offset Z o)).
       { apply shift_member. split.
         - assert (Hd': d' - o = d). { lia. } rewrite <- Hd' in HdZ. apply HdZ.
@@ -775,8 +903,7 @@ Proof.
         apply overlap_has_member_in_common in Hdesc. destruct Hdesc as [d' [Hdesc' HdZ']].
         remember (d' - o) as d.
         assert (Hdesc: In d (find_descendants c G)).
-        { apply duplicate_graph_maintains_descendants with (o := o).
-          - apply Ho.
+        { apply duplicate_graph_maintains_descendants with (o := o); eauto.
           - rewrite <- Heqc'.
             assert (Hd': d' = d + o).
             { assert (Hdo': o <= d'). { apply shift_greater_than_offset in HdZ'. apply HdZ'. }
@@ -851,20 +978,22 @@ Proof. reflexivity. Qed.
 
 Example sequential_twin_network_error: d_separated_bool 10 3 sequential_twin [4;1] = false.
 Proof.
-  apply d_separated_vs_connected. admit.
-  exists [9; 7; 12; 2].
+  apply d_separated_vs_connected. unfold sequential_twin. split.
+  - vm_compute. reflexivity.
+  - vm_compute. reflexivity.
+  - exists [9; 7; 12; 2].
   split.
-  - simpl. split. easy. split.
+  * simpl. split. easy. split.
     + intros H. destruct H as [H | [H | [H | [H | H]]]]. discriminate H. discriminate H. discriminate H. discriminate H. apply H.
     + split. intros H. destruct H as [H | [H | [H | [H | H]]]]. discriminate H. discriminate H. discriminate H. discriminate H. apply H. reflexivity.
-  - split.
-    + simpl. reflexivity.
+  * split.
+    + vm_compute. reflexivity.
     + unfold d_connected_2. split.
-      * simpl. reflexivity.
-      * split.
-        -- simpl. reflexivity.
-        -- simpl. reflexivity.
-Admitted.
+      ** vm_compute. reflexivity.
+      ** split.
+        -- vm_compute. reflexivity.
+        -- vm_compute. reflexivity.
+Qed.
 
 
 (*

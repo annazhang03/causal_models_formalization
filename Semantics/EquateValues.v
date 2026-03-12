@@ -175,12 +175,13 @@ Definition g_path (X: Type) `{EqType X} (A2: assignments nat) (A3: assignments (
    We handle the case of ensuring no overlaps within S4 in ColliderDescendants.v. Here, we prove the (simpler)
    theorems for the other sets. *)
 Lemma sources_not_transmitters: forall (G: graph) (u: node) (p: path),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> acyclic_path_2 p
   -> is_path_in_graph p G = true
   -> In u (get_sources_in_g_path G p) -> ~(In u (get_transmitters_in_g_path G p)).
 Proof.
-  intros G w p HG Hc Hp Hu Hu'. destruct p as [[u v] l].
+  intros G w p Hwf HG Hc Hp Hu Hu'. destruct p as [[u v] l].
   apply sources_confounders_or_endpoints in Hu as H4. apply transmitters_mediators_or_endpoints in Hu' as H1.
   destruct H4 as [H4 | [H4 | H4]].
   - destruct H1 as [H1 | [H1 | H1]].
@@ -203,7 +204,7 @@ Proof.
     + destruct Hc as [Hc _]. apply Hc. rewrite <- H4. apply H1.
   - destruct H1 as [H1 | [H1 | H1]].
     + apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- H1. apply Hp. right. left. apply H4.
-    + apply if_confounder_then_not_mediator_path in H4. destruct H4 as [H4 _]. apply H4. apply H1. apply HG. apply Hc.
+    + apply if_confounder_then_not_mediator_path in H4. destruct H4 as [H4 _]. apply H4. apply H1. auto. apply HG. apply Hc.
     + apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- H1. apply Hp. right. left. apply H4.
   - destruct H1 as [H1 | [H1 | H1]].
     + destruct Hc as [Hc _]. apply Hc. rewrite <- H1. apply H4.
@@ -223,33 +224,35 @@ Proof.
 Qed.
 
 Lemma sources_not_colliders: forall (G: graph) (u: node) (p: path),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> acyclic_path_2 p
   -> is_path_in_graph p G = true
   -> In u (get_sources_in_g_path G p) -> ~(In u (get_colliders_in_g_path G p)).
 Proof.
-  intros G w p HG Hc Hp Hu Hu'. destruct p as [[u v] l].
+  intros G w p Hwf HG Hc Hp Hu Hu'. destruct p as [[u v] l].
   apply sources_confounders_or_endpoints in Hu. unfold get_colliders_in_g_path in Hu'.
   destruct Hu as [Hu | [Hu | Hu]].
   - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- Hu. apply Hp.
     right. right. apply Hu'.
-  - apply if_confounder_then_not_mediator_path in Hu. destruct Hu as [_ Hu]. apply Hu. apply Hu'. apply HG. apply Hc.
+  - apply if_confounder_then_not_mediator_path in Hu. destruct Hu as [_ Hu]. apply Hu. apply Hu'. auto. apply HG. apply Hc.
   - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- Hu. apply Hp.
     right. right. apply Hu'.
 Qed.
 
 Lemma colliders_not_transmitters: forall (G: graph) (u: node) (p: path),
-  contains_cycle G = false
+  G_well_formed G = true
+  -> contains_cycle G = false
   -> acyclic_path_2 p
   -> is_path_in_graph p G = true
   -> In u (get_colliders_in_g_path G p) -> ~(In u (get_transmitters_in_g_path G p)).
 Proof.
-  intros G w p HG Hc Hp Hu' Hu. destruct p as [[u v] l].
+  intros G w p Hwf HG Hc Hp Hu' Hu. destruct p as [[u v] l].
   apply transmitters_mediators_or_endpoints in Hu. unfold get_colliders_in_g_path in Hu'.
   destruct Hu as [Hu | [Hu | Hu]].
   - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [Hc _]]. apply Hc. rewrite <- Hu. apply Hp.
     right. right. apply Hu'.
-  - apply if_mediator_then_not_confounder_path in Hu. destruct Hu as [_ Hu]. apply Hu. apply Hu'. apply HG. apply Hc.
+  - apply if_mediator_then_not_confounder_path in Hu. destruct Hu as [_ Hu]. apply Hu. apply Hu'. auto. apply HG. apply Hc.
   - apply intermediate_node_in_path with (x := w) in Hp. destruct Hc as [_ [_ [Hc _]]]. apply Hc. rewrite <- Hu. apply Hp.
     right. right. apply Hu'.
 Qed.
@@ -439,6 +442,7 @@ Proof.
         assert (HA3ind: get_colliders_in_g_path G (u, v, h :: t) = get_colliders_in_g_path G (h, v, t)).
         { apply colliders_induction_into_start_out_of_h.
           - auto.
+          - auto.
           - right. apply Houth. }
         assert (HindA3: is_exact_assignment_for A3' (get_colliders_in_g_path G (u, v, h :: t)) /\ S3_nodes_colliders_in_graph G (u, v, h :: t) A3').
         { repeat split.
@@ -467,7 +471,7 @@ Proof.
             apply split_and_true in Hp. destruct Hp as [Hp _]. apply split_orb_true. apply Hp.
             auto. eapply contains_cycle_no_self_loop; eauto. }
           assert (HA2ind: get_transmitters_in_g_path G (u, v, h :: t) = u :: get_transmitters_in_g_path G (h, v, t)).
-          { apply transmitters_induction_into_start.
+          { apply transmitters_induction_into_start. auto.
             - split.
               ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
                  auto. eapply contains_cycle_no_self_loop; eauto.
@@ -624,7 +628,7 @@ Proof.
         destruct Hi as [i Hi].
 
         assert (HA2ind: get_transmitters_in_g_path G (u, v, h :: t) = u :: get_transmitters_in_g_path G (h, v, t)).
-        { apply transmitters_induction_into_start.
+        { apply transmitters_induction_into_start. auto.
           - split.
             ** apply paths_start_to_end_correct in Hp. destruct Hp as [Hp _]. apply Hp.
                auto. eapply contains_cycle_no_self_loop; eauto.
@@ -632,6 +636,7 @@ Proof.
           - apply Hin. }
         assert (HA3ind: get_colliders_in_g_path G (u, v, h :: t) = get_colliders_in_g_path G (h, v, t)).
         { apply colliders_induction_into_start_out_of_h.
+          - auto.
           - auto.
           - left. apply Hin. }
         assert (HindA3: is_exact_assignment_for A3' (get_colliders_in_g_path G (u, v, h :: t)) /\ S3_nodes_colliders_in_graph G (u, v, h :: t) A3').
@@ -996,10 +1001,10 @@ Proof.
 
     (* we know get_assigned_value will return None for w for A2, A3, A4, since w is assigned in A1 *)
     assert (HA2w: get_assigned_value A2 w = None).
-    { apply sources_not_transmitters in HA1w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA1w'. auto. apply Hp. apply Hp. }
+    { apply sources_not_transmitters in HA1w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA1w'. auto. auto. apply Hp. apply Hp. }
     rewrite HA2w.
     assert (HA3w: get_assigned_value A3 w = None).
-    { apply sources_not_colliders in HA1w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA1w'. auto. apply Hp. apply Hp. }
+    { apply sources_not_colliders in HA1w'. apply assigned_is_false. apply Hexist. apply member_In_equiv_F. apply HA1w'. auto. auto. apply Hp. apply Hp. }
     rewrite HA3w.
     assert (HA4w: get_assigned_value A4 w = None).
     { apply descendant_paths_disjoint_with_sources with (D := D) (u := u) (v := v) (l := l) (G := G) (Z := Z). apply Hdesc. apply Hexist. apply HA1w'. }
@@ -1529,7 +1534,7 @@ Proof.
           rewrite Heqg. unfold g_path.
           assert (HA2cw: is_assigned A2 cw = false).
           { apply HA2. apply member_In_equiv_F. intros HA2cw.
-            apply colliders_not_transmitters in HA2cw. apply HA2cw. auto. apply Hp. apply Hp. unfold get_colliders_in_g_path. apply Hccol. }
+            apply colliders_not_transmitters in HA2cw. apply HA2cw. auto. auto. apply Hp. apply Hp. unfold get_colliders_in_g_path. apply Hccol. }
           apply assigned_is_false in HA2cw. rewrite HA2cw.
 
           assert (HA3cw: exists (valcw: nat * nat * X * X), get_assigned_value A3 cw = Some valcw).
@@ -1727,14 +1732,14 @@ Proof.
                 (* the sources stay the same in (u, v, h::t) and (h, v, t) since u and h are both not sources. The transmitters
                    are the same except for u. The colliders are the same. *)
                 assert (HA2ind: get_transmitters_in_g_path G (u, v, h :: t) = u :: get_transmitters_in_g_path G (h, v, t)).
-                { apply transmitters_induction_into_start.
+                { apply transmitters_induction_into_start. auto.
                   - split.
                     ** apply Hp.
                     ** auto.
                   - apply Hin. }
 
                 assert (HA3ind: get_colliders_in_g_path G (u, v, h :: t) = get_colliders_in_g_path G (h, v, t)).
-                { apply colliders_induction_into_start_out_of_h.
+                { apply colliders_induction_into_start_out_of_h. auto.
                   - auto.
                   - left. apply Hin. }
 
@@ -1798,7 +1803,7 @@ Proof.
                    left. apply Hin. apply Hp.
                 ** apply descendant_paths_disjoint_cat with (u := u). apply Hdesc. intros Hhcol.
                    assert (HA3h: In h (get_colliders_in_g_path G (u, v, h :: t))). { unfold get_colliders_in_g_path. apply Hhcol. }
-                   apply colliders_not_transmitters in HA3h. apply HA3h. apply HA2h. auto. apply Hcyc. apply Hp.
+                   apply colliders_not_transmitters in HA3h. apply HA3h. apply HA2h. auto. auto. apply Hcyc. apply Hp.
                 ** apply subpath_still_d_connected with (u := u). apply Hconn.
                 ** apply forallb_true_iff_mem. intros w Hw.
                    apply assigned_is_true. rewrite remove_assignment_preserves_other_nodes. apply assigned_is_true.
@@ -1865,7 +1870,7 @@ Proof.
                   (get_assignment_sequence_from_sources
                      (get_sources_in_g_path G (u, v, l)) U x))). 2: { apply HeqLUx. }
         assert (Hlen: length (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U x) <= path_length (u, v, l)).
-        { apply assignment_sequence_len_shorter_than_path with (G := G) (x := x) (U := U). apply Hp. auto.
+        { apply assignment_sequence_len_shorter_than_path with (G := G) (x := x) (U := U). auto. apply Hp. auto.
           reflexivity. }
         assert (Hlen': length (tl (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U x)) <= length (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U x)).
         { destruct (get_assignment_sequence_from_sources (get_sources_in_g_path G (u, v, l)) U x) as [| h' t']. simpl. lia. simpl. lia. } unfold nodes in *.
