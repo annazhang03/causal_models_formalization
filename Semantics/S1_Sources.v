@@ -756,7 +756,8 @@ Proof.
              assert (Hp': is_path_in_graph (b, v, h2 :: t2) G = true). { apply subpath_still_path with (w := u) (l1 := l1) (l3 := l). split. unfold nodes in *. unfold node in *. apply Hl'. apply Hp. }
              apply intermediate_node_in_path with (x := b) in Hp'. exfalso. destruct Hcyc' as [_ [Hcyc' _]]. apply Hcyc'. apply Hp'. right. left. apply Hb. }
     { exfalso. apply path_out_of_end_Some in Hout. apply Hout. }
-Admitted.
+    auto.
+Qed.
 
 Lemma sources_len: forall (G: graph) (u v: node) (l L: nodes),
   G_well_formed G = true

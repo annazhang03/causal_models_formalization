@@ -119,10 +119,11 @@ Proof.
 Qed.
 
 Lemma transmitters_induction_into_start: forall (G: graph) (u h v: node) (t: nodes),
-  is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
+  G_well_formed G = true
+  -> is_path_in_graph (u, v, h :: t) G = true /\ contains_cycle G = false
   -> path_into_start (u, v, h :: t) G = true -> get_transmitters_in_g_path G (u, v, h :: t) = u :: (get_transmitters_in_g_path G (h, v, t)).
 Proof.
-  intros G u h v t [Hp Hcyc] Hin.
+  intros G u h v t Hwf [Hp Hcyc] Hin.
   unfold get_transmitters_in_g_path.
   destruct (path_out_of_end (u, v, h :: t) G) as [[|]|] eqn:Hout.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
@@ -132,9 +133,9 @@ Proof.
       * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. rewrite Hin. rewrite Hinh. rewrite orb_comm. simpl. reflexivity.
     + simpl. destruct t as [| h' t']. simpl.
       * unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity.
-        admit. apply Hcyc.
+        auto. apply Hcyc.
       * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity.
-        admit. apply Hcyc.
+        auto. apply Hcyc.
   - rewrite Hin. rewrite <- path_out_of_end_same with (u := u). rewrite Hout.
     destruct (path_into_start (h, v, t) G) as [|] eqn:Hinh.
     + simpl. destruct t as [| h' t']. simpl.
@@ -142,11 +143,11 @@ Proof.
       * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. rewrite Hinh. rewrite Hin. rewrite orb_comm. simpl. reflexivity.
     + simpl. destruct t as [| h' t']. simpl.
       * unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity.
-        admit. apply Hcyc.
+        auto. apply Hcyc.
       * simpl. unfold is_mediator_bool. simpl in Hinh. simpl in Hin. apply acyclic_no_two_cycle in Hin. rewrite Hin. simpl. rewrite Hinh. simpl. reflexivity.
-        admit. apply Hcyc.
+        auto. apply Hcyc.
   - apply path_out_of_end_Some in Hout. exfalso. apply Hout.
-Admitted.
+Qed.
 
 Lemma transmitters_induction_add_collider: forall (G: graph) (u h h' v: node) (t': nodes),
   is_path_in_graph (u, v, h :: h' :: t') G = true /\ contains_cycle G = false
@@ -230,30 +231,31 @@ Proof.
 Qed.
 
 Lemma transmitters_induction_case_rev: forall (G: graph) (u v h: node) (t: nodes),
-  path_out_of_end (u, v, rev (h :: t)) G = Some false
+  G_well_formed G = true
+  -> path_out_of_end (u, v, rev (h :: t)) G = Some false
   -> contains_cycle G = false
   -> is_path_in_graph (u, v, rev (h :: t)) G = true
   -> get_transmitters_in_g_path G (u, h, rev t) ++ [v] = get_transmitters_in_g_path G (u, v, rev (h :: t)).
 Proof.
-  intros G u v h t H Hcyc Hpath.
-  unfold get_transmitters_in_g_path. rewrite H.
+  intros G u v h t Hwf H Hcyc Hpath.
+  unfold get_transmitters_in_g_path. auto. rewrite H.
   destruct (path_out_of_end (u, h, rev t) G) as [[|]|] eqn:Houth.
   + assert (Hmed: find_mediators_in_path (u, h, rev t) G = find_mediators_in_path (u, v, rev (h :: t)) G).
     { simpl in H. simpl. simpl in Hpath. generalize dependent u. induction (rev t) as [| h' t' IH].
       - intros u H Hpath Houth. simpl. unfold is_mediator_bool. simpl in Houth. inversion Houth.
         assert (Huh: is_edge (u, h) G = false).
-        { apply acyclic_no_two_cycle. admit. apply Hcyc. apply H1. }
+        { apply acyclic_no_two_cycle. auto. apply Hcyc. apply H1. }
         rewrite Huh. simpl. simpl in H. inversion H. rewrite H2. reflexivity.
       - intros u H Hpath Houth. simpl. destruct t' as [| h'' t''].
         + simpl. destruct (is_mediator_bool u h h' G) as [|] eqn:Huhh'.
           * unfold is_mediator_bool. simpl in Houth. inversion Houth.
             assert (Huh: is_edge (h', h) G = false).
-            { apply acyclic_no_two_cycle. admit. apply Hcyc. apply H1. }
+            { apply acyclic_no_two_cycle. auto. apply Hcyc. apply H1. }
             rewrite Huh. simpl. rewrite H1. simpl.
             simpl in H. inversion H. rewrite H2. reflexivity.
           * simpl in H. unfold is_mediator_bool. unfold is_mediator_bool in Huhh'. simpl in Houth. inversion Houth.
             assert (Huh: is_edge (h', h) G = false).
-            { apply acyclic_no_two_cycle. admit. apply Hcyc. apply H1. }
+            { apply acyclic_no_two_cycle. auto. apply Hcyc. apply H1. }
             rewrite Huh. simpl. rewrite H1. simpl.
             inversion H. rewrite H2. simpl. reflexivity.
         + simpl. destruct (is_mediator_bool u h'' h' G) as [|] eqn:Huhh'.
@@ -299,7 +301,7 @@ Proof.
     - rewrite path_into_start_induction_rev in Hin. rewrite Hin. reflexivity.
     - rewrite path_into_start_induction_rev in Hin. rewrite Hin. reflexivity.
   + apply path_out_of_end_Some in Houth. exfalso. apply Houth.
-Admitted.
+Qed.
 
 Definition transmitters_binded_to_parent_in_path (G: graph) (p: path) (A2: assignments nat): Prop :=
   forall (m: node) (i: nat), In (m, i) A2

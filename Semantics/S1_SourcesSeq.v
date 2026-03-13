@@ -45,18 +45,19 @@ Proof.
 Qed.
 
 Lemma assignment_sequence_len_shorter_than_path {X: Type} `{EqType X}: forall (G: graph) (p: path) (U: assignments X) (L: list (assignments X)) (x: X),
-  is_path_in_graph p G = true
+  G_well_formed G = true
+  -> is_path_in_graph p G = true
   -> contains_cycle G = false
   -> get_assignment_sequence_from_sources (get_sources_in_g_path G p) U x = L
   -> length L <= path_length p.
 Proof.
-  intros G [[u v] l] U L x Hp Hc HL.
+  intros G [[u v] l] U L x Hwf Hp Hc HL.
   assert (Hl: length (get_sources_in_g_path G (u, v, l)) <= path_length (u, v, l)).
-  { apply sources_len with (G := G). admit. apply Hp. apply Hc. reflexivity. }
+  { apply sources_len with (G := G). auto. apply Hp. apply Hc. reflexivity. }
   assert (Hl': length L <= length (get_sources_in_g_path G (u, v, l))).
   { apply assignment_sequence_len_shorter_than_S1 with (U := U) (x := x). apply HL. }
   lia.
-Admitted.
+Qed.
 
 Lemma assignment_sequence_len_U {X: Type} `{EqType X}: forall (A: nodes) (U U': assignments X) (L L': list (assignments X)) (x: X),
   get_assignment_sequence_from_sources A U x = L
