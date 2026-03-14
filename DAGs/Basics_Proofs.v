@@ -6,7 +6,6 @@ Require Import Stdlib.Structures.Equalities.
 Import ListNotations.
 From Stdlib Require Import Arith.EqNat. Import Nat.
 From Stdlib Require Import Lia.
-From Stdlib Require Classical.
 Require Import Stdlib.Logic.FunctionalExtensionality.
 
 
@@ -614,6 +613,37 @@ Proof.
         -- simpl in H. apply split_and_true. split. rewrite negb_true_iff. apply member_In_equiv_F. apply H.
            destruct t as [| h' t']. simpl. reflexivity. simpl. apply H. }
 Qed.
+
+Lemma acyclic_path_2_bool_equiv: forall P: path, acyclic_path_2 P <-> acyclic_path_2_bool P = true.
+Proof.
+  intros P. split.
+  - intros H. destruct P as [[u v] l]. destruct l as [| h t].
+    + simpl. simpl in H. destruct H as [H _]. apply eqb_neq in H. rewrite H. reflexivity.
+    + simpl. simpl in H. destruct H as [H1 [H2 [H3 H4]]].
+      apply split_and_true; split. apply split_and_true; split. apply split_and_true; split.
+      * apply eqb_neq in H1. rewrite H1. reflexivity.
+      * destruct (h =? u) as [|] eqn:H. exfalso. apply H2. left. apply eqb_eq. apply H.
+        apply negb_true_iff. destruct (member u t) as [|] eqn:H'. exfalso. apply H2. right. apply member_In_equiv. apply H'.
+        reflexivity.
+      * destruct (h =? v) as [|] eqn:H. exfalso. apply H3. left. apply eqb_eq. apply H.
+        apply negb_true_iff. destruct (member v t) as [|] eqn:H'. exfalso. apply H3. right. apply member_In_equiv. apply H'.
+        reflexivity.
+      * apply H4.
+  - intros H. destruct P as [[u v] l]. destruct l as [| h t].
+    + simpl. simpl in H. split. intros H'. rewrite H' in H. rewrite eqb_refl in H. discriminate H.
+      repeat split; easy.
+    + simpl. simpl in H.
+      apply split_and_true in H; destruct H as [H1 H2]. apply split_and_true in H1; destruct H1 as [H1 H3].
+      apply split_and_true in H1; destruct H1 as [H1 H4].
+      repeat split.
+      * intros H. rewrite H in H1. rewrite eqb_refl in H1. discriminate H1.
+      * intros [H | H]. apply eqb_eq in H. rewrite H in H4. discriminate H4.
+        apply member_In_equiv in H. rewrite H in H4. destruct (h =? u) as [|] eqn:H'. discriminate H4. discriminate H4.
+      * intros [H | H]. apply eqb_eq in H. rewrite H in H3. discriminate H3.
+        apply member_In_equiv in H. rewrite H in H3. destruct (h =? v) as [|] eqn:H'. discriminate H3. discriminate H3.
+      * apply H2.
+Qed.
+
 
 
 
@@ -1227,3 +1257,4 @@ Proof.
         -- simpl in Hi. apply le_S_n in Hi. apply Hi.
         -- apply eqb_neq. apply Hvh.
 Qed.
+

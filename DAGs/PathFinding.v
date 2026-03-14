@@ -296,12 +296,12 @@ Proof. intros [u2 v2] ps p Hin. revert p Hin. induction ps as [|h t IH]; intros 
       destruct ((u1 =? u2) || (u1 =? v2)) eqn:case1; simpl; try now left.
       destruct (member u2 l1 || member v2 l1) eqn:case2; simpl; try now left.
       destruct (v1 =? u2) eqn:case3; simpl.
-      * (* add_path_no_repeats (u1, v2, l1 ++ [v1]) (h :: …) *)
+      * (* add_path_no_repeats (u1, v2, l1 ++ [v1]) (h :: \u2026) *)
         eapply add_path_no_repeats_superset. now left.
       * destruct (v1 =? v2) eqn:case4; simpl.
         -- eapply add_path_no_repeats_superset. now left.
         -- now left.
-    + (* case p ∈ t: push through each branch *)
+    + (* case p \u2208 t: push through each branch *)
       destruct ((u1 =? u2) || (u1 =? v2)) eqn:case1; simpl.
       * right; apply IH; exact Hin_t.
       * destruct (member u2 l1 || member v2 l1) eqn:case2; simpl.
@@ -422,7 +422,7 @@ Fixpoint extend_paths_from_start_by_edges (E : edges) (l: paths) : paths :=
   | h :: t => extend_paths_from_start_by_edges t (extend_paths_from_start_by_edge h l)
   end.
 
-Compute extend_paths_from_start_by_edges E (edges_as_paths_from_start 1 E).
+(* Compute extend_paths_from_start_by_edges E (edges_as_paths_from_start 1 E). *)
 
 (*helper 3 for paths_start_to_end_valid*)
 Lemma extend_paths_from_start_by_edges_valid :
@@ -678,10 +678,10 @@ Definition find_all_paths_from_start (s: node) (G: graph) : paths :=
   (* each path can have at most |V| vertices, since we consider only acyclic paths *)
   end.
 
-Compute find_all_paths_from_start 1 G.
+(* Compute find_all_paths_from_start 1 G.
 Compute find_all_paths_from_start 2 G.
 Compute find_all_paths_from_start 3 G.
-Compute find_all_paths_from_start 4 G.
+Compute find_all_paths_from_start 4 G. *)
 
 (* find all paths in l that end at v *)
 Fixpoint find_all_paths_to_end (v: node) (l: paths) : paths :=
@@ -1193,7 +1193,7 @@ Fixpoint extend_all_paths_one (p : path) (l: paths) : paths :=
                end
 end.
 
-Compute extend_all_paths_one (4, 1, []) (edges_as_paths E).
+(* Compute extend_all_paths_one (4, 1, []) (edges_as_paths E). *)
 
 (* given a list of paths l1, call extend_all_paths for each path in l1 on l2 *)
 Fixpoint extend_all_paths_mul (l1: paths) (l2: paths) : paths :=
@@ -1216,4 +1216,4 @@ Definition find_all_paths (G: graph) : paths :=
              extend_graph_paths_iter edge_paths (length V)  (* each path can have at most |V| vertices *)
   end.
 
-Compute find_all_paths G.
+(* Compute find_all_paths G. *)

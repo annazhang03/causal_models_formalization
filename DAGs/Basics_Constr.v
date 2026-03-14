@@ -6,7 +6,7 @@ From Stdlib Require Export Lists.List.
 From Stdlib Require Export Bool.Bool.
 From Stdlib Require Export Arith.PeanoNat.
 Require Import Stdlib.Program.Wf.
-
+Import Nat.
 Import ListNotations.
 
 (* this file defines causal models, or DAGs, using the `graph` type.
@@ -16,11 +16,9 @@ Import ListNotations.
 
 (* nodes are simply lists of natural numbers, and edges are lists of pairs of two nodes *)
 Definition node : Type := nat.
-Check 1 : node.
 Definition nodes := list node.
 
 Definition edge : Type := node * node.
-Check (1, 2) : edge.
 Definition edges := list edge.
 
 Definition graph : Type := nodes * edges.
@@ -186,7 +184,6 @@ Definition remove_node_from_graph (G: graph) (u: node) : graph :=
    this representation allows for easy access to the endpoints of a path, as well as the
    guarantee that all paths have at least two nodes *)
 Definition path : Type := node * node * nodes.
-Check (4, 5, [1;2;3]) : path.
 Definition paths := list path.
 
 Definition path_start (p: path) : node :=
@@ -272,6 +269,15 @@ Definition acyclic_path_2 (p: path) : Prop :=
                           | [] => True
                           | h :: t => acyclic_path (h :: t) = true
                          end
+  end.
+
+Definition acyclic_path_2_bool (p: path): bool :=
+  match p with
+  | (u, v, int) => negb (u =? v) && negb (member u int) && negb (member v int)
+                   && match int with
+                      | [] => true
+                      | h :: t => acyclic_path (h :: t)
+                      end
   end.
 
 

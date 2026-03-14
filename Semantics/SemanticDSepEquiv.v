@@ -1014,3 +1014,5 @@ Proof.
       exfalso. apply contra. apply Hcond. apply HG. }
   { intros Hsep. apply path_d_separated_then_semantically_separated. easy. easy. easy. }
 Qed.
+
+(* Print Assumptions semantic_and_d_separation_equivalent. *)

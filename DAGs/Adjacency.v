@@ -60,7 +60,7 @@ Fixpoint get_adjacency_list (V: nodes) (E: edges) : adj_list :=
   | h :: t => [(h, neighbors_of_node h E)] ++ get_adjacency_list t E
   end.
 
-Compute get_adjacency_list V E.
+(* Compute get_adjacency_list V E. *)
 
 Theorem adjacency_list_equiv: forall V neighbors: nodes, forall E: edges, forall u v: node,
   (neighbors = neighbors_of_node u E) ->
