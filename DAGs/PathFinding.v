@@ -501,11 +501,17 @@ Proof. induction E. (* the following proof can potentially be reduced by half wi
               destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
               rewrite in_app_iff. assert (~ In u [a1]) as hright.
               { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in h11. congruence. }
-              eapply Classical_Prop.and_not_or; eauto. constructor.
+              intro contra. destruct contra as [h1|h2].
+              { rewrite <- member_In_equiv_F in mem2.
+              rewrite <- member_In_equiv in h1. rewrite h1 in mem2. discriminate. }
+              { rewrite <- member_In_equiv_F in hright.
+              rewrite <- member_In_equiv in h2. rewrite h2 in hright. discriminate. }
+              constructor.
               destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
-              rewrite in_app_iff. eapply Classical_Prop.and_not_or; eauto. constructor.
-              { intro hn. rewrite <- member_In_equiv in hn. congruence. }
-              { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in Ha12. congruence. }
+              rewrite in_app_iff.
+              intro contra. destruct contra as [h1|h2].
+              { rewrite <- member_In_equiv in h1. rewrite h1 in h22. discriminate. }
+              { simpl in h2. destruct h2. apply Nat.eqb_neq in Ha12. congruence. auto. }
               destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
               case l eqn:hl. simpl. auto. replace ((n :: n0) ++ [a1]) with (n :: (n0 ++ [a1])) by auto.
               assert (acyclic_path (rev (n :: n0 ++ [a1])) = true) as hrev. replace (rev (n :: n0 ++ [a1])) with
@@ -551,11 +557,17 @@ Proof. induction E. (* the following proof can potentially be reduced by half wi
               destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
               rewrite in_app_iff. assert (~ In u [a2]) as hright.
               { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in h12. congruence. }
-              eapply Classical_Prop.and_not_or; eauto. constructor.
+              intro contra. destruct contra as [h1|h2].
+              { rewrite <- member_In_equiv_F in mem2.
+              rewrite <- member_In_equiv in h1. rewrite h1 in mem2. discriminate. }
+              { rewrite <- member_In_equiv_F in hright.
+              rewrite <- member_In_equiv in h2. rewrite h2 in hright. discriminate. }
+              constructor.
               destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
-              rewrite in_app_iff. eapply Classical_Prop.and_not_or; eauto. constructor.
-              { intro hn. rewrite <- member_In_equiv in hn. congruence. }
-              { intro Hin. simpl in Hin. destruct Hin as [Heq | []]. apply Nat.eqb_neq in case3. congruence. }
+              rewrite in_app_iff.
+              intro contra. destruct contra as [h1|h2].
+              { rewrite <- member_In_equiv in h1. rewrite h1 in h21. discriminate. }
+              { simpl in h2. destruct h2. apply Nat.eqb_neq in case3. congruence. auto. }
               destruct Hacyc_head as [mem1 [mem2 [mem3 mem4]]].
               case l eqn:hl. simpl. auto. replace ((n :: n0) ++ [a2]) with (n :: (n0 ++ [a2])) by auto.
               assert (acyclic_path (rev (n :: n0 ++ [a2])) = true) as hrev. replace (rev (n :: n0 ++ [a2])) with
