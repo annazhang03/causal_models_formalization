@@ -704,64 +704,6 @@ Proof.
       exact Hno_cycle.
 Qed.
 
-Lemma dfs_iter_witness_shift :
-  forall E l k,
-    (exists i,
-        i < S k /\
-        fst (dfs_extend_by_edges E (snd (dfs_extend_by_edges_iter E l i))) = true) ->
-    fst (dfs_extend_by_edges E l) = true \/
-    (fst (dfs_extend_by_edges E l) = false /\
-     exists i,
-       i < k /\
-       fst (dfs_extend_by_edges E
-              (snd (dfs_extend_by_edges_iter E (snd (dfs_extend_by_edges E l)) i))) = true).
-Proof.
-  intros E l k [i [Hi Hcycle]].
-  destruct i as [| i'].
-  - left.
-    simpl in Hcycle.
-    exact Hcycle.
-  - destruct (fst (dfs_extend_by_edges E l)) eqn:Hfst.
-    + left. reflexivity.
-    + right. split; [auto|].
-      exists i'. split.
-      * lia.
-      * simpl in Hcycle.
-        rewrite Hfst in Hcycle.
-        exact Hcycle.
-Qed.
-Lemma dfs_extend_by_edges_iter_detects_cycle_struct :
-  forall E k l,
-    (exists i,
-        i < k /\
-        fst (dfs_extend_by_edges E (snd (dfs_extend_by_edges_iter E l i))) = true) ->
-    fst (dfs_extend_by_edges_iter E l k) = true.
-Proof.
-  intros E.
-  induction k as [| k' IH]; intros l Hwitness.
-  - destruct Hwitness as [i [Hi _]]. inversion Hi.
-  - destruct (dfs_iter_witness_shift E l k' Hwitness)
-      as [Hfirst | [Hfirstfalse Hlater]].
-    + simpl. rewrite Hfirst. reflexivity.
-    + simpl. rewrite Hfirstfalse. apply IH. exact Hlater.
-Qed.
-Lemma dfs_extend_by_edges_iter_detects_cycle :
-  forall G E l k p,
-    G_well_formed G = true ->
-    (forall e, In e E -> In e (snd G)) ->
-    directed_paths_in_graph l G ->
-    is_directed_path_in_graph p G = true ->
-    ~acyclic_path_2 p ->
-    (exists i,
-        i < k /\
-        fst (dfs_extend_by_edges E (snd (dfs_extend_by_edges_iter E l i))) = true) ->
-    fst (dfs_extend_by_edges_iter E l k) = true.
-Proof.
-  intros G E l k p _ _ _ _ _ Hwitness.
-  apply dfs_extend_by_edges_iter_detects_cycle_struct.
-  exact Hwitness.
-Qed.
-
 Lemma acyclic_path_NoDup (nodes : list node) :
   acyclic_path nodes = true <-> NoDup nodes.
 Proof.
@@ -834,6 +776,207 @@ Lemma cyclic_path_reduction :
       is_directed_path_in_graph p' G = true /\
       ~ acyclic_path_2 p' /\
       path_length p' <= S (length (fst G)).
+Proof.
+  intros G p Hwf Hpath Hcyc.
+  destruct p as [[u v] l].
+  rewrite cyclic_path_spec in Hcyc.
+  simpl in Hcyc.
+  destruct Hcyc as [Huv | [Huin | [Hvin | Hdup]]].
+
+  - subst v.
+    destruct l as [| h t].
+    + exists (u, u, []).
+      split. exact Hpath.
+      split.
+      * rewrite cyclic_path_spec. simpl. left. reflexivity.
+      * unfold path_length. simpl. apply le_n_S. admit.
+    + assert (Hhu : is_directed_path_in_graph (h, u, t) G = true).
+      { apply (subpath_still_directed u h u [] t (h :: t) G).
+        split. simpl. reflexivity. exact Hpath. }
+      destruct (Nat.eq_dec h u) as [Hhu_eq | Hhu_neq].
+      * subst h.
+        assert (Hedge : is_edge (u, u) G = true).
+        { unfold is_directed_path_in_graph in Hpath. simpl in Hpath.
+          apply andb_prop in Hpath. destruct Hpath as [He _]. exact He. }
+        exists (u, u, []).
+        split.
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl. apply le_n_S. admit. }
+      * destruct (directed_path_can_be_acyclic G h u t Hhu_neq Hhu)
+          as [t' [Ht'path [Ht'acyc _]]].
+        assert (Hedge_uh : is_edge (u, h) G = true).
+        { unfold is_directed_path_in_graph in Hpath. simpl in Hpath.
+          apply andb_prop in Hpath. destruct Hpath as [He _]. exact He. }
+        assert (Huh_path : is_directed_path_in_graph (u, h, []) G = true).
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge_uh. reflexivity. }
+        assert (Hconcat : is_directed_path_in_graph (concat u h u [] t') G = true).
+        { apply concat_directed_paths. split. exact Huh_path. exact Ht'path. }
+        unfold concat in Hconcat. simpl in Hconcat.
+        exists (u, u, h :: t').
+        split. exact Hconcat.
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl.
+          apply directed_path_is_path in Ht'path.
+          pose proof (path_length_acyclic_graph G h u t' Ht'path Ht'acyc) as Hlen.
+          unfold path_length in Hlen. simpl in Hlen.
+          destruct G as [V E]. simpl. simpl in Hlen.
+          apply le_n_S. auto. }
+
+  - apply In_split in Huin. destruct Huin as [l1 [l2 Hl]].
+    assert (Huu : is_directed_path_in_graph (u, u, l1) G = true).
+    { apply (subpath_still_directed_2 u u v l1 l2 l G).
+      split. symmetry. rewrite Hl. simpl. auto. exact Hpath. }
+    destruct l1 as [| h1 t1].
+    + exists (u, u, []).
+      split. exact Huu.
+      split.
+      * rewrite cyclic_path_spec. simpl. left. reflexivity.
+      * unfold path_length. simpl. apply le_n_S. admit.
+    + assert (Hh1u : is_directed_path_in_graph (h1, u, t1) G = true).
+      { apply (subpath_still_directed u h1 u [] t1 (h1 :: t1) G).
+        split. simpl. reflexivity. exact Huu. }
+      destruct (Nat.eq_dec h1 u) as [Hh1u_eq | Hh1u_neq].
+      * subst h1.
+        assert (Hedge : is_edge (u, u) G = true).
+        { unfold is_directed_path_in_graph in Huu. simpl in Huu.
+          apply andb_prop in Huu. destruct Huu as [He _]. exact He. }
+        exists (u, u, []).
+        split.
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl. apply le_n_S. admit. }
+      * destruct (directed_path_can_be_acyclic G h1 u t1 Hh1u_neq Hh1u)
+          as [t1' [Ht1'path [Ht1'acyc _]]].
+        assert (Hedge_uh1 : is_edge (u, h1) G = true).
+        { unfold is_directed_path_in_graph in Huu. simpl in Huu.
+          apply andb_prop in Huu. destruct Huu as [He _]. exact He. }
+        assert (Huh1_path : is_directed_path_in_graph (u, h1, []) G = true).
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge_uh1. reflexivity. }
+        assert (Hconcat : is_directed_path_in_graph (concat u h1 u [] t1') G = true).
+        { apply concat_directed_paths. split. exact Huh1_path. exact Ht1'path. }
+        unfold concat in Hconcat. simpl in Hconcat.
+        exists (u, u, h1 :: t1').
+        split. exact Hconcat.
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl.
+          apply directed_path_is_path in Ht1'path.
+          pose proof (path_length_acyclic_graph G h1 u t1' Ht1'path Ht1'acyc) as Hlen.
+          unfold path_length in Hlen. simpl in Hlen.
+          destruct G as [V E]. simpl. simpl in Hlen.
+          apply le_n_S. auto. }
+
+  - apply In_split in Hvin. destruct Hvin as [l1 [l2 Hl]].
+    assert (Hvv : is_directed_path_in_graph (v, v, l2) G = true).
+    { apply (subpath_still_directed u v v l1 l2 l G).
+      split. rewrite Hl. simpl. auto. exact Hpath. }
+    destruct l2 as [| h2 t2].
+    + exists (v, v, []).
+      split. exact Hvv.
+      split.
+      * rewrite cyclic_path_spec. simpl. left. reflexivity.
+      * unfold path_length. simpl. apply le_n_S. admit.
+    + assert (Hh2v : is_directed_path_in_graph (h2, v, t2) G = true).
+      { apply (subpath_still_directed v h2 v [] t2 (h2 :: t2) G).
+        split. simpl. reflexivity. exact Hvv. }
+      destruct (Nat.eq_dec h2 v) as [Hh2v_eq | Hh2v_neq].
+      * subst h2.
+        assert (Hedge : is_edge (v, v) G = true).
+        { unfold is_directed_path_in_graph in Hvv. simpl in Hvv.
+          apply andb_prop in Hvv. destruct Hvv as [He _]. exact He. }
+        exists (v, v, []).
+        split.
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl. apply le_n_S. admit. }
+      * destruct (directed_path_can_be_acyclic G h2 v t2 Hh2v_neq Hh2v)
+          as [t2' [Ht2'path [Ht2'acyc _]]].
+        assert (Hedge_vh2 : is_edge (v, h2) G = true).
+        { unfold is_directed_path_in_graph in Hvv. simpl in Hvv.
+          apply andb_prop in Hvv. destruct Hvv as [He _]. exact He. }
+        assert (Hvh2_path : is_directed_path_in_graph (v, h2, []) G = true).
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge_vh2. reflexivity. }
+        assert (Hconcat : is_directed_path_in_graph (concat v h2 v [] t2') G = true).
+        { apply concat_directed_paths. split. exact Hvh2_path. exact Ht2'path. }
+        unfold concat in Hconcat. simpl in Hconcat.
+        exists (v, v, h2 :: t2').
+        split. exact Hconcat.
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl.
+          apply directed_path_is_path in Ht2'path.
+          pose proof (path_length_acyclic_graph G h2 v t2' Ht2'path Ht2'acyc) as Hlen.
+          unfold path_length in Hlen. simpl in Hlen.
+          destruct G as [V E]. simpl. simpl in Hlen.
+          apply le_n_S. auto. }
+
+  - assert (Hdecomp : exists x l1 l2 l3, l = l1 ++ [x] ++ l2 ++ [x] ++ l3).
+    { clear Hpath Hwf u v.
+      induction l as [| h t IH].
+      - exfalso. apply Hdup. constructor.
+      - destruct (in_dec Nat.eq_dec h t) as [Hin | Hnotin].
+        + apply In_split in Hin. destruct Hin as [t1 [t2 Ht]].
+          exists h, [], t1, t2. simpl. rewrite Ht. reflexivity.
+        + assert (HndupT : ~ NoDup t).
+          { intro Hnd. apply Hdup. constructor; assumption. }
+          destruct (IH HndupT) as [x [l1 [l2 [l3 Hx]]]].
+          exists x, (h :: l1), l2, l3. simpl. rewrite Hx. reflexivity. }
+    destruct Hdecomp as [x [l1 [l2 [l3 Hl]]]].
+    assert (Hxx : is_directed_path_in_graph (x, x, l2) G = true).
+    { pose proof subpath_still_directed.
+      assert (l1 ++ [x] ++ l2 ++ [x] ++ l3 = l /\ is_directed_path_in_graph (u, v, l) G = true).
+      split. simpl. rewrite Hl. simpl. auto. auto.
+      specialize (H _ _ _ _ _ _ _ H0). clear H0.
+      pose proof subpath_still_directed_2.
+      assert (l2 ++ [x] ++ l3 = l2 ++ [x] ++ l3 /\ is_directed_path_in_graph (x, v, (l2 ++ [x] ++ l3)) G = true).
+      split. auto. auto.
+      specialize (H0 _ _ _ _ _ _ _ H1).
+      auto. }
+    destruct l2 as [| h2 t2].
+    + exists (x, x, []).
+      split. exact Hxx.
+      split.
+      * rewrite cyclic_path_spec. simpl. left. reflexivity.
+      * unfold path_length. simpl. apply le_n_S. admit.
+    + assert (Hh2x : is_directed_path_in_graph (h2, x, t2) G = true).
+      { apply (subpath_still_directed x h2 x [] t2 (h2 :: t2) G).
+        split. simpl. reflexivity. exact Hxx. }
+      destruct (Nat.eq_dec h2 x) as [Hh2x_eq | Hh2x_neq].
+      * subst h2.
+        assert (Hedge : is_edge (x, x) G = true).
+        { unfold is_directed_path_in_graph in Hxx. simpl in Hxx.
+          apply andb_prop in Hxx. destruct Hxx as [He _]. exact He. }
+        exists (x, x, []).
+        split.
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl. apply le_n_S. admit. }
+      * destruct (directed_path_can_be_acyclic G h2 x t2 Hh2x_neq Hh2x)
+          as [t2' [Ht2'path [Ht2'acyc _]]].
+        assert (Hedge_xh2 : is_edge (x, h2) G = true).
+        { unfold is_directed_path_in_graph in Hxx. simpl in Hxx.
+          apply andb_prop in Hxx. destruct Hxx as [He _]. exact He. }
+        assert (Hxh2_path : is_directed_path_in_graph (x, h2, []) G = true).
+        { unfold is_directed_path_in_graph. simpl. rewrite Hedge_xh2. reflexivity. }
+        assert (Hconcat : is_directed_path_in_graph (concat x h2 x [] t2') G = true).
+        { apply concat_directed_paths. split. exact Hxh2_path. exact Ht2'path. }
+        unfold concat in Hconcat. simpl in Hconcat.
+        exists (x, x, h2 :: t2').
+        split. exact Hconcat.
+        split.
+        { rewrite cyclic_path_spec. simpl. left. reflexivity. }
+        { unfold path_length. simpl.
+          apply directed_path_is_path in Ht2'path.
+          pose proof (path_length_acyclic_graph G h2 x t2' Ht2'path Ht2'acyc) as Hlen.
+          unfold path_length in Hlen. simpl in Hlen.
+          destruct G as [V E]. simpl. simpl in Hlen.
+          apply le_n_S. auto. }
 Admitted.
 
 Lemma directed_edges_as_paths_complete :
