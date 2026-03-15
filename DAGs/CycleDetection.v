@@ -833,7 +833,7 @@ Lemma cyclic_path_reduction :
     exists p',
       is_directed_path_in_graph p' G = true /\
       ~ acyclic_path_2 p' /\
-      path_length p' <= length (fst G).
+      path_length p' <= S (length (fst G)).
 Admitted.
 
 Lemma directed_edges_as_paths_complete :
@@ -1049,7 +1049,7 @@ Lemma iter_contains_acyclic_path :
     G_well_formed G = true ->
     is_directed_path_in_graph p G = true ->
     acyclic_path_2 p ->
-    path_length p <= k ->
+    path_length p <= S k ->
     fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) k) = false ->
     In p (snd (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) k)).
 Proof.
@@ -1075,7 +1075,7 @@ Proof.
       dfs_extend_by_edges (snd G) paths_k').
     { exact (dfs_extend_by_edges_iter_spec _ _ _ Hk'_false). }
     rewrite Hspec in Hfalse |- *.
-    assert (path_length p <= k' \/ path_length p = S k'). lia.
+    assert (path_length p <= S k' \/ path_length p = S(S k')). lia.
     destruct H as [Hlt | Hlen].
     + apply dfs_extend_by_edges_preserves_paths.
       * apply IH; assumption.
@@ -1093,7 +1093,7 @@ Proof.
         destruct Hpre as [Hq_path He_in].
         assert (Hq_acyc : acyclic_path_2 (u, x, int')).
         { eapply acyclic_path_prefix. exact Hacyc. }
-        assert (Hq_len : path_length (u, x, int') = k').
+        assert (Hq_len : path_length (u, x, int') = S k').
         { rewrite path_length_extend in Hlen. lia. }
         assert (Hq_in : In (u, x, int') paths_k').
         { apply IH;
@@ -1169,14 +1169,14 @@ Lemma iter_any_k_strengthened :
     G_well_formed G = true ->
     is_directed_path_in_graph p G = true ->
     ~ acyclic_path_2 p ->
-    path_length p <= k ->
+    path_length p <= S k ->
     fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) k) = true.
 Proof.
   induction k as [| k' IH].
   - intros G p Hwf Hpath _ Hle.
     exfalso. unfold path_length in Hle. lia.
   - intros G p Hwf Hpath Hcyc Hle.
-    assert (path_length p <= k' \/ path_length p = S k'). lia.
+    assert (path_length p <= S k' \/ path_length p = S (S k')). lia.
     destruct H as [Hlt | Hlen_eq].
     + apply iter_preservation with (k1 := k'); [lia | ].
       exact (IH G p Hwf Hpath Hcyc Hlt).
@@ -1210,7 +1210,7 @@ Proof.
               exists (u, u, []). split. { exact Hinit. }
               left. simpl. auto. }
           unfold path_length in Hlen_eq. unfold path_int in Hlen_eq. simpl in Hlen_eq.
-          assert (k' = 1) by lia. subst k'.
+          assert (k' = 0) by lia. subst k'.
           simpl in Hfalse.
           rewrite Hdet in Hfalse. discriminate.
         }
@@ -1218,7 +1218,7 @@ Proof.
           assert (Hpre : is_directed_path_in_graph q G = true /\ In e (snd G)).
           { exact (directed_path_prefix G u v x int' Hwf Hpath). }
           destruct Hpre as [Hq_path He_in].
-          assert (Hq_len : path_length q = k').
+          assert (Hq_len : path_length q = S k').
           { unfold q. rewrite path_length_extend in Hlen_eq. lia. }
           assert (Hk'_false :
                     fst (dfs_extend_by_edges_iter (snd G)
@@ -1306,7 +1306,7 @@ Lemma iter_any_k :
   forall G p,
     G_well_formed G = true ->
     is_directed_path_in_graph p G = true /\ ~acyclic_path_2 p ->
-    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) (path_length p)) = true.
+    fst (dfs_extend_by_edges_iter (snd G) (directed_edges_as_paths (snd G)) (path_length p - 1)) = true.
 Proof. intros G p Hwf [Hpath Hcyc].
   eapply iter_any_k_strengthened;
     [ exact Hwf | exact Hpath | exact Hcyc | apply Nat.le_refl ].
@@ -1334,7 +1334,7 @@ Lemma contains_cycle_true_complete :
 Proof. intros [V E] Hwf Hp. unfold contains_cycle. destruct Hp as [p [Pdir Pcyc]].
   pose proof (cyclic_path_reduction _ p Hwf Pdir Pcyc).
   destruct H as [p' [Pdir' [Pcyc' Plen']]]. simpl in Plen'.
-  pose proof iter_preservation. eapply H with (k1:= (path_length p')); eauto.
+  pose proof iter_preservation. eapply H with (k1:= (path_length p'-1)); eauto. lia.
   pose proof (iter_any_k _ p' Hwf). eapply H0; eauto.
 Qed.
 
