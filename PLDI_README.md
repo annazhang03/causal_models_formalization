@@ -1,9 +1,9 @@
 
 # Causality and Semantic Separation
 
-This repository is the proof artifact for _Causality and Semantic Separation_. It formalizes
-causal models in the Rocq Prover and introduces a semantic definition of _semantic separation_,
-proving that it is equivalent to _d-separation_, the standard graphical condition used in
+This repository contains the Rocq proof artifact for the paper _Causality and Semantic Separation_.
+It formalizes causal models and mechanizes the proof that the paper's notion of _semantic separation_
+is equivalent to _d-separation_, the standard graphical independence criterion used in
 causal inference.
 
 ## Getting Started Guide
@@ -94,7 +94,7 @@ in the paper to their corresponding Rocq identifiers. Section 6 also lists the l
 The following subsections provide a more detailed guide to the most important concepts in the paper and describe where they appear in the repository.
 
 #### 5.1. Functional Semantics
-In Section 3 of the paper, we introduce the function-based formal semantics using primarily mathematical notation. In the paper, assignments (e.g. unobserved-terms assignments $U$) as a function $U: \mathcal{V} \rightarrow X$. In the repository, however, $U$ has type `assignments`, and the value $U(w)$ is accessed using `get_assigned_value U w`, defined in `CausalDiagrams/Assignments.v`.
+In Section 3 of the paper, we introduce the function-based formal semantics using primarily mathematical notation. In the paper, assignments (e.g. unobserved-terms assignments $U$) are represented as a function $U: \mathcal{V} \rightarrow X$. In the repository, however, $U$ has type `assignments`, and the value $U(w)$ is accessed using `get_assigned_value U w`, defined in `CausalDiagrams/Assignments.v`.
 
 Similarly, in the paper we write $f_U: \mathcal{V} \rightarrow X$ for `nodefun` $f$ evaluated with unobserved-terms assignments $U$. In the repository this value is obtained with the function `find_value`, defined in `Semantics/FindValue.v`, with $U$ supplied as one of the arguments.
 
