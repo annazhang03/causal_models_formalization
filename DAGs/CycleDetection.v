@@ -767,6 +767,21 @@ Proof. split.
               - rewrite H0. intro hx. destruct hx as [_ [_ [_ h]]]. auto. }
 Qed.
 
+Lemma well_formed_self_loop_implies_nonempty :
+  forall (G : graph) (u : node),
+    G_well_formed G = true ->
+    is_edge (u, u) G = true ->
+    1 <= length (fst G).
+Proof.
+  intros G u Hwf Hedge.
+  destruct G as [V E].
+  simpl.
+  pose proof (is_edge_true_implies_In_edge V E u u Hedge) as HinE.
+  pose proof (G_well_formed_corollary V E Hwf u u HinE) as [HinV _].
+  destruct V as [| h t].
+  - inversion HinV.
+  - simpl. apply le_n_S. apply Nat.le_0_l.
+Qed.
 Lemma cyclic_path_reduction :
   forall (G : graph) (p : path),
     G_well_formed G = true ->
@@ -789,7 +804,11 @@ Proof.
       split. exact Hpath.
       split.
       * rewrite cyclic_path_spec. simpl. left. reflexivity.
-      * unfold path_length. simpl. apply le_n_S. admit.
+      * unfold path_length. simpl. apply le_n_S.
+        assert (is_edge (u,u) G = true). pose proof (directed_path_has_directed_edge _ _ [] _ Hpath).
+        destruct H. destruct H. rewrite node_in_path_equiv in H. simpl in H.
+        case (u =? x) eqn:Heq. rewrite Nat.eqb_eq in Heq. subst u. auto.
+        discriminate. eapply well_formed_self_loop_implies_nonempty; eauto.
     + assert (Hhu : is_directed_path_in_graph (h, u, t) G = true).
       { apply (subpath_still_directed u h u [] t (h :: t) G).
         split. simpl. reflexivity. exact Hpath. }
@@ -803,7 +822,7 @@ Proof.
         { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
         split.
         { rewrite cyclic_path_spec. simpl. left. reflexivity. }
-        { unfold path_length. simpl. apply le_n_S. admit. }
+        { unfold path_length. simpl. apply le_n_S. eapply well_formed_self_loop_implies_nonempty in Hedge. auto. auto. }
       * destruct (directed_path_can_be_acyclic G h u t Hhu_neq Hhu)
           as [t' [Ht'path [Ht'acyc _]]].
         assert (Hedge_uh : is_edge (u, h) G = true).
@@ -834,7 +853,11 @@ Proof.
       split. exact Huu.
       split.
       * rewrite cyclic_path_spec. simpl. left. reflexivity.
-      * unfold path_length. simpl. apply le_n_S. admit.
+      * unfold path_length. simpl. apply le_n_S.
+        assert (is_edge (u,u) G = true). pose proof (directed_path_has_directed_edge _ _ [] _ Huu).
+        destruct H. destruct H. rewrite node_in_path_equiv in H. simpl in H.
+        case (u =? x) eqn:Heq. rewrite Nat.eqb_eq in Heq. subst u. auto.
+        discriminate. eapply well_formed_self_loop_implies_nonempty; eauto.
     + assert (Hh1u : is_directed_path_in_graph (h1, u, t1) G = true).
       { apply (subpath_still_directed u h1 u [] t1 (h1 :: t1) G).
         split. simpl. reflexivity. exact Huu. }
@@ -848,7 +871,7 @@ Proof.
         { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
         split.
         { rewrite cyclic_path_spec. simpl. left. reflexivity. }
-        { unfold path_length. simpl. apply le_n_S. admit. }
+        { unfold path_length. simpl. apply le_n_S. eapply well_formed_self_loop_implies_nonempty in Hedge; eauto. }
       * destruct (directed_path_can_be_acyclic G h1 u t1 Hh1u_neq Hh1u)
           as [t1' [Ht1'path [Ht1'acyc _]]].
         assert (Hedge_uh1 : is_edge (u, h1) G = true).
@@ -879,7 +902,11 @@ Proof.
       split. exact Hvv.
       split.
       * rewrite cyclic_path_spec. simpl. left. reflexivity.
-      * unfold path_length. simpl. apply le_n_S. admit.
+      * unfold path_length. simpl. apply le_n_S.
+        assert (is_edge (v,v) G = true). pose proof (directed_path_has_directed_edge _ _ [] _ Hvv).
+        destruct H. destruct H. rewrite node_in_path_equiv in H. simpl in H.
+        case (v =? x) eqn:Heq. rewrite Nat.eqb_eq in Heq. subst v. auto.
+        discriminate. eapply well_formed_self_loop_implies_nonempty; eauto.
     + assert (Hh2v : is_directed_path_in_graph (h2, v, t2) G = true).
       { apply (subpath_still_directed v h2 v [] t2 (h2 :: t2) G).
         split. simpl. reflexivity. exact Hvv. }
@@ -893,7 +920,7 @@ Proof.
         { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
         split.
         { rewrite cyclic_path_spec. simpl. left. reflexivity. }
-        { unfold path_length. simpl. apply le_n_S. admit. }
+        { unfold path_length. simpl. apply le_n_S. eapply well_formed_self_loop_implies_nonempty; eauto. }
       * destruct (directed_path_can_be_acyclic G h2 v t2 Hh2v_neq Hh2v)
           as [t2' [Ht2'path [Ht2'acyc _]]].
         assert (Hedge_vh2 : is_edge (v, h2) G = true).
@@ -942,7 +969,11 @@ Proof.
       split. exact Hxx.
       split.
       * rewrite cyclic_path_spec. simpl. left. reflexivity.
-      * unfold path_length. simpl. apply le_n_S. admit.
+      * unfold path_length. simpl. apply le_n_S.
+        assert (is_edge (x,x) G = true). pose proof (directed_path_has_directed_edge _ _ [] _ Hxx).
+        destruct H. destruct H. rewrite node_in_path_equiv in H. simpl in H.
+        case (x =? x0) eqn:Heq. rewrite Nat.eqb_eq in Heq. subst x0. auto.
+        discriminate. eapply well_formed_self_loop_implies_nonempty; eauto.
     + assert (Hh2x : is_directed_path_in_graph (h2, x, t2) G = true).
       { apply (subpath_still_directed x h2 x [] t2 (h2 :: t2) G).
         split. simpl. reflexivity. exact Hxx. }
@@ -956,7 +987,7 @@ Proof.
         { unfold is_directed_path_in_graph. simpl. rewrite Hedge. reflexivity. }
         split.
         { rewrite cyclic_path_spec. simpl. left. reflexivity. }
-        { unfold path_length. simpl. apply le_n_S. admit. }
+        { unfold path_length. simpl. apply le_n_S. eapply well_formed_self_loop_implies_nonempty; eauto. }
       * destruct (directed_path_can_be_acyclic G h2 x t2 Hh2x_neq Hh2x)
           as [t2' [Ht2'path [Ht2'acyc _]]].
         assert (Hedge_xh2 : is_edge (x, h2) G = true).
@@ -977,7 +1008,7 @@ Proof.
           unfold path_length in Hlen. simpl in Hlen.
           destruct G as [V E]. simpl. simpl in Hlen.
           apply le_n_S. auto. }
-Admitted.
+Qed.
 
 Lemma directed_edges_as_paths_complete :
   forall (E : edges) (u v : node),
