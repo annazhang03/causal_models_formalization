@@ -17,6 +17,10 @@ WORKDIR /home/opam/semantic-separation
 # Copy the repository
 COPY --chown=opam:opam . .
 
+# Fix permissions.
+USER root
+RUN chown -R opam:opam /home/opam/semantic-separation
+
 # Build the project
 RUN eval $(opam env) && \
     make -j$(nproc)
