@@ -154,28 +154,28 @@ For convenience, we reproduce Figure A.1 from the paper below, which shows the c
 
 | Reference | Rocq File | Rocq Identifier |  
 |-----------|-----------|-----------------|  
-| Definition 2.1 | CausalDiagrams/IntermediateNodes.v | is_mediator, is_confounder, is_collider |  
-| Definition 2.3 | CausalDiagrams/DSeparation.v | d_connected_2 |  
-| Definition 3.1 | Semantics/SemanticSeparationDef.v | unobs_conditions_on_Z |  
-| Definition 3.2 | CausalDiagrams/UnblockedAncestors.v | find_unblocked_ancestors |  
-| Definition 3.3 | Semantics/SemanticSeparationDef.v | semantically_separated |  
-| Theorem 3.7 | Semantics/SemanticDSepEquiv.v | semantic_and_d_separation_equivalent |  
-| Definition 5.1 | Semantics/S1_Sources.v | source_fixed |  
-| Lemma 6.1 | Semantics/ChangeOrigUnbAnc.v | nodefun_value_only_affected_by_unblocked_ancestors |  
-| Theorem B.1 | CausalDiagrams/DSeparation.v | concat_d_connected_paths |  
-| Theorem B.2 | Utils/List_Relations.v | lists_have_first_elt_in_common |  
-| Theorem B.3 | DAGs/Basics_Proofs.v | directed_path_can_be_acyclic |  
-| Theorem B.4 | CausalDiagrams/IntermediateNodes.v | intersection_of_directed_paths_is_collider |  
-| Definition C.3 | CausalDiagrams/CausalPaths.v | path_out_of_end |  
-| Lemma C.4, Theorem C.2 | Semantics/DescendantPathsDisjoint.v | exists_d_connected_path_with_collider_descendants_disjoint |  
-| Lemmas D.1, D.2, D.3 | Semantics/EquateValues.v | define_sets_for_equating_values_on_d_connected_path |  
-| Theorem E.1 | Semantics/EquateValues.v | H_non_collider within path_d_connected_then_can_equate_values |  
-| Theorem E.2 | Semantics/EquateValues.v | H_condition_U within path_d_connected_then_can_equate_values |  
-| Lemma F.1 | Semantics/S1_Sources.v | next_source_is_unblocked_ancestor_2 |  
-| Lemma F.2 | Semantics/S1_Sources.v | conditioned_node_between_sources |  
-| Theorem F.3 | Semantics/S1_SourcesSeq.v | assignments_changing_sources_valid |  
-| Lemma G.1 | Semantics/SemanticDSepEquiv.v | H_conn_shared_unb_anc within path_d_separated_then_semantically_separated |  
-| Lemma H.1 | Semantics/ChangeOrigUnbAnc.v | nodefun_value_only_affected_by_unblocked_ancestors_seq |  
-| Lemma H.2 | Semantics/ChangeOrigUnbAnc.v | conditioned_nodes_that_change_in_seq_attached_to_U_sublist |  
-| Lemma H.3 | Semantics/ChangeOrigUnbAnc.v | path_between_two_conditioned_nodes |  
-| Lemma I.1 | Semantics/SemanticDSepEquiv.v | H_path_u_to_z within path_d_separated_then_semantically_separated |
+| Definition 2.1 | `CausalDiagrams/IntermediateNodes.v` | `is_mediator`, `is_confounder`, `is_collider` |
+| Definition 2.3 | `CausalDiagrams/DSeparation.v` | `d_connected_2` |
+| Definition 3.1 | `Semantics/SemanticSeparationDef.v` | `unobs_conditions_on_Z` |
+| Definition 3.2 | `CausalDiagrams/UnblockedAncestors.v` | `find_unblocked_ancestors` |
+| Definition 3.3 | `Semantics/SemanticSeparationDef.v` | `semantically_separated` |
+| Theorem 3.7 | `Semantics/SemanticDSepEquiv.v` | `semantic_and_d_separation_equivalent` |
+| Definition 5.1 | `Semantics/S1_Sources.v` | `source_fixed` |
+| Lemma 6.1 | `Semantics/ChangeOrigUnbAnc.v` | `nodefun_value_only_affected_by_unblocked_ancestors` |
+| Theorem B.1 | `CausalDiagrams/DSeparation.v` | `concat_d_connected_paths` |
+| Theorem B.2 | `Utils/List_Relations.v` | `lists_have_first_elt_in_common` |
+| Theorem B.3 | `DAGs/Basics_Proofs.v` | `directed_path_can_be_acyclic` |
+| Theorem B.4 | `CausalDiagrams/IntermediateNodes.v` | `intersection_of_directed_paths_is_collider` |
+| Definition C.3 | `CausalDiagrams/CausalPaths.v` | `path_out_of_end` |
+| Lemma C.4, Theorem C.2 | `Semantics/DescendantPathsDisjoint.v` | `exists_d_connected_path_with_collider_descendants_disjoint` |
+| Lemmas D.1, D.2, D.3 | `Semantics/EquateValues.v` | `define_sets_for_equating_values_on_d_connected_path` |
+| Theorem E.1 | `Semantics/EquateValues.v` | `H_non_collider` within `path_d_connected_then_can_equate_values` |
+| Theorem E.2 | `Semantics/EquateValues.v` | `H_condition_U` within `path_d_connected_then_can_equate_values` |
+| Lemma F.1 | `Semantics/S1_Sources.v` | `next_source_is_unblocked_ancestor_2` |
+| Lemma F.2 | `Semantics/S1_Sources.v` | `conditioned_node_between_sources` |
+| Theorem F.3 | `Semantics/S1_SourcesSeq.v` | `assignments_changing_sources_valid` |
+| Lemma G.1 | `Semantics/SemanticDSepEquiv.v` | `H_conn_shared_unb_anc` within `path_d_separated_then_semantically_separated` |
+| Lemma H.1 | `Semantics/ChangeOrigUnbAnc.v` | `nodefun_value_only_affected_by_unblocked_ancestors_seq` |
+| Lemma H.2 | `Semantics/ChangeOrigUnbAnc.v` | `conditioned_nodes_that_change_in_seq_attached_to_U_sublist` |
+| Lemma H.3 | `Semantics/ChangeOrigUnbAnc.v` | `path_between_two_conditioned_nodes` |
+| Lemma I.1 | `Semantics/SemanticDSepEquiv.v` | `H_path_u_to_z` within `path_d_separated_then_semantically_separated` |
