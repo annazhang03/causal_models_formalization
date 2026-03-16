@@ -19,7 +19,6 @@ COPY --chown=opam:opam . .
 
 # Build the project
 RUN eval $(opam env) && \
-    rocq makefile -f _CoqProject -o Makefile && \
     make -j$(nproc)
 
 # Default shell when container runs
