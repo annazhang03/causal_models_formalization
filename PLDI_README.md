@@ -71,6 +71,7 @@ _d_-separation.
 ### 4. Assumptions and Admitted Lemmas
 - The development assumes the standard logical principle of Functional Extensionality
 (`functional_extensionality_dep`, imported from `Coq.Logic.FunctionalExtensionality`).
+- Although Appendix B.1 of the paper notes that some graph-theoretic theorems were not fully proven in our formalization, these proofs have since been completed. Thus, all theorems on which the main equivalence theorem depends are now fully mechanized in Rocq.  
 - A small number of additional theorems are Admitted in `CausalDiagrams/Interventions.v` and in the `Spirtes/` directory;
 these results are auxiliary and not referenced in the semantic development or the paper.
 
