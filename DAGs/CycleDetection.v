@@ -736,16 +736,19 @@ Lemma cyclic_path_spec (p : path) :
     \/ In v int
     \/ ~ NoDup int.
 Proof. split.
-  - unfold acyclic_path_2. destruct p as [[u v] l].
-    intro h. apply demorgan_and in h. destruct h. apply Nat.eq_dne in H. left. auto.
-    apply demorgan_and in H. destruct H. rewrite <- member_In_equiv_F in H.
-    rewrite not_false_iff_true in H. rewrite member_In_equiv in H. right. left. auto.
-    apply demorgan_and in H. destruct H. rewrite <- member_In_equiv_F in H.
-    rewrite not_false_iff_true in H. rewrite member_In_equiv in H. right. right. auto.
-    destruct l. contradiction H. auto.
-    apply not_true_is_false in H. right. right. right. intro Hcontra. rewrite <- acyclic_path_NoDup in Hcontra.
-    rewrite H in Hcontra. discriminate.
-
+  - intros H.
+    destruct (acyclic_path_2_bool p) as [|] eqn:Hp.
+    { apply acyclic_path_2_bool_equiv in Hp. exfalso. apply H. apply Hp. }
+    destruct p as [[u v] l].
+    unfold acyclic_path_2_bool in Hp.
+    destruct (negb (u =? v)) as [|] eqn:Huv.
+    + simpl in Hp. destruct (negb (member u l)) as [|] eqn:Hul.
+      * simpl in Hp. destruct (negb (member v l)) as [|] eqn:Hvl.
+        -- simpl in Hp. right. right. right. intros Hdup. apply acyclic_path_NoDup in Hdup.
+           destruct l as [| h t]. discriminate Hp. simpl in Hdup. rewrite Hp in Hdup. discriminate Hdup.
+        -- right. right. left. apply negb_false_iff in Hvl. apply member_In_equiv. apply Hvl.
+      * apply negb_false_iff in Hul. right. left. apply member_In_equiv. apply Hul.
+    + apply negb_false_iff in Huv. left. apply Nat.eqb_eq in Huv. apply Huv.
   - unfold acyclic_path_2. destruct p as [[u v] l].
     intro h. destruct h.
     { assert (u<>v <-> False). split. rewrite H. intro h. apply h. reflexivity. intro. auto. rewrite H0.
@@ -1008,6 +1011,7 @@ Proof.
           destruct G as [V E]. simpl. simpl in Hlen.
           apply le_n_S. auto. }
 Qed.
+
 
 Lemma directed_edges_as_paths_complete :
   forall (E : edges) (u v : node),
@@ -1671,6 +1675,7 @@ Proof. intros [V E] Hwf. unfold contains_cycle. split.
 
   - intros. eapply contains_cycle_true_correct_backwards; eauto.
 Qed.
+
 
 
 Theorem contains_cycle_false_correct : forall G: graph, forall p: path,
