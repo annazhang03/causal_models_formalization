@@ -26,8 +26,7 @@ at the bottom of `Semantics/SemanticDSepEquiv.v` and run:
 ```bash
 make
 ```
-Rocq will report the assumptions used in the proof, which includes functional extensionality and the
-cycle-detection correctness theorem `contains_cycle_true_correct` (see Section 4 below).
+Rocq will report the assumptions used in the proof, which includes functional extensionality (`functional_extensionality_dep`).
 
 ## Step-by-Step Instructions
 
@@ -71,15 +70,7 @@ _d_-separation.
 
 ### 4. Assumptions and Admitted Lemmas
 - The development assumes the standard logical principle of Functional Extensionality
-(imported from `Coq.Logic.FunctionalExtensionality`).
-- The theorem `contains_cycle_true_correct` in `DAGs/CycleDetection.v` is currently marked as `Admitted`.
-This theorem states the correctness of the function `contains_cycle`, which implements a standard cycle-detection
-algorithm on graphs. The causal and semantic results in the paper rely only on the existence of
-such a procedure; this admitted theorem concerns the correctness proof of this particular
-implementation. Thus,
-any issue in proving this theorem would affect the correctness of the implementation of `contains_cycle`
-rather than the formal statements or proofs built on top of it.
-Work is ongoing to fully mechanize this correctness proof.
+(`functional_extensionality_dep`, imported from `Coq.Logic.FunctionalExtensionality`).
 - A small number of additional theorems are Admitted in `CausalDiagrams/Interventions.v` and in the `Spirtes/` directory;
 these results are auxiliary and not referenced in the semantic development or the paper.
 
@@ -140,7 +131,7 @@ The theorem `semantic_and_d_separation_equivalent` corresponds directly to Theor
 ```bash
 Print Assumptions semantic_and_d_separation_equivalent.
 ```
-will show that the only assumptions are as described above in Section 4.
+will show that the only assumption is functional extensionality, as described in Section 4 above.
 
 
 ### 6. Paper/Repository Correspondences
