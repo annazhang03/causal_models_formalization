@@ -58,7 +58,9 @@ Proof.
 Qed.
 
 Theorem do_removes_paths_to_X: forall (X: node) (G: graph),
-  find_all_paths_to_end X (find_all_paths (do X G)) = [].
+  G_well_formed G = true
+  -> contains_cycle G = false
+  -> find_directed_paths_to_end X (do X G) = [].
 Proof.
 Admitted.
 
