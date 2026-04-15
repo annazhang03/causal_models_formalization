@@ -57,12 +57,102 @@ Proof.
   discriminate contra.
 Qed.
 
-Theorem do_removes_paths_to_X: forall (X: node) (G: graph),
-  G_well_formed G = true
-  -> contains_cycle G = false
-  -> find_directed_paths_to_end X (do X G) = [].
+
+Lemma edges_in_do : forall (X : node) (G : graph),
+  edges_in_graph (do X G) = remove_edges_into X (edges_in_graph G).
+Proof. unfold do. destruct G as [V E]. simpl. reflexivity.
+Qed.
+
+Lemma num_nodes_do : forall (X : node) (G : graph),
+  num_nodes (do X G) = num_nodes G.
+Proof. unfold do. destruct G as [V E]. simpl. reflexivity.
+Qed.
+
+Lemma directed_edges_as_paths_no_end_X : forall (X : node) (E : edges),
+  (forall u, ~ In (u, X) E) ->
+  filter (fun p => path_end p =? X) (directed_edges_as_paths E) = [].
+Proof. intros X E HnotIn. induction E as [| (u, v) t IH].
+  - simpl. reflexivity.
+  - simpl. assert (Hv : v <> X).
+    { intro Heq. subst v. apply (HnotIn u). left. reflexivity. }
+    rewrite <- Nat.eqb_neq in Hv. rewrite Hv. apply IH. intros u' HIn. apply (HnotIn u'). right. exact HIn.
+Qed.
+
+Lemma dfs_extend_by_edge_no_end_X : forall (X : node) (e : edge) (l : paths),
+  snd e <> X ->
+  filter (fun p => path_end p =? X) l = [] ->
+  filter (fun p => path_end p =? X) (snd (dfs_extend_by_edge e l)) = [].
 Proof.
-Admitted.
+  intros X e l Hne Hfilter. destruct e as [u2 v2]. simpl in Hne.
+  induction l as [| h t IH].
+  - simpl. reflexivity.
+  - simpl in Hfilter. destruct h as [[u1 v1] l1].
+    destruct (path_end (u1, v1, l1) =? X) eqn:Hh.
+    + discriminate Hfilter.
+    + simpl in Hfilter. specialize (IH Hfilter). simpl.
+      destruct (u2 =? v2) eqn:Hself.
+      { simpl. reflexivity. }
+      destruct ((u2 =? v1) && (u1 =? v2)) eqn:Hcycle1.
+      { simpl. reflexivity. }
+      destruct ((u2 =? v1) && member v2 l1) eqn:Hcycle2.
+      { simpl. reflexivity. }
+      destruct (u2 =? v1) eqn:Hext.
+      { simpl. simpl in Hh. rewrite Hh. unfold add_path_no_repeats.
+        destruct (member_path (u1, v2, l1 ++ [v1]) (snd (dfs_extend_by_edge (u2, v2) t))) eqn:Hmem.
+        - exact IH.
+        - rewrite filter_app. rewrite IH. simpl. assert ((v2 =? X)=false). rewrite eqb_neq. auto. rewrite H. reflexivity. }
+      { simpl. unfold path_end in Hh. rewrite Hh. exact IH. }
+Qed.
+
+Lemma dfs_extend_by_edges_no_end_X : forall (X : node) (E : edges) (l : paths),
+  (forall u, ~ In (u, X) E) ->
+  filter (fun p => path_end p =? X) l = [] ->
+  filter (fun p => path_end p =? X) (snd (dfs_extend_by_edges E l)) = [].
+Proof.
+  intros X. induction E as [| h t IHt]; intros l HnoX Hfilter.
+  - simpl. exact Hfilter.
+  - simpl. destruct (dfs_extend_by_edge h l) as [b l'] eqn:Hdfs.
+    destruct b; simpl.
+    + reflexivity.
+    + apply IHt.
+      * intros u Hin. apply (HnoX u). right. exact Hin.
+      * assert (Haux : filter (fun p => path_end p =? X) (snd (dfs_extend_by_edge h l)) = []).
+        { apply dfs_extend_by_edge_no_end_X.
+          - destruct h as [u2 v2]. simpl. intros Heq. subst v2.
+            specialize (HnoX u2). simpl in HnoX. apply demorgan in HnoX. destruct HnoX as [hf _].
+            eauto.
+          - exact Hfilter. }
+        rewrite Hdfs in Haux. simpl in Haux. exact Haux.
+Qed.
+
+Lemma dfs_extend_by_edges_iter_no_end_X :
+  forall (X : node) (E : edges) (l : paths) (k : nat),
+  (forall u, ~ In (u, X) E) ->
+  filter (fun p => path_end p =? X) l = [] ->
+  filter (fun p => path_end p =? X) (snd (dfs_extend_by_edges_iter E l k)) = [].
+Proof.
+  intros X E l k. revert k l.
+  induction k as [| k' IHk']; intros l HnoX Hfilter.
+  - simpl. exact Hfilter.
+  - simpl. destruct (fst (dfs_extend_by_edges E l)) eqn:Hcycle.
+    + simpl. apply dfs_extend_by_edges_no_end_X; assumption.
+    + apply IHk'.
+      * exact HnoX.
+      * apply dfs_extend_by_edges_no_end_X; assumption.
+Qed.
+
+
+Theorem do_removes_paths_to_X: forall (X: node) (G: graph),
+  find_directed_paths_to_end X (do X G) = [].
+Proof. intros X G. unfold find_directed_paths_to_end.
+  rewrite edges_in_do. rewrite num_nodes_do.
+  apply dfs_extend_by_edges_iter_no_end_X.
+  - intro u. intro HIn. unfold remove_edges_into in HIn. apply filter_In in HIn.
+    destruct HIn as [_ Hbad]. simpl in Hbad. rewrite Nat.eqb_refl in Hbad. simpl in Hbad. discriminate.
+  - apply directed_edges_as_paths_no_end_X.
+    intro u. intro HIn. unfold remove_edges_into in HIn. apply filter_In in HIn.
+    destruct HIn as [_ Hbad]. simpl in Hbad. rewrite Nat.eqb_refl in Hbad. simpl in Hbad. discriminate.
+Qed.
 
 Definition satisfies_backdoor_criterion (X Y: node) (G: graph) (Z: nodes) : Prop :=
   (* no node in Z is a descendant of X *)
