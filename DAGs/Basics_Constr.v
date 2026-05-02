@@ -30,7 +30,7 @@ Definition E : edges := [(1, 2); (3, 2); (3, 1); (4, 1)].
 Definition V : nodes := [1; 2; 3; 4].
 Definition G : graph := (V, E).
 
-(* example coin flip graph (Figure 2.4 of primer) *)
+(* example coin flip graph (Figure 2.4 of Causal Inference in Statistics, a Primer (Judea Pearl)) *)
 Definition V_cf : nodes := [1; 2; 3; 4; 5; 6; 7; 8]. (* UX, UZ, UY, X, Z, Y, UW, W *)
 Definition E_cf : edges := [(1, 4); (4, 5); (2, 5); (3, 6); (6, 5); (5, 8); (7, 8)].
 Definition G_cf : graph := (V_cf, E_cf).
